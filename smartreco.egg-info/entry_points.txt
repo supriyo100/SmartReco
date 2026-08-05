@@ -1,0 +1,4 @@
+[console_scripts]
+init-db = app.db.init_db:main
+seed-db = app.db.seed:main
+smartreco = app.main:run

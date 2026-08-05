@@ -1,0 +1,229 @@
+[build-system]
+requires = [
+    "setuptools>=75.0",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smartreco"
+version = "0.1.0"
+description = "Behavior-driven Agentic AI Recommendation System using FastAPI, LangGraph, Chroma and Mesh API"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+license = { text = "MIT" }
+
+authors = [
+    { name = "Supriyo Chakraborty" }
+]
+maintainers = [
+    { name = "Supriyo Chakraborty" }
+]
+
+keywords = [
+    "agentic-ai",
+    "langgraph",
+    "recommendation",
+    "rag",
+    "mesh-api",
+    "chromadb",
+    "behavior-tracking",
+    "hybrid-search",
+    "vector-search",
+    "llm",
+    "fastapi"
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    # ---- Web ----
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.35.0",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "itsdangerous>=2.2",
+
+    # ---- Database & Migrations ----
+    "sqlalchemy>=2.0",
+    "aiosqlite>=0.20",
+    "alembic>=1.13",              # for future schema evolution
+
+    # ---- Validation & Config ----
+    "pydantic>=2.11",
+    "pydantic-settings>=2.6",
+    "python-dotenv>=1.0",
+
+    # ---- HTTP & Utilities ----
+    "httpx>=0.28",
+    "orjson>=3.11",
+    "tenacity>=9.0",
+
+    # ---- LangGraph & LangChain ----
+    "langgraph>=0.3",
+    "langgraph-checkpoint-sqlite>=2.0",
+    "langchain>=0.3",
+    "langchain-core>=0.3",
+    "langchain-openai>=0.3",
+
+    # ---- LLM (Mesh API) ----
+    "openai>=1.100",
+
+    # ---- Vector DB ----
+    "chromadb>=1.0",
+
+    # ---- Scheduler ----
+    "apscheduler>=3.11",
+
+    # ---- Email ----
+    "aiosmtplib>=4.0",
+
+    # ---- Auth ----
+    "passlib[bcrypt]>=1.7",
+    "bcrypt>=4.2",
+    "python-jose[cryptography]>=3.3",   # for JWT if you later add token APIs
+
+    # ---- Logging & Observability ----
+    "rich>=14",
+    "structlog>=25",
+    "langsmith>=0.4",                # LangSmith tracing
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.12",
+    "ipython>=9.4",
+    "pre-commit>=4.3",
+    "faker>=37",
+    "watchfiles>=1.0",
+    "python-dotenv>=1.0",
+]
+test = [
+    "pytest>=8.4",
+    "pytest-asyncio>=1.1",
+    "pytest-cov>=6.2",
+    "coverage>=7.10",
+    "httpx>=0.28",
+    "faker>=37",
+]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.6",
+    "mkdocstrings>=0.29",
+]
+rerank = [
+    "sentence-transformers>=5.1",
+    "torch>=2.8",
+]
+llm = [
+    "tiktoken>=0.8",
+    "instructor>=1.5",
+    "litellm>=1.70",
+]
+monitoring = [
+    "prometheus-client>=0.21",
+    "langsmith>=0.4",
+]
+benchmark = [
+    "pandas>=2.2",
+    "numpy>=2.0",
+    "matplotlib>=3.10",
+]
+all = [
+    "smartreco[dev,test,docs,rerank,llm,monitoring,benchmark]",
+]
+
+[project.scripts]
+smartreco = "app.main:run"
+init-db = "app.db.init_db:main"
+seed-db = "app.db.seed:main"
+
+[project.urls]
+Homepage = "https://github.com/supriyochakraborty/smartreco"
+Repository = "https://github.com/supriyochakraborty/smartreco"
+Issues = "https://github.com/supriyochakraborty/smartreco/issues"
+Documentation = "https://github.com/supriyochakraborty/smartreco/wiki"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [
+    ".venv",
+    "data",
+    "chroma_data",
+    "build",
+    "dist",
+    ".git",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "ASYNC",  # flake8-async
+    "RUF",    # ruff-specific rules
+    "N",      # naming conventions
+    "C4",     # flake8-comprehensions
+    "PIE",    # flake8-pie
+    "PERF",   # performance suggestions
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+skip-magic-trailing-comma = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra -v --strict-markers --cov=app"
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+omit = [
+    "tests/*",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 70
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true
+warn_unused_configs = true
+warn_return_any = true
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "data", "chroma_data"]
+
+[tool.uv]
+package = true
+
+# uv will automatically read optional dependencies from [project.optional-dependencies]
+# so we don't need to duplicate them here.

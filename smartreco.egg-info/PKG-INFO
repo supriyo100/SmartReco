@@ -1,0 +1,100 @@
+Metadata-Version: 2.4
+Name: smartreco
+Version: 0.1.0
+Summary: Behavior-driven Agentic AI Recommendation System using FastAPI, LangGraph, Chroma and Mesh API
+Author: Supriyo Chakraborty
+Maintainer: Supriyo Chakraborty
+License: MIT
+Project-URL: Homepage, https://github.com/supriyochakraborty/smartreco
+Project-URL: Repository, https://github.com/supriyochakraborty/smartreco
+Project-URL: Issues, https://github.com/supriyochakraborty/smartreco/issues
+Project-URL: Documentation, https://github.com/supriyochakraborty/smartreco/wiki
+Keywords: agentic-ai,langgraph,recommendation,rag,mesh-api,chromadb,behavior-tracking,hybrid-search,vector-search,llm,fastapi
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Framework :: FastAPI
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: <3.12,>=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: uvicorn[standard]>=0.35.0
+Requires-Dist: jinja2>=3.1
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: itsdangerous>=2.2
+Requires-Dist: sqlalchemy>=2.0
+Requires-Dist: aiosqlite>=0.20
+Requires-Dist: alembic>=1.13
+Requires-Dist: pydantic>=2.11
+Requires-Dist: pydantic-settings>=2.6
+Requires-Dist: python-dotenv>=1.0
+Requires-Dist: httpx>=0.28
+Requires-Dist: orjson>=3.11
+Requires-Dist: tenacity>=9.0
+Requires-Dist: langgraph>=0.3
+Requires-Dist: langgraph-checkpoint-sqlite>=2.0
+Requires-Dist: langchain>=0.3
+Requires-Dist: langchain-core>=0.3
+Requires-Dist: langchain-openai>=0.3
+Requires-Dist: openai>=1.100
+Requires-Dist: chromadb>=1.0
+Requires-Dist: apscheduler>=3.11
+Requires-Dist: aiosmtplib>=4.0
+Requires-Dist: passlib[bcrypt]>=1.7
+Requires-Dist: bcrypt>=4.2
+Requires-Dist: python-jose[cryptography]>=3.3
+Requires-Dist: rich>=14
+Requires-Dist: structlog>=25
+Requires-Dist: langsmith>=0.4
+Provides-Extra: dev
+Requires-Dist: ruff>=0.12; extra == "dev"
+Requires-Dist: ipython>=9.4; extra == "dev"
+Requires-Dist: pre-commit>=4.3; extra == "dev"
+Requires-Dist: faker>=37; extra == "dev"
+Requires-Dist: watchfiles>=1.0; extra == "dev"
+Requires-Dist: python-dotenv>=1.0; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest>=8.4; extra == "test"
+Requires-Dist: pytest-asyncio>=1.1; extra == "test"
+Requires-Dist: pytest-cov>=6.2; extra == "test"
+Requires-Dist: coverage>=7.10; extra == "test"
+Requires-Dist: httpx>=0.28; extra == "test"
+Requires-Dist: faker>=37; extra == "test"
+Provides-Extra: docs
+Requires-Dist: mkdocs>=1.6; extra == "docs"
+Requires-Dist: mkdocs-material>=9.6; extra == "docs"
+Requires-Dist: mkdocstrings>=0.29; extra == "docs"
+Provides-Extra: rerank
+Requires-Dist: sentence-transformers>=5.1; extra == "rerank"
+Requires-Dist: torch>=2.8; extra == "rerank"
+Provides-Extra: llm
+Requires-Dist: tiktoken>=0.8; extra == "llm"
+Requires-Dist: instructor>=1.5; extra == "llm"
+Requires-Dist: litellm>=1.70; extra == "llm"
+Provides-Extra: monitoring
+Requires-Dist: prometheus-client>=0.21; extra == "monitoring"
+Requires-Dist: langsmith>=0.4; extra == "monitoring"
+Provides-Extra: benchmark
+Requires-Dist: pandas>=2.2; extra == "benchmark"
+Requires-Dist: numpy>=2.0; extra == "benchmark"
+Requires-Dist: matplotlib>=3.10; extra == "benchmark"
+Provides-Extra: all
+Requires-Dist: smartreco[benchmark,dev,docs,llm,monitoring,rerank,test]; extra == "all"
+
+# SmartReco — Behavioral AI Recommendation Agent
+
+> Skeleton README — fill Aug 8 PM per arch v1 §11 outline. Section 3 leads.
+
+1. What it is + 60s demo GIF
+2. Architecture diagram
+3. **How we avoid wasteful LLM calls** — deterministic dual-horizon scorer,
+   fingerprint gating, trigger policy, three caches. MEASURED numbers here.
+4. **How recommendations are grounded** — dual-write, hybrid retrieval, validate node
+5. Agent workflow (2-LLM happy path) + LangSmith trace screenshot
+6. Event tracking design + p95 number
+7. Bonus features implemented — name all four
+8. Evaluation results + ablation (single-run, labeled directional)
+9. Setup & run (clean-clone verified)
+10. Trade-offs & future work (planner-LLM analysis, knowledge graph, learned
+    ranker, Redis Streams, collaborative filtering, A/B over Mesh fan-out)

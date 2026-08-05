@@ -1,0 +1,9 @@
+[
+  {
+    "title": "Agentic AI Bootcamp", "slug": "agentic-ai-bootcamp",
+    "description": "REPLACE: generate ~60 courses across 8 categories (Agentic AI, LLM Engineering, Data Engineering, MLOps, Computer Vision, NLP, Analytics, Cloud), 3 levels, 3 price bands. Spend 30-45 min making descriptions genuinely diverse (Grok #6) — generic blurbs make retrieval look weak. Include prereq_ids/related_ids (▲A10).",
+    "category": "Agentic AI", "level": "intermediate", "price": 2999,
+    "tags": ["langgraph", "agents"], "prereq_ids": [], "related_ids": [],
+    "instructor": "TBD", "rating": 4.8
+  }
+]
