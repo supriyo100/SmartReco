@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Vector sync — SmartReco admin{% endblock %}
+{% block content %}
+<section>
+  <h1>Vector sync</h1>
+  <p class="muted">Every product write enqueues a row here in the same transaction, and a
+  background job drains it into Chroma every 30 seconds. This page is where the two stores
+  can be compared.</p>
+
+  <table class="grid">
+    <tr><th>Active products (SQL)</th><td>{{ sync.active_products }}</td></tr>
+    <tr><th>Chunks in Chroma</th>
+        <td>
+          {% if sync.chroma_chunks is not none %}{{ sync.chroma_chunks }}
+          {% else %}<span class="muted">unavailable — {{ sync.chroma_error }}</span>{% endif %}
+        </td></tr>
+    <tr><th>Queue pending</th>
+        <td{% if sync.pending %} class="warn"{% endif %}>{{ sync.pending }}</td></tr>
+    <tr><th>Synced</th><td>{{ sync.done }}</td></tr>
+    <tr><th>Failed</th>
+        <td{% if sync.failed %} class="error"{% endif %}>{{ sync.failed }}</td></tr>
+  </table>
+
+  <p class="muted">Chunk count is normally higher than the product count: curated courses are
+  ingested as several chunks each, while products created in the admin form are one.</p>
+
+  <form method="post" action="/admin/sync" class="inline">
+    <button type="submit">Sync now</button>
+  </form>
+  <p><a href="/admin">← Dashboard</a></p>
+</section>
+{% endblock %}

@@ -16,6 +16,10 @@ data/*.db-wal
 data/*.db-shm
 data/catalog.index.json
 
+# Uploaded resumes are personal data supplied by users. They are runtime
+# artifacts, not source, and must never be committed.
+data/resumes/
+
 chroma_data/
 *.db
 *.db-wal

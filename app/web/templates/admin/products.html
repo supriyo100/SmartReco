@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Products — Admin{% endblock %}
+{% block content %}
+<h1>Products</h1>
+<p>
+  <a class="cta" href="/admin/products/new">New product</a>
+  {% if include_inactive %}
+    <a href="/admin/products">Hide inactive</a>
+  {% else %}
+    <a href="/admin/products?include_inactive=true">Show inactive</a>
+  {% endif %}
+</p>
+
+<table class="grid-table">
+  <thead>
+    <tr><th>Title</th><th>Slug</th><th>Category</th><th>Level</th><th>Price</th><th>Active</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for p in products %}
+    <tr class="{% if not p.is_active %}inactive{% endif %}">
+      <td><a href="/course/{{ p.slug }}">{{ p.title }}</a></td>
+      <td><code>{{ p.slug }}</code></td>
+      <td>{{ p.category }}</td>
+      <td>{{ p.level }}</td>
+      <td>{% if p.price %}₹{{ '{:,.0f}'.format(p.price) }}{% else %}Free{% endif %}</td>
+      <td>{{ 'yes' if p.is_active else 'no' }}</td>
+      <td class="actions">
+        <a href="/admin/products/{{ p.id }}/edit">Edit</a>
+        {% if p.is_active %}
+        <form method="post" action="/admin/products/{{ p.id }}/delete" class="inline"
+              onsubmit="return confirm('Deactivate {{ p.title }}? It stops being recommended but the row is kept.')">
+          <button type="submit" class="danger">Deactivate</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="muted">No products.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

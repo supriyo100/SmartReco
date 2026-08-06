@@ -4,6 +4,7 @@ app/__init__.py
 app/config.py
 app/main.py
 app/admin/__init__.py
+app/admin/routes.py
 app/agent/__init__.py
 app/agent/graph.py
 app/agent/mesh.py
@@ -17,12 +18,18 @@ app/agent/nodes/grade.py
 app/agent/nodes/retrieve.py
 app/agent/nodes/validate.py
 app/auth/__init__.py
+app/auth/cli.py
+app/auth/deps.py
+app/auth/routes.py
+app/auth/security.py
 app/catalog/__init__.py
 app/catalog/catalogue.py
 app/catalog/chunker.py
 app/catalog/freshness.py
 app/catalog/ingest.py
 app/catalog/loader.py
+app/catalog/routes.py
+app/catalog/sync_sql.py
 app/db/__init__.py
 app/db/init_db.py
 app/db/models.py
@@ -34,6 +41,8 @@ app/tracking/__init__.py
 app/tracking/queue.py
 app/tracking/routes.py
 app/web/__init__.py
+app/web/routes.py
+app/web/templating.py
 smartreco.egg-info/PKG-INFO
 smartreco.egg-info/SOURCES.txt
 smartreco.egg-info/dependency_links.txt

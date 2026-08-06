@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if p else 'New' }} product — Admin{% endblock %}
+{% block content %}
+<h1>{{ 'Edit product' if p else 'New product' }}</h1>
+
+<form method="post" class="stack"
+      action="{% if p %}/admin/products/{{ p.id }}/edit{% else %}/admin/products/new{% endif %}">
+  <label>Title <input name="title" value="{{ p.title if p else '' }}" required></label>
+  <label>Slug
+    <input name="slug" value="{{ p.slug if p else '' }}" required pattern="[a-z0-9\-]+">
+    <small class="muted">Lowercase, hyphens. This is the identity other courses' ladder edges point at.</small>
+  </label>
+  <label>Category <input name="category" value="{{ p.category if p else '' }}"></label>
+  <label>Level
+    <select name="level">
+      {% for lv in levels %}
+        <option value="{{ lv }}" {% if p and p.level == lv %}selected{% endif %}>{{ lv }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Price <input type="number" step="0.01" min="0" name="price" value="{{ p.price if p else 0 }}"></label>
+  <label>Rating <input type="number" step="0.1" min="0" max="5" name="rating" value="{{ p.rating if p else 4.5 }}"></label>
+  <label>Instructor <input name="instructor" value="{{ p.instructor if p else '' }}"></label>
+  <label>Description <textarea name="description" rows="8">{{ p.description if p else '' }}</textarea></label>
+
+  <label>Tags <input name="tags" value="{{ (p.tags or [])|join(', ') if p else '' }}">
+    <small class="muted">Comma-separated.</small></label>
+  <label>Prerequisite slugs <input name="prereq_ids" value="{{ (p.prereq_ids or [])|join(', ') if p else '' }}">
+    <small class="muted">Comma-separated slugs.</small></label>
+  <label>Related slugs <input name="related_ids" value="{{ (p.related_ids or [])|join(', ') if p else '' }}">
+    <small class="muted">Comma-separated slugs.</small></label>
+
+  {% if p %}
+    <label class="checkbox">
+      <input type="checkbox" name="is_active" value="true" {% if p.is_active %}checked{% endif %}> Active
+    </label>
+  {% endif %}
+
+  <div class="row">
+    <button type="submit">{{ 'Save' if p else 'Create' }}</button>
+    <a href="/admin/products">Cancel</a>
+  </div>
+</form>
+{% endblock %}

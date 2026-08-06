@@ -48,6 +48,7 @@ Requires-Dist: python-jose[cryptography]>=3.3
 Requires-Dist: rich>=14
 Requires-Dist: structlog>=25
 Requires-Dist: langsmith>=0.4
+Requires-Dist: graphifyy
 Provides-Extra: dev
 Requires-Dist: ruff>=0.12; extra == "dev"
 Requires-Dist: ipython>=9.4; extra == "dev"

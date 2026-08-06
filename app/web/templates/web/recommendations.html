@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}For you — SmartReco{% endblock %}
+{% block content %}
+<h1>For you</h1>
+
+{% if not rec %}
+  <p class="muted">Nothing yet. Browse a few courses and recommendations will appear —
+  the system waits until your behavior actually says something before it spends a model call.</p>
+{% else %}
+  {% if rec.narrative %}<p class="narrative">{{ rec.narrative }}</p>{% endif %}
+
+  <div class="grid">
+    {% for c in cards %}
+      <article class="card rec" data-product-id="{{ c.p.id }}" data-rec-id="{{ rec.id }}"
+               data-rank="{{ c.item.rank }}">
+        <a href="/course/{{ c.p.slug }}" data-rec-click="1"><h3>{{ c.p.title }}</h3></a>
+        {% if c.item.hook %}<p class="hook">{{ c.item.hook }}</p>{% endif %}
+        {% if c.item.reason %}<p class="reason">{{ c.item.reason }}</p>{% endif %}
+        <p class="meta">
+          <span class="tag">{{ c.p.category }}</span>
+          <span class="tag">{{ c.p.level }}</span>
+          {% if c.item.confidence is not none %}
+            <span class="confidence">confidence {{ '%.2f'|format(c.item.confidence) }}</span>
+          {% endif %}
+        </p>
+        {# Dismissal is a tracked event (rec_dismiss), not a form post — it feeds
+           the interest model's negative signal (§5.2) through the same pipeline
+           as every other behavior. tracker.js binds this attribute. #}
+        <button type="button" class="link" data-rec-dismiss="{{ c.p.id }}">Not interested</button>
+      </article>
+    {% else %}
+      <p class="muted">The stored recommendation set has no active courses left in it.</p>
+    {% endfor %}
+  </div>
+
+  <p class="muted small">
+    Generated {{ rec.created_at.strftime('%d %b %H:%M') }} · trigger: {{ rec.trigger_reason or '—' }}
+    · model: {{ rec.model_used or '—' }}
+  </p>
+{% endif %}
+{% endblock %}

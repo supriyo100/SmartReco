@@ -1,7 +1,8 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.tracking import queue as tq
 
@@ -15,7 +16,21 @@ class TrackedEvent(BaseModel):
     query: str | None = None
     dwell_ms: int | None = None
     meta: dict = Field(default_factory=dict)
-    ts: str  # ISO from client; server re-parses defensively
+    # ISO string from the client, parsed here into a datetime. It must be a
+    # datetime by the time it reaches the writer: events.ts is a DateTime
+    # column, and SQLite's driver rejects a str outright — which silently cost
+    # us every event until the batch insert was actually exercised.
+    ts: datetime
+
+    @field_validator("ts", mode="after")
+    @classmethod
+    def _naive_utc(cls, v: datetime) -> datetime:
+        """Client clocks send tz-aware ISO ('...Z'); every other ts in the
+        schema is a naive UTC datetime.utcnow(). Normalize, or comparisons
+        between the two raise."""
+        if v.tzinfo is not None:
+            v = v.astimezone(timezone.utc).replace(tzinfo=None)
+        return v
 
 
 class EventBatch(BaseModel):

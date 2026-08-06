@@ -60,6 +60,16 @@ class Event(Base):
 
 
 class UserProfile(Base):
+    """Two kinds of signal about a person, deliberately in one row.
+
+    The `interests*` / `fingerprint` / `events_seen` fields are DERIVED — the
+    interest model writes them from behavior. Everything under "declared" below
+    is STATED — the user typed it or uploaded it. They are kept apart because
+    they age differently and are trusted differently: behavior is current but
+    narrow, a resume is broad but stale the day after it is written. The agent
+    reads declared fields for cold-start grounding (a new account has no
+    behavior at all) and behavioral fields once they exist.
+    """
     __tablename__ = "user_profiles"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
@@ -70,6 +80,22 @@ class UserProfile(Base):
     llm_summary: Mapped[str] = mapped_column(Text, default="")
     fingerprint: Mapped[str] = mapped_column(String, default="")
     events_seen: Mapped[int] = mapped_column(Integer, default=0)
+
+    # --- declared (user-supplied) -------------------------------------------
+    full_name: Mapped[str] = mapped_column(String, default="")
+    headline: Mapped[str] = mapped_column(String, default="")   # "Backend dev, 3y"
+    bio: Mapped[str] = mapped_column(Text, default="")
+    goals: Mapped[str] = mapped_column(Text, default="")        # what they want next
+    skills: Mapped[dict] = mapped_column(JSON, default=list)    # ["python", "sql"]
+    experience_years: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Resume: the extracted TEXT is what the agent can use, so it is stored
+    # alongside the file. Keeping only the file would mean re-parsing a PDF on
+    # every read; keeping only the text would lose the artifact the user gave us.
+    resume_filename: Mapped[str] = mapped_column(String, default="")
+    resume_path: Mapped[str] = mapped_column(String, default="")
+    resume_text: Mapped[str] = mapped_column(Text, default="")
+    resume_uploaded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow,
                                                  onupdate=datetime.utcnow)
 

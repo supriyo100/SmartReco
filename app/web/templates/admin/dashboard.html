@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Admin — SmartReco{% endblock %}
+{% block content %}
+<h1>Admin</h1>
+
+{% if counts %}
+<div class="stats">
+  <div class="stat"><b>{{ counts.products }}</b><span>active products</span></div>
+  <div class="stat"><b>{{ counts.users }}</b><span>users</span></div>
+  <div class="stat"><b>{{ counts.events }}</b><span>events logged</span></div>
+  <div class="stat"><b>{{ counts.outbox_pending }}</b><span>pending vector syncs</span></div>
+</div>
+{% endif %}
+
+<nav class="admin-links">
+  <a href="/admin/products">Products</a>
+  <a href="/admin/agent-runs">Agent runs</a>
+  <a href="/api/events/stats">Event queue stats</a>
+</nav>
+
+<form method="post" action="/admin/ingest" class="inline">
+  <button type="submit">Re-run catalog ingest</button>
+  <small class="muted">Reads data/data_1, rebuilds chunks, upserts to Chroma.</small>
+</form>
+
+{% if output %}<pre class="output">{{ output }}</pre>{% endif %}
+{% endblock %}

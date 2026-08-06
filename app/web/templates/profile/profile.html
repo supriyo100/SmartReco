@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Your profile — SmartReco{% endblock %}
+{% block content %}
+<section class="narrow">
+  <h1>Your profile</h1>
+  <p class="muted">Signed in as {{ email }}. What you tell us here is used when you're new
+  and there isn't enough browsing history yet to go on.</p>
+
+  <form method="post" action="/profile" class="stack" enctype="multipart/form-data">
+    {# Marks this as the complete form, so clearing a box really does erase it.
+       A partial POST without this leaves untouched fields alone. #}
+    <input type="hidden" name="form" value="full">
+    <label>Name
+      <input type="text" name="full_name" value="{{ p.full_name if p else '' }}" maxlength="200">
+    </label>
+
+    <label>Headline
+      <input type="text" name="headline" value="{{ p.headline if p else '' }}" maxlength="200"
+             placeholder="Backend engineer, 3 years">
+    </label>
+
+    <label>Years of experience
+      <input type="number" name="experience_years" min="0" max="60"
+             value="{{ p.experience_years if p and p.experience_years is not none else '' }}">
+      <small class="muted">Leave blank if you'd rather not say.</small>
+    </label>
+
+    <label>About you
+      <textarea name="bio" rows="4" maxlength="5000"
+                placeholder="What you work on now.">{{ p.bio if p else '' }}</textarea>
+    </label>
+
+    <label>What you want next
+      <textarea name="goals" rows="3" maxlength="2000"
+                placeholder="Move into ML engineering; ship an agent to production.">{{ p.goals if p else '' }}</textarea>
+      <small class="muted">The single most useful field — it says where you're going, which
+      your browsing history can't.</small>
+    </label>
+
+    <label>Skills
+      <input type="text" name="skills"
+             value="{{ (p.skills | join(', ')) if p and p.skills else '' }}"
+             placeholder="python, sql, fastapi, docker">
+      <small class="muted">Comma-separated.</small>
+    </label>
+
+    <fieldset class="stack">
+      <legend>Resume</legend>
+      {% if p and p.resume_filename %}
+        <p class="muted">
+          Current: <a href="/profile/resume">{{ p.resume_filename }}</a>
+          {% if p.resume_uploaded_at %}
+            — uploaded {{ p.resume_uploaded_at.strftime('%d %b %Y') }}
+          {% endif %}
+          {% if p.resume_text %}
+            · {{ p.resume_text | length }} characters of text extracted
+          {% else %}
+            · <strong>no text extracted</strong> — paste it below to make it usable
+          {% endif %}
+        </p>
+      {% endif %}
+
+      <label>Upload a file
+        <input type="file" name="resume" accept=".txt,.md,.pdf,.doc,.docx">
+        <small class="muted">.txt and .md are read directly. PDF and Word files are stored
+        but not parsed — paste the text below so it can actually be used.</small>
+      </label>
+
+      <label>Or paste your resume text
+        <textarea name="resume_text" rows="8" maxlength="20000"
+                  placeholder="Paste the text of your resume here.">{{ p.resume_text if p else '' }}</textarea>
+        <small class="muted">Pasted text wins over an uploaded file.</small>
+      </label>
+    </fieldset>
+
+    <button type="submit">Save profile</button>
+  </form>
+
+  {% if p and p.resume_filename %}
+    <form method="post" action="/profile/resume/delete" class="inline">
+      <button type="submit" class="danger">Remove resume</button>
+    </form>
+  {% endif %}
+
+  {% if p and (p.interests or p.events_seen) %}
+    <hr>
+    <h2>What your behavior says</h2>
+    <p class="muted">Derived from {{ p.events_seen }} tracked events — not editable, and kept
+    separate from what you declared above.</p>
+    {% if p.interests %}
+      <ul class="chips">
+        {% for k, v in p.interests.items() %}
+          <li>{{ k }} <span class="muted">{{ '%.2f' | format(v) if v is number else v }}</span></li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

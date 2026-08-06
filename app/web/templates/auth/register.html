@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Sign up — SmartReco{% endblock %}
+{% block content %}
+<section class="narrow">
+  <h1>Create an account</h1>
+  <p class="muted">What you have already browsed carries over — your first recommendations
+  will use it.</p>
+  <form method="post" action="/auth/register" class="stack">
+    <label>Email
+      <input type="email" name="email" value="{{ email or '' }}" required autofocus autocomplete="email">
+    </label>
+    <label>Password
+      <input type="password" name="password" required minlength="8" autocomplete="new-password">
+      <small class="muted">At least 8 characters.</small>
+    </label>
+    <button type="submit">Sign up</button>
+  </form>
+  <p class="muted">Already registered? <a href="/auth/login">Log in</a>.</p>
+</section>
+{% endblock %}

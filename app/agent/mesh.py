@@ -100,11 +100,37 @@ async def embed_batch(texts: list[str]) -> list[list[float]]:
 
 
 async def check_models_at_startup():
-    """Log structured-output support per configured model. Don't assume."""
+    """Verify every configured model is actually offered by Mesh. Don't assume.
+
+    Uses httpx rather than client.models.list(): Mesh returns a bare JSON array,
+    not OpenAI's {"object": "list", "data": [...]} envelope, so the SDK's
+    pagination wrapper raises trying to read .data. That failure was swallowed
+    by the except below — the check ran, logged a warning, and verified nothing.
+    """
+    import httpx
+
     try:
-        models = await client.models.list()
-        ids = {m.id for m in models.data}
-        for m in (settings.MODEL_FAST, settings.MODEL_FAST_FALLBACK, settings.MODEL_WRITER):
-            log.info("mesh model %s: %s", m, "available" if m in ids else "NOT LISTED — verify")
+        async with httpx.AsyncClient(timeout=20) as http:
+            resp = await http.get(
+                f"{settings.MESH_BASE_URL.rstrip('/')}/models",
+                headers={"Authorization": f"Bearer {settings.MESH_API_KEY}"},
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+        # Accept both shapes, so this keeps working if Mesh adopts the envelope.
+        rows = payload.get("data", []) if isinstance(payload, dict) else payload
+        ids = {r.get("id") for r in rows if isinstance(r, dict)}
     except Exception as e:
         log.warning("could not list Mesh models at startup: %s", e)
+        return
+
+    missing = []
+    for m in (settings.MODEL_FAST, settings.MODEL_FAST_FALLBACK,
+              settings.MODEL_WRITER, settings.EMBED_MODEL):
+        if m in ids:
+            log.info("mesh model %s: available", m)
+        else:
+            missing.append(m)
+            log.warning("mesh model %s: NOT LISTED among %d models — verify", m, len(ids))
+    if not missing:
+        log.info("mesh: all %d configured models available", 4)

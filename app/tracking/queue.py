@@ -35,6 +35,11 @@ async def writer_loop():
                     await s.execute(stmt)
                     await s.commit()
             except Exception:
+                # Count them: without this, a batch that fails to insert is
+                # invisible — the handler already returned 202 — and /stats
+                # reports a healthy queue while events silently vanish.
+                global DROPPED
+                DROPPED += len(rows)
                 log.exception("event batch insert failed (%d rows)", len(rows))
 
 

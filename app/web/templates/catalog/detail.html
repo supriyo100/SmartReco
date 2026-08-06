@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ p.title }} — SmartReco{% endblock %}
+{% block content %}
+{# The main tracked surface: dwell, scroll depth and CTA clicks all key off this. #}
+<article class="detail" data-product-id="{{ p.id }}" data-slug="{{ p.slug }}"
+         data-category="{{ p.category }}" data-level="{{ p.level }}" data-track-dwell="1">
+  <h1>{{ p.title }}</h1>
+  <p class="meta">
+    <span class="tag">{{ p.category }}</span>
+    <span class="tag">{{ p.level }}</span>
+    {% if p.instructor %}<span>with {{ p.instructor }}</span>{% endif %}
+    {% if p.rating %}<span class="rating">★ {{ '%.1f'|format(p.rating) }}</span>{% endif %}
+  </p>
+
+  <p class="price">{% if p.price %}₹{{ '{:,.0f}'.format(p.price) }}{% else %}Free{% endif %}</p>
+  <button type="button" class="cta" data-cta="enroll" data-product-id="{{ p.id }}">Enroll</button>
+
+  <div class="prose">{{ p.description }}</div>
+
+  {% if p.tags %}
+    <p class="tags">{% for t in p.tags %}<span class="tag">{{ t }}</span>{% endfor %}</p>
+  {% endif %}
+
+  {% if prereqs %}
+    <section class="ladder">
+      <h2>Before this</h2>
+      <div class="grid">{% for p in prereqs %}{% include "catalog/_card.html" %}{% endfor %}</div>
+    </section>
+  {% endif %}
+
+  {% if nexts %}
+    <section class="ladder">
+      <h2>Next step</h2>
+      <div class="grid">{% for p in nexts %}{% include "catalog/_card.html" %}{% endfor %}</div>
+    </section>
+  {% endif %}
+</article>
+{% endblock %}

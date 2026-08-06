@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{% if q %}“{{ q }}” — {% endif %}Search — SmartReco{% endblock %}
+{% block content %}
+<h1>Search</h1>
+{% if q %}
+  <p class="muted" data-search-query="{{ q }}" data-result-count="{{ products|length }}">
+    {{ products|length }} result{{ '' if products|length == 1 else 's' }} for “{{ q }}”.
+  </p>
+  {% if products %}
+    <div class="grid">
+      {% for p in products %}{% include "catalog/_card.html" %}{% endfor %}
+    </div>
+  {% elif not error %}
+    <p class="muted">Nothing matched. Try a broader term.</p>
+  {% endif %}
+{% else %}
+  <p class="muted">Type a query above to search the catalog.</p>
+{% endif %}
+{% endblock %}

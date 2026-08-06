@@ -31,13 +31,53 @@ FTS_DDL = [
 ]
 
 
+async def add_missing_columns(conn) -> list[str]:
+    """Add columns present in the models but absent from an existing table.
+
+    create_all() creates missing TABLES; it never alters one that already
+    exists. So adding a field to a model and re-running init_db silently
+    changes nothing, and the first query for that column fails at runtime with
+    "no such column" — long after the command that should have caught it
+    printed a success line.
+
+    This is not a migration tool and does not pretend to be: it only ADDs
+    columns. Renames, drops and type changes are not detected, and a NOT NULL
+    column without a server default cannot be added to a populated table.
+    Given a greenfield app with a four-day life that trade is deliberate
+    (README §10) — but silently skipping the schema change was not.
+    """
+    added = []
+    for table in Base.metadata.sorted_tables:
+        rows = await conn.execute(text(f"PRAGMA table_info({table.name})"))
+        existing = {r[1] for r in rows}
+        if not existing:                     # table didn't exist; create_all made it
+            continue
+        for col in table.columns:
+            if col.name in existing:
+                continue
+            ddl = f"ALTER TABLE {table.name} ADD COLUMN {col.name} {col.type.compile(conn.dialect)}"
+            default = getattr(col.default, "arg", None)
+            if isinstance(default, (str, int, float, bool)):
+                literal = f"'{default}'" if isinstance(default, str) else int(default) \
+                    if isinstance(default, bool) else default
+                ddl += f" DEFAULT {literal}"
+            await conn.execute(text(ddl))
+            added.append(f"{table.name}.{col.name}")
+    return added
+
+
 async def main():
     pathlib.Path("data").mkdir(exist_ok=True)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        added = await add_missing_columns(conn)
         for ddl in FTS_DDL:
             await conn.execute(text(ddl))
     print("✓ schema + FTS5 + triggers + indexes created")
+    if added:
+        print(f"✓ added {len(added)} missing column(s) to existing tables:")
+        for name in added:
+            print(f"    + {name}")
 
 
 if __name__ == "__main__":

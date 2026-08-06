@@ -5,10 +5,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from app.admin.routes import router as admin_router
 from app.agent.mesh import check_models_at_startup
+from app.auth.deps import identity_middleware
+from app.auth.routes import router as auth_router
+from app.catalog.routes import router as catalog_router
 from app.config import settings
+from app.profiles.routes import router as profile_router
 from app.tracking.queue import writer_loop
 from app.tracking.routes import router as tracking_router
+from app.web.routes import router as web_router
 
 logging.basicConfig(level=logging.INFO)
 
@@ -31,13 +37,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="SmartReco", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="app/web/static"), name="static")
-app.include_router(tracking_router)
 
-# TODO wire as they're built (arch v2 §8 schedule):
-# from app.auth.routes import router as auth_router        # Aug 5
-# from app.admin.routes import router as admin_router      # Aug 5
-# from app.catalog.routes import router as catalog_router  # Aug 5
-# from app.web.routes import router as web_router          # Aug 6
+# Runs before every route: fills request.state.{user_id, role, session_id},
+# which /api/events already reads. Must be registered before the routers.
+app.middleware("http")(identity_middleware)
+
+app.include_router(auth_router)
+app.include_router(admin_router)     # every route behind require_admin (§1.1)
+app.include_router(web_router)
+app.include_router(profile_router)
+app.include_router(tracking_router)
+app.include_router(catalog_router)   # last: owns "/" and "/course/{slug}"
 
 
 @app.get("/healthz")

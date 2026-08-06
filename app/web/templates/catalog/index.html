@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Courses — SmartReco{% endblock %}
+{% block content %}
+<h1>Browse courses</h1>
+
+<nav class="filters" aria-label="Category filter">
+  <a class="chip {% if not category %}on{% endif %}" href="/">All</a>
+  {% for c in categories %}
+    <a class="chip {% if c == category %}on{% endif %}"
+       href="/?category={{ c|urlencode }}" data-category="{{ c }}">{{ c }}</a>
+  {% endfor %}
+</nav>
+
+{% if products %}
+  <div class="grid">
+    {% for p in products %}{% include "catalog/_card.html" %}{% endfor %}
+  </div>
+{% else %}
+  {% if role == 'admin' %}
+    <p class="muted">No courses yet. Add them under
+      <a href="/admin/products">Admin → Products</a>, or run the catalog ingest.</p>
+  {% else %}
+    <p class="muted">No courses are available yet. Check back shortly.</p>
+  {% endif %}
+{% endif %}
+{% endblock %}

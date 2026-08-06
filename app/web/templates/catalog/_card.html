@@ -1,0 +1,13 @@
+{# Shared course card. data-product-id is what tracker.js reads. #}
+<article class="card" data-product-id="{{ p.id }}" data-slug="{{ p.slug }}">
+  <a href="/course/{{ p.slug }}">
+    <h3>{{ p.title }}</h3>
+  </a>
+  <p class="meta">
+    <span class="tag">{{ p.category }}</span>
+    <span class="tag">{{ p.level }}</span>
+    {% if p.rating %}<span class="rating">★ {{ '%.1f'|format(p.rating) }}</span>{% endif %}
+  </p>
+  <p class="excerpt">{{ (p.description or '')[:160] }}{% if (p.description or '')|length > 160 %}…{% endif %}</p>
+  <p class="price">{% if p.price %}₹{{ '{:,.0f}'.format(p.price) }}{% else %}Free{% endif %}</p>
+</article>

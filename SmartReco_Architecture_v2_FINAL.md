@@ -32,6 +32,19 @@ Three claims the build must be able to demonstrate:
 
 This is the layer the rest of the system sits on, and the part that must be finished first.
 
+**Status: built and verified** (6 Aug 2026). Auth, roles, catalog browsing, admin CRUD, user
+profiles and the identity/session middleware are implemented and exercised end to end — 45
+assertions covering the anonymous → register → stitch → login → promote → CRUD → logout path, plus
+the real 12-course catalog rendering, searching and resolving its ladder links, plus 60 tests in
+`tests/` and a 16-assertion live-server journey. Modules: `app/auth/`, `app/admin/`,
+`app/profiles/`, `app/catalog/routes.py`, `app/web/`, wired in `app/main.py`.
+
+**Schema creation caveat.** `python -m app.db.init_db` now reconciles *added columns* on existing
+tables and reports each one. It previously called only `create_all()`, which creates missing tables
+but never alters an existing one — so adding a model field and re-running printed a success line and
+applied nothing, deferring the failure to a runtime `no such column`. Still not a migration tool:
+renames, drops and type changes are undetected.
+
 ### 1.1 Web application
 
 A server-rendered FastAPI app (Jinja2 templates, no SPA). Server-rendered is a deliberate choice:
@@ -39,10 +52,25 @@ the behavioral tracker needs real page loads to observe, and a four-day window h
 frontend build pipeline.
 
 **Authentication — email/password, deliberately simple.** No OAuth, no magic links, no email
-verification. Passwords hashed with bcrypt via `passlib`. Session held in a signed cookie
-(`itsdangerous`), flags `HttpOnly` + `SameSite=lax`, plus `Secure` when `ENV != development`.
-Sessions carry `user_id` and `role`; there is no server-side session store, because there is nothing
-in a session worth the table.
+verification. Passwords hashed with **bcrypt directly, not `passlib`** — passlib 1.7.4 is
+unmaintained and its bcrypt backend breaks against bcrypt ≥ 4.1 (it reads `bcrypt.__about__`, which
+no longer exists, then hands `hashpw` an over-length config that bcrypt 5 rejects). The two calls we
+need are `hashpw`/`checkpw`. Passwords over bcrypt's 72-byte limit are **rejected, not truncated**.
+
+Session held in a signed cookie (`itsdangerous`), flags `HttpOnly` + `SameSite=lax`. `Secure` is set
+**from the request scheme, not from `ENV`**: keying it off the env name means any non-development
+deployment served over plain http sets a cookie the browser then refuses to send back, so login
+appears to succeed and every later request is silently anonymous. `request.url.scheme` already
+reflects `X-Forwarded-Proto` under `uvicorn --proxy-headers`, the usual TLS-proxy setup.
+
+The cookie carries `user_id` and `role`, but **`role` is re-read from the DB on each authenticated
+request** (`identity_middleware`) rather than trusted from the cookie — a cookie signed before a
+promotion or demotion would otherwise carry the stale role for up to 14 days. One indexed PK lookup
+is the right price. A user deleted since signing is treated as anonymous. There is still no
+server-side session store, because there is nothing in a session worth the table.
+
+Registration always creates `role='user'`; the first admin comes from
+`python -m app.auth.cli create-admin <email>` (or `make-admin` to promote an existing user).
 
 **Two roles, one column.** `users.role ∈ {user, admin}`:
 
@@ -122,9 +150,27 @@ Event types: `page_view`, `product_view`, `product_dwell`, `search`, `search_res
 `category_filter`, `add_to_wishlist`, `cta_click`, `scroll_depth`, `conversion`, `rec_click`,
 `rec_dismiss`.
 
-**`user_profiles`** — derived, never authoritative; fully rebuildable from `events`. Holds
-`interests` (long horizon) and `interests_short` (session horizon) as category→weight JSON,
-`price_band`, `stage`, `llm_summary`, `fingerprint`, `events_seen`.
+**`user_profiles`** — two kinds of signal about a person, deliberately in one row but never mixed.
+
+*Derived* (written by the interest model, §5): `interests` (long horizon) and `interests_short`
+(session horizon) as category→weight JSON, `price_band`, `stage`, `llm_summary`, `fingerprint`,
+`events_seen`. Never authoritative; fully rebuildable from `events`.
+
+*Declared* (written by the user at `/profile`): `full_name`, `headline`, `bio`, `goals`, `skills`,
+`experience_years`, `resume_filename` / `resume_path` / `resume_text` / `resume_uploaded_at`.
+
+They are separated because they age and are trusted differently — behavior is current but narrow, a
+resume is broad but stale the day after it is written — and because their durability requirements
+are **opposite**: the derived half can be recomputed and the declared half cannot. Any future
+"recompute profiles" job must rewrite only the derived columns. The profile router touches only the
+declared ones, so it can never corrupt the interest model.
+
+The declared half exists to answer cold start: a brand-new account has no behavior, so a stated
+background is the only signal available at t=0. The resume's extracted **text** is stored alongside
+the file, because text is what the generate node can use; re-parsing on every read would be absurd.
+Extraction that fails does so **loudly** (the upload succeeds, the file is kept, and the page says
+text could not be extracted) — an extractor returning `""` silently would leave a user with a green
+checkmark and an empty profile.
 
 **`recommendations`** — `narrative` plus an `items` JSON array of
 `{product_id, reason, hook, confidence, next_step_id, rank}`, the `fingerprint` it was generated
@@ -254,28 +300,78 @@ the card's **Next step** line and the `0.05` adjacency boost. `validate_graph()`
 dangling edge, with a `prune_pending` escape hatch for incremental curation (edges to not-yet-written
 courses drop in memory only, and reconnect themselves as files land).
 
-**Dual-write:** every product mutation writes SQLite and Chroma. The submission ships synchronous
-embed-on-upsert with a `vector_outbox` row as the durable record; the outbox drain job upgrades this
-to fully asynchronous if time allows. Either form is an honest dual-write — the outbox is about
-failure recovery, not about correctness on the happy path.
+**Dual-write — status: built and verified** (6 Aug 2026). `app/catalog/vectors.py` (Chroma write
+path) + `app/catalog/outbox.py` (drain) + a 30 s scheduler job, with `/admin/sync` for visibility.
+20 tests.
+
+The shipped form is **fully asynchronous**, and the earlier note here — that the outbox is "about
+failure recovery, not about correctness on the happy path" — was wrong, so it is corrected rather
+than quietly dropped. Two stores cannot be committed atomically. A synchronous embed-on-upsert that
+crashes between the SQLite commit and the Chroma call leaves them diverged **with no record that the
+write was owed**, and nothing later can detect it. Writing the product row and the `vector_outbox`
+row in one transaction is what makes the intent to sync as durable as the product. That is a
+correctness property, not a recovery convenience.
+
+Delivery is at-least-once, made safe by idempotent upserts. Four properties matter:
+
+- **Last-op collapse** — five edits between drains are one embed of current state, not five.
+- **`content_hash` skip** — a hash of the *embedded* text, so editing a non-embedded field (price)
+  costs zero API calls.
+- **Fatal vs transient classification** — 402/401/403/404 halt the drain, leave rows pending
+  **without charging an attempt**, and surface an actionable message; 429/5xx fall back to per-item
+  retry so one poison row cannot block the queue. (The first implementation retried per item on
+  *any* failure, which turned a single 402 into 66 charged calls — see design.md §7.3.)
+- **Deletes by `parent_id`, not by chunk id** — so deactivating a curated course removes all of its
+  chunks, not just the one an admin-form delete would know about.
+
+Two write paths share the collection: `ingest.py` writes many chunks per curated course; admin-form
+products have no JSON behind them and get one chunk (`product::{id}::0`). Same metadata keys, so
+retrieval never needs to know which produced a row.
 
 ---
 
 ## 4. Behavioral tracking
 
+**Status: built and verified** (6 Aug 2026). Both halves — `app/web/static/tracker.js` and the
+server ingest path. 24 behavior assertions run the tracker under Node against a DOM stub; a further
+round-trip posts the exact JSON it emits to a live server and reads the rows back out of SQLite.
+
 ### 4.1 Non-blocking ingest
 
 `tracker.js` batches events (10 events, or 5 s, or `sendBeacon` on unload) to `POST /api/events`,
 which validates and pushes to an in-process `asyncio.Queue` (`maxsize=10_000`) and returns **202
-immediately**. A background writer task drains with `executemany`. Tracking must never make the site
-feel slow — that is the whole design constraint.
+immediately**. A background writer task drains in batches. Tracking must never make the site feel
+slow — that is the whole design constraint. Measured: a page load performs zero network calls.
 
 Queue overflow uses `put_nowait` with a `DROPPED` counter surfaced at `/api/events/stats` alongside
 depth and processed-today. Dropping loudly beats blocking silently. The queue is dev-grade by
 design; Redis Streams is the multi-instance answer and is named as future work rather than built.
 
 Scroll milestones are checked every 150 ms and emit the **highest** milestone crossed, not the first
-match on a throttled callback — a coarser throttle skips 50% milestones on fast scrolls.
+match on a throttled callback — a coarser throttle skips 50% milestones on fast scrolls. The
+listener is registered `{passive: true}` so it can never block scrolling. Measured: 50 raw scroll
+events produce 0 tracked events; a 0→100% scroll produces exactly 1.
+
+### 4.1a Delivery under failure
+
+Three failure modes are handled rather than assumed away:
+
+- **Tab closes mid-batch.** `visibilitychange → hidden` *and* `pagehide` both flush via
+  `sendBeacon` — neither alone suffices (`unload` doesn't fire when mobile backgrounds an app;
+  `visibilitychange` can be skipped on bfcache navigation). This is why the session rides the `sid`
+  **cookie**: `sendBeacon` cannot set headers (trap #5), so a header-based scheme would lose exactly
+  the unload events that matter most.
+- **Network down.** A rejected `fetch` or refused beacon puts the batch **back** on the queue,
+  bounded by a 200-event cap — degrading to dropping the oldest rather than growing without limit.
+- **Duplicates.** Every event carries `crypto.randomUUID()`; the writer uses
+  `ON CONFLICT (event_uuid) DO NOTHING`, so retries and beacon duplicates cannot double-count.
+
+**Dwell is visible-time, not wall-clock.** The timer pauses on hide and resumes on show — a tab left
+open overnight is not thirty thousand seconds of interest. Under 1 s is a bounce and is not
+recorded; over 30 min is discarded as a stuck timer.
+
+The entire file is a try/catch-wrapped IIFE with fire-and-forget sends: an analytics bug must not
+take the product down with it.
 
 ### 4.2 Identity stitching
 
@@ -423,12 +519,16 @@ against `GET /v1/models` **at startup** and logged, rather than assumed.
 
 APScheduler, single worker, behind `SCHEDULER_ENABLED`:
 
-| Every | Job |
-|---|---|
-| 30 s | Drain `vector_outbox` in chunks of 20; a failed chunk retries per-item with `attempts` + backoff. |
-| 15 min | Refresh stale recommendations for **active users only**. |
-| 03:00 | Reconcile SQLite ↔ Chroma · `wal_checkpoint(TRUNCATE)` · delete orphaned anonymous events > 90 days. |
-| 16:00 | Digest email — **bonus tier, first to be cut.** |
+| Every | Job | Status |
+|---|---|---|
+| 30 s | Drain `vector_outbox` in chunks of 20; a transient failure retries per-item, a fatal one halts (§3.4). | **built** |
+| 15 min | Refresh stale recommendations for **active users only**. | pending |
+| 03:00 | Reconcile SQLite ↔ Chroma · `wal_checkpoint(TRUNCATE)` · delete orphaned anonymous events > 90 days. | partial — checkpoint only |
+| 16:00 | Digest email — **bonus tier, first to be cut.** | pending |
+
+The drain job is registered `max_instances=1, coalesce=True`: a drain slower than its 30 s interval
+must not overlap itself and embed the same product twice concurrently. It logs only when it did
+something, so an idle queue doesn't fill the log every half minute.
 
 `POST /admin/trigger-digest` renders the digest on demand and ships regardless of whether the cron
 survives; the manual trigger is all the demo needs.
@@ -525,4 +625,19 @@ make ingest     # chunk → embed → Chroma + catalog.index.json
 make dev        # uvicorn --reload
 make test       # pytest
 make lint       # ruff
+
+python -m app.catalog.sync_sql             # data/data_1 → products table (no Mesh key needed)
+python -m app.catalog.outbox               # drain vector_outbox → Chroma on demand
+python -m app.auth.cli create-admin EMAIL  # mint the first admin
+python -m app.auth.cli make-admin EMAIL    # promote an existing user
+
+node tests/tracker/test_tracker.js         # tracker.js behavior (no browser needed)
 ```
+
+`make` is not installed on a default Windows box; every target has a direct equivalent, tabulated in
+the README. Test dependencies are in the `dev` extra and are not installed by default.
+
+**Operational note — embeddings are a paid call.** Listing models is free, so the startup check can
+report "all 4 configured models available" while every embedding attempt returns
+`402 spend_limit_exceeded`. When that happens the outbox drain halts by design and holds its rows;
+`/admin/sync` shows the queue depth and the reason. Nothing is lost and no attempts are burned.

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Agent runs — Admin{% endblock %}
+{% block content %}
+<h1>Agent runs</h1>
+<p class="muted">
+  This table is where the README's efficiency numbers come from (arch §1.2).
+  {% if avg_calls is not none %}Mean LLM calls per run: <b>{{ '%.2f'|format(avg_calls) }}</b>.{% endif %}
+</p>
+
+<table class="grid-table">
+  <thead>
+    <tr><th>When</th><th>User</th><th>Trigger</th><th>LLM calls</th><th>Retrieval</th>
+        <th>cos_dist</th><th>Cache</th><th>Fallback</th><th>Latency</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+  {% for r in runs %}
+    <tr class="{% if r.status != 'ok' %}inactive{% endif %}">
+      <td>{{ r.created_at.strftime('%d %b %H:%M:%S') }}</td>
+      <td>{{ r.user_id }}</td>
+      <td>{{ r.trigger_reason }}</td>
+      <td>{{ r.llm_calls }}</td>
+      <td>{{ r.retrieval_rounds }}</td>
+      <td>{{ '%.3f'|format(r.cos_dist) }}</td>
+      <td>{{ 'hit' if r.cache_hit else '—' }}</td>
+      <td>{{ 'yes' if r.fallback_used else '—' }}</td>
+      <td>{{ r.latency_ms }} ms</td>
+      <td>{{ r.status }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="10" class="muted">No agent runs recorded yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
