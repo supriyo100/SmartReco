@@ -1,0 +1,227 @@
+{
+  "slug": "full-stack-genai-agentic-ai-bootcamp",
+  "_comment_slug": "The page title carries a 'Modern Route-' prefix that reads like a site section label rather than part of the course name; it is kept in `title` (§1 verbatim) but deliberately left out of the slug, which only has to be stable and unique. Do not rename after ingest — related_ids point here.",
+  "title": "Modern Route-Full Stack GenerativeAI And Agentic AI Bootcamp",
+  "_comment_title": "Copied exactly as published, including 'GenerativeAI' as one word and the hyphen after 'Route'. The overview block on the same page calls it 'Full Stack Generative Ai Bootcamp' — that is a second, informal name for the same program, not a different course.",
+
+  "_comment_overview": "PARAPHRASED from the sponsor's page — never copy marketing prose verbatim. Facts (6 months, 16 modules, live weekend cohort, ₹8000, two capstones) are used as-is; the wording is rewritten. The page's 'not a prompting-only course' framing is intentionally not reproduced.",
+  "overview": "A six-month live weekend bootcamp covering the full generative AI stack end to end: transformer foundations, model selection, LLM APIs, PEFT fine-tuning, production RAG, agent and multi-agent orchestration, evaluation, guardrails, and deployment on AWS. Sixteen modules run from tokenization and embeddings through to containerized services with CI/CD and observability. It closes with two deployed capstones — a citation-backed document intelligence portal and an autonomous multi-agent report generation system.",
+
+  "category": "GenAI / LLM Engineering",
+  "_comment_category": "Primary is GenAI / LLM Engineering, not Agentic AI, despite the title naming both. Weight the syllabus: modules 1-8 and 10-13 are LLM foundations, fine-tuning, RAG, evaluation and cloud; agents are modules 9, 12 and 14 plus one of the two capstones. Category drives the B3 diversity cap (≤3 of 5 recs from one bucket), and the catalog already has two Agentic AI primaries — filing this one where it actually belongs keeps that cap meaningful instead of gaming it.",
+  "secondary_categories": ["Agentic AI", "MLOps / LLMOps", "Cloud"],
+  "level": "intermediate",
+  "level_range": ["beginner", "advanced"],
+  "_comment_level": "'Beginner' here means new to LLMs, NOT new to programming — the page targets 'AI engineers, software developers, and tech professionals' and starts at transformer architecture, not at Python syntax. Span is real (module 1 is tokenization; module 16 is a deployed multi-agent system), so level_range is recorded, but it is stored only and NOT scored today; `level` = intermediate has to stand alone as the fusion anchor.",
+  "_comment_prereqs": "No prerequisite is stated anywhere on the page and no named prior course is referenced, so `prereq_ids` is empty by evidence rather than by omission. The implied entry condition is working software-engineering experience plus Python.",
+
+  "price": 8000,
+  "currency": "INR",
+  "is_free": false,
+  "price_band": "mid",
+  "_comment_price": "₹8000.00 stated as 'incl. GST' — this is the all-in figure a buyer pays, so it is stored as-is with no tax adjustment. Band 'mid' per §2 (3,000-9,999). Own-site cohort pricing, not coupon-driven, so a number is safe here (unlike the Udemy files).",
+  "rating": null,
+  "_comment_rating": "No star rating or review count appears on the page. Null, not guessed — the validator's null-rating warning is expected and is the point.",
+
+  "source_platform": "own_site",
+
+  "format": {
+    "mode": "live",
+    "duration": "6 months",
+    "_comment_duration": "The cohort badge says '6 Months'; the overview prose on the same page says '5-6 month'. Stored the badge figure as the committed calendar length and recording the disagreement here per §7 — it is marketing softness, not a version skew.",
+    "schedule": "Sat & Sun, 20:00-23:00 IST",
+    "duration_hours": null,
+    "_comment_duration_hours": "Null by design — this is a live cohort, not on-demand video. No total content-hours figure is published.",
+    "cohort_start": null,
+    "_comment_cohort_start": "NULL ON PURPOSE — THIS IS THE KEY JUDGMENT IN THIS FILE. The only cohort the page advertises starts 15 March 2026, which is in the PAST as of the 6 Aug 2026 curation date (~5 months into a 6-month program). §3 makes a past date in `cohort_start` the single most dangerous defect in the schema, because generate reads that field as a live persuasion fact and would tell a user today to enroll for a cohort that is nearly over. Value moved to top-level `cohort_start_stale`. Consequence is deliberate: freshness.py's demotion rule scores this live course at the `recorded` mode prior (0.45) because recordings of a mostly-finished cohort is operationally what a buyer gets today; `declared_mode` stays 'live' so the card can still truthfully say 'live bootcamp'. When the next cohort is announced, put that date here and freshness recovers on real evidence.",
+    "enrollment_status": "open",
+    "_comment_enrollment_status": "'open' because the page still renders an active Enroll Now CTA — that is the observable evidence. I considered 'closed' on the reasoning that a 6-month cohort begun in March 2026 can no longer be meaningfully joined in August, but that would be inference stacked on top of a penalty the scorer already applies: the stale-cohort demotion above has independently dropped the mode prior from 1.00 to 0.45. Adding the 0.25 closed multiplier would double-charge this course for one fact. Revisit if the CTA disappears or a waitlist appears.",
+    "content_updated": null,
+    "published_at": null,
+    "_comment_dates": "Neither a publish date nor an 'updated' badge is on the page. Both null rather than guessed. Recency therefore falls through to `cohort_start_stale` (2026-03-15) under §6's fallback chain, which is ~5 months old and scores around 0.76 on the 365-day half-life — an honest, evidence-backed number rather than the 0.35 unknown floor.",
+    "curriculum_version": null,
+    "_comment_curriculum_version": "The page publishes no version string. Null per §7. Content is clearly current-generation (MCP, deep agents, GRPO, vectorless-era RAG tooling), but 'clearly recent' is not a version number and must not be invented as one."
+  },
+  "cohort_start_stale": "2026-03-15",
+  "_comment_cohort_stale": "Advertised start 'March 15, 2026'. PAST as of curation. Stored for recency scoring and reference only; §3/§6 exclude it from generate context and from any rendered label, so it can never reach recommendation copy.",
+
+  "mentors": ["Sourangshu Pal", "Mayank Agarwal", "Sunny Savita"],
+  "_comment_mentors": "Published roles: Sourangshu Pal — Lead AI Researcher; Mayank Agarwal — Chief AI Dev; Sunny Savita — Sr AI Dev. `mentors` is a flat string array in the schema, so titles are recorded here rather than jammed into the values. Same three instructors as agentic-ai-genai-cloud-bootcamp, which is the main basis for treating this as a krishnaikacademy program — see _comment_sources.",
+  "perks": [
+    "Live weekend sessions, Sat & Sun 8-11 PM IST",
+    "Mentorship from three practising industry AI engineers",
+    "Two end-to-end deployed portfolio projects"
+  ],
+  "_comment_perks": "The page has no 'what's included' box, so these are the only three benefits it actually states. perks is Tier 3 and is injected verbatim into the generate prompt, so nothing inferred (community access, job support, dashboard access, recordings) was added — the sibling course advertises those explicitly and this one does not.",
+
+  "_comment_objectives": "§1 corroboration rule applied, and it caught one. The 'What You Will Learn' block promises deployment on 'AWS/Azure' and repeats 'Azure equivalents' in the Why-Us section, but the 16-module curriculum has exactly one cloud module — 'Module 13: Cloud Services for GenAI - Amazon Web Services (AWS)' — and no Azure content anywhere. The Azure claim is dropped, not softened: validate cites objectives back to users as reasons, so an uncorroborated one is a lie with a citation attached. The eight kept objectives each map to a named module (1-2, 3, 4, 7, 8, 9, 10-11, 13).",
+  "objectives": [
+    "Understand transformer architecture, tokenization, embeddings and vector similarity as the foundations of modern LLMs",
+    "Choose the right model for a task by comparing LLMs, SLMs and multimodal families on cost, latency, modality and deployment feasibility",
+    "Build production LLM API integrations with streaming, retries, token and cost tracking, and provider-agnostic abstraction layers",
+    "Adapt models to your own domain with parameter-efficient fine-tuning using LoRA, QLoRA and Hugging Face PEFT tooling",
+    "Build grounded, citation-backed RAG systems with chunking strategy, vector databases, metadata filtering, MMR and cross-encoder re-ranking",
+    "Take RAG to production with context engineering, caching, multimodal retrieval and reliability evaluation of faithfulness and relevance",
+    "Design single-agent and multi-agent systems with supervisor and hierarchical patterns, tool use, memory, and human-in-the-loop approvals",
+    "Ship safe GenAI services with guardrails, LLM-as-a-judge evaluation, observability, and containerized deployment on AWS with CI/CD"
+  ],
+  "objectives_dropped": [
+    "Deploy and scale GenAI systems on Azure (advertised as 'AWS/Azure' and 'Azure equivalents', but no Azure module exists in the 16-module curriculum)"
+  ],
+
+  "_comment_modules": "16 published modules clustered into 10 THEMATIC groups per §4 — never one chunk per module. Detail level is uneven in the source and that is reflected honestly: only Module 1's five lectures were published individually, so its `modules` entries are real lecture titles, while the other groups' entries are drawn from the module names plus the matching 'What You Will Learn' descriptions on the same page. Nothing here is invented; where the page gave only a module title, the entry stays at that granularity.",
+  "module_groups": [
+    {
+      "group": "Foundations of modern GenAI",
+      "modules": [
+        "Introduction to modern generative AI and how large language models work",
+        "Transformer architecture as the backbone of modern LLMs",
+        "Text encoding and tokenization: vocabulary creation and subword tokens",
+        "Evolution of text representations from classical encoding to word embeddings",
+        "Embeddings, vector space and similarity: word, contextual and sentence embeddings"
+      ]
+    },
+    {
+      "group": "LLM ecosystem and model selection",
+      "modules": [
+        "LLMs vs SLMs vs multimodal models",
+        "Major model families: GPT, Gemini, Claude, LLaMA, Mistral, Qwen",
+        "Efficient small models: Phi and Gemma",
+        "A model selection framework based on task type, latency, cost and modality"
+      ]
+    },
+    {
+      "group": "LLM APIs, streaming and provider abstraction",
+      "modules": [
+        "Working with OpenAI, Anthropic, Gemini, Groq and OpenRouter APIs",
+        "Structuring production calls: system and user prompts, temperature, max tokens",
+        "Streaming responses, retry handling and token usage tracking",
+        "Abstraction layers for switching providers without rewriting application logic"
+      ]
+    },
+    {
+      "group": "Prompt engineering and structured outputs",
+      "modules": [
+        "Zero-shot, few-shot, chain-of-thought and ReAct prompting",
+        "Structured outputs in JSON and YAML with schema enforcement",
+        "Prompt libraries and template management with Jinja2 and YAML"
+      ]
+    },
+    {
+      "group": "Fine-tuning and model hosting",
+      "modules": [
+        "Full fine-tuning vs parameter-efficient fine-tuning (PEFT)",
+        "LoRA and QLoRA in practice",
+        "Dataset preparation: instruction formatting, splits and cleaning",
+        "Tooling: Hugging Face Transformers with PEFT, Unsloth, Axolotl",
+        "RLHF and preference optimisation: DPO, ORPO, GRPO",
+        "Hosting an LLM on your own server and exposing it as an API"
+      ]
+    },
+    {
+      "group": "Production RAG systems",
+      "modules": [
+        "Ingestion and parsing of PDFs, documents and web content",
+        "Chunking strategies and embedding model selection",
+        "Vector databases and metadata filtering: Pinecone, Qdrant, Chroma",
+        "Retrieval workflows: similarity search, MMR and cross-encoder re-ranking",
+        "Citation-aware prompting for trustable, grounded answers"
+      ]
+    },
+    {
+      "group": "Advanced RAG and multimodal systems",
+      "modules": [
+        "Context engineering and context window optimisation",
+        "Caching strategies: response cache, embedding cache and CAG",
+        "RAG reliability evaluation: faithfulness, relevance and retrieval quality",
+        "Multimodal RAG with text and image grounding via vision-language workflows",
+        "Debugging RAG failure modes: bad chunking, noisy retrieval, missing context, overlong prompts"
+      ]
+    },
+    {
+      "group": "Agents, multi-agent and deep agent systems",
+      "modules": [
+        "Single-agent and multi-agent architectures: supervisor, hierarchical and network patterns",
+        "Tool use: APIs, functions, search and RAG as agent tools",
+        "Memory and state management, planner/executor role prompts",
+        "Human-in-the-loop approvals, loop prevention and cost-aware execution budgeting",
+        "Orchestration and state graphs with LangGraph, with CrewAI and AutoGen conceptually",
+        "Model Context Protocol (MCP)",
+        "No-code agent tools"
+      ]
+    },
+    {
+      "group": "Evaluation, guardrails and observability",
+      "modules": [
+        "Observability: logging and tracing prompts, context and tool calls",
+        "LLM-as-a-judge, offline vs online evaluation",
+        "System-level metrics and latency, cost and UX tradeoffs",
+        "Input/output validation, schema enforcement with Pydantic, refusal logic",
+        "Prompt injection defence and safety frameworks: Guardrails.ai and OpenAI Guardrails"
+      ]
+    },
+    {
+      "group": "Cloud deployment and LLMOps on AWS",
+      "modules": [
+        "Cloud services for GenAI on AWS",
+        "Containerized deployment with ECS and Fargate",
+        "SageMaker model endpoints",
+        "API Gateway and application load balancing",
+        "CI/CD pipelines and production monitoring"
+      ]
+    }
+  ],
+  "projects": [
+    "Intelligent Document Portal — a production RAG system with the full upload → parse → chunk → embed → index → retrieve → generate pipeline, plus query rewriting, MMR retrieval, re-ranking, multi-document chat and document comparison, shipped with Redis caching (CAG), evaluation, guardrails and AWS ECS/Fargate deployment with CI/CD and observability",
+    "Autonomous Report Generation System — a multi-agent pipeline of Search, Reader, Analyst, Generator and Coordinator agents orchestrated as a LangGraph-style state workflow with shared memory, tool calling and RAG grounding for citation-aware output, including human-in-the-loop checkpoints, safe termination logic, a FastAPI dispatcher, a report preview UI and full traces and logs"
+  ],
+  "_comment_projects": "Only two projects, but both are full deployments rather than notebook demos, and they are the course's strongest differentiator against the other agentic bootcamps in the catalog — hence the unusually long descriptions. projects is a single embedded chunk (§4), so the detail costs one vector, not two.",
+
+  "skills": [
+    "Transformer architecture",
+    "Tokenization and text encoding",
+    "Embeddings and vector similarity",
+    "Model selection (LLM vs SLM vs multimodal)",
+    "OpenAI API",
+    "Anthropic API",
+    "Groq API",
+    "Prompt engineering (CoT, ReAct, few-shot)",
+    "Structured outputs and schema enforcement",
+    "LoRA",
+    "QLoRA",
+    "PEFT",
+    "Hugging Face Transformers",
+    "RLHF / DPO / ORPO / GRPO",
+    "RAG pipeline design",
+    "Chunking strategies",
+    "Pinecone",
+    "Qdrant",
+    "ChromaDB",
+    "FAISS",
+    "Cross-encoder re-ranking",
+    "Multimodal RAG",
+    "Context engineering and caching (CAG)",
+    "LangGraph",
+    "CrewAI",
+    "Multi-agent orchestration",
+    "Model Context Protocol (MCP)",
+    "LLM-as-a-judge evaluation",
+    "Guardrails and prompt-injection defence",
+    "AWS deployment (SageMaker, ECS/Fargate, API Gateway)"
+  ],
+  "_comment_skills": "Two edits to the published 'Skills You Will Acquire' list. (1) NORMALISED — several published entries are sentences ('Model Selection Strategy (Cost/Latency/Use-case)', 'Streaming Responses & API Optimisation'); §1 wants concrete named technologies, so near-duplicates were merged and the AWS services collapsed into one entry. (2) EXTENDED — the published list stops at guardrails and names no cloud service, no agent framework and no MCP, even though modules 9, 12 and 13 cover all three; those are corroborated by real modules and were added. Result is 30 entries, right at the validator's warn threshold, which is a fair reflection of a 16-module full-stack program.",
+  "career_roles": ["GenAI Engineer", "LLM Engineer", "AI Engineer", "Applied AI Engineer"],
+  "_comment_career_roles": "From the page's stated audience: 'AI engineers, software developers, and tech professionals'. Card field only — §4 keeps roles out of embedding text so this course doesn't match every 'how do I become an X' query.",
+
+  "prereq_ids": [],
+  "related_ids": ["agentic-ai-genai-cloud-bootcamp", "complete-agentic-ai-bootcamp-langgraph-langchain", "llmops-industry-ready-projects"],
+  "_comment_ladder": "Same-sponsor live alternative first, then the self-paced Udemy agentic course as the cheaper substitute, then the LLMOps course as the deployment-depth follow-on. `llmops-industry-ready-projects` is a forward reference (also pending from agentic-ai-genai-cloud-bootcamp) and WILL fail validate_graph() at ingest until that file is curated.",
+
+  "source_url": "https://www.krishnaik.in/liveclass2/genai?id=9",
+  "source_urls": [
+    "https://www.krishnaik.in/liveclass2/genai?id=9",
+    "https://learn.krishnaikacademy.com/web/checkout/698191788fbcdce9d5c067cb"
+  ],
+  "_comment_sources": "FIXED — the krishnaik.in landing page (id=9) is authoritative for the curriculum, objectives, mentors and pricing curated above; the learnkrishnaikacademy.com URL is the checkout/payment page for the same course, retained as a secondary source since it corroborates the fee. The earlier placeholder domain-root URL (an inference, not an observation) is replaced.",
+  "is_active": true
+}

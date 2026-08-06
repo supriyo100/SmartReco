@@ -18,6 +18,10 @@ app/agent/nodes/retrieve.py
 app/agent/nodes/validate.py
 app/auth/__init__.py
 app/catalog/__init__.py
+app/catalog/chunker.py
+app/catalog/freshness.py
+app/catalog/ingest.py
+app/catalog/loader.py
 app/db/__init__.py
 app/db/init_db.py
 app/db/models.py
@@ -35,4 +39,5 @@ smartreco.egg-info/dependency_links.txt
 smartreco.egg-info/entry_points.txt
 smartreco.egg-info/requires.txt
 smartreco.egg-info/top_level.txt
+tests/test_freshness.py
 tests/test_smoke.py

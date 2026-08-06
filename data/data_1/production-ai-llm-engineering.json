@@ -1,0 +1,254 @@
+{
+  "slug": "production-ai-llm-engineering",
+  "_comment_slug": "'Advanced Route' is a site section label (the sponsor also runs a 'Modern Route'), not part of what the course teaches, so it stays in `title` per §1 and out of the slug — same convention as full-stack-genai-agentic-ai-bootcamp. Immutable after ingest; ladder edges point here.",
+  "title": "Advanced Route-Production AI And LLM Engineering-Frontier AI From Research To Production",
+  "_comment_title": "Verbatim from the live-class page header, hyphens and all. The checkout listing publishes a SECOND name for the same program — 'Advanced Route-Production AI Engineering- Research To Production - LLMs, RAG & Agents, GENAIOPS'. Same start date, same fee, same mentors, same syllabus, so one course with two marketing names, not two courses. Recording the alternate here so a later curator who meets it doesn't create a duplicate file.",
+
+  "_comment_overview": "PARAPHRASED — never copy sponsor marketing prose. Facts (8 months, live weekend cohort, ₹13,000, 49 syllabus topics, 5 capstones, 2+ years experience gate) are used as-is; the wording is rewritten. The page's 'This is NOT an introductory course' framing is conveyed as an audience fact, not reproduced as a slogan.",
+  "overview": "An eight-month live weekend program on the full production LLM stack, aimed at practitioners with existing Python, deep learning and GenAI grounding rather than newcomers. It works down from transformer internals — attention variants, KV cache, scaling laws — through the complete fine-tuning lifecycle (PEFT, SFT, preference alignment, quantization, distillation), eight RAG architectures including Graph RAG and multimodal retrieval, and the 2026 agent stack of LangGraph, PydanticAI, MCP and A2A. Vision-language and speech models, guardrails, LLM gateways, RBAC and evaluation harnesses are first-class modules rather than appendices, and the program closes with five production capstone deployments.",
+
+  "category": "GenAI / LLM Engineering",
+  "_comment_category": "Unambiguous primary: the spine of the program is LLM internals, fine-tuning and RAG. Agents (7 topics) and LLMOps/production concerns are real but secondary, and the vision/speech block is three topics of forty-nine — enough for a secondary_category, not a primary. Category drives the B3 diversity cap, so it must reflect the bulk of the syllabus rather than the most marketable word in the title.",
+  "secondary_categories": ["Agentic AI", "MLOps / LLMOps", "Computer Vision"],
+  "level": "advanced",
+  "_comment_level": "Advanced with no level_range, deliberately — unlike the other bootcamps in this catalog, this one does not span. The page gates it explicitly: 'Only for Experienced Professionals (2+ Years Experience)', 'This is NOT an introductory AI course', and it opens at the attention mechanism rather than at Python. A level_range of ['advanced','advanced'] would be noise, so the field is omitted.",
+
+  "_comment_prereqs": "Prerequisites are stated outright: strong Python, fundamentals of NLP and deep learning, fundamentals of generative AI, and 2+ years professional experience. Unlike the other files in this catalog those map onto a real curated course, so `prereq_ids` carries an actual edge for once — see _comment_ladder.",
+
+  "price": 13000,
+  "currency": "INR",
+  "is_free": false,
+  "price_band": "high",
+  "_comment_price": "₹13,000.00 published as 'incl. GST' on both the live-class page and the checkout listing — the all-in figure, stored with no tax adjustment. Band 'high' per §2 (≥10,000). Own-site cohort pricing, so a number is safe; this is currently the most expensive course in the catalog.",
+  "rating": null,
+  "_comment_rating": "No rating or review count anywhere on either page. Null, not guessed.",
+
+  "source_platform": "own_site",
+
+  "format": {
+    "mode": "live",
+    "duration": "8 months",
+    "_comment_duration": "The cohort badge says '8 Months'; the checkout description says '7-8 Months'. Stored the badge figure as the committed length and recording the disagreement per §7. Marketing softness, not a version skew — unlike the module lists, which genuinely do disagree (see _comment_modules).",
+    "schedule": "Sat & Sun, 20:00-23:00 IST",
+    "duration_hours": null,
+    "_comment_duration_hours": "Null by design — live cohort, no on-demand hour count published.",
+    "cohort_start": null,
+    "_comment_cohort_start": "NULL ON PURPOSE. The advertised start is 19 July 2026, which is PAST as of the 6 Aug 2026 curation date — only 18 days past, but §3 admits no grace period: generate reads cohort_start as a live persuasion fact, and 'starts July 19' rendered in August is false regardless of the margin. Value moved to `cohort_start_stale`. This is the narrowest miss in the catalog and the most likely to be fixable: an 8-month program 18 days in is still realistically joinable, and the page is still selling it. If the sponsor confirms rolling entry or announces the next cohort, put that date here and freshness jumps from the recorded prior (0.45) back to the live prior (1.00).",
+    "enrollment_status": "open",
+    "_comment_enrollment_status": "'open' on strong evidence, not just an unretired button: the page carries an active Enroll Now CTA and the checkout listing says 'Limited Seats Available'. Eighteen days into an eight-month program is a genuinely enrollable position, which is why this is a clearer 'open' than the March-cohort sibling.",
+    "access": "2 years dashboard access",
+    "recording_available": true,
+    "_comment_recording": "Inferred, and flagged as such: the program features list '2 Years Dashboard Access' alongside live weekend sessions, which for this sponsor means session recordings on the dashboard (the sibling course states '1.5 years dashboard access' the same way). The page never uses the word 'recordings', so if this ever needs to be defended, the dashboard-access line is the whole basis.",
+    "content_updated": null,
+    "published_at": null,
+    "_comment_dates": "No publish date and no 'last updated' badge. Both null rather than guessed. The FAQ block includes the question 'Is the curriculum kept up to date?' but only the questions were captured, not the answers, so nothing there can be used as a date. Recency therefore falls through to cohort_start_stale (2026-07-19) under §6 — 18 days old, so this scores near the top of the recency range on real evidence.",
+    "curriculum_version": null,
+    "_comment_curriculum_version": "No version string is published, but two curricula ARE — see _comment_modules. Null per §7; do not invent '1.0' to paper over the skew."
+  },
+  "cohort_start_stale": "2026-07-19",
+  "_comment_cohort_stale": "Advertised start 'July 19, 2026'. Past as of curation. Reference and recency input only; §3/§6 keep it out of the generate context and out of freshness_label(), so it can never surface in copy.",
+
+  "mentors": ["Sourangshu Pal", "Krish Naik"],
+  "_comment_mentors": "Published roles: Sourangshu Pal — Lead AI Researcher; Krish Naik — Founder. The checkout listing spells the first mentor 'Sourangshu Paul'; the syllabus site and every other course in this catalog spell it 'Sourangshu Pal', so that spelling is used. A mentor name that differs by file would fragment any future instructor-based lookup.",
+  "perks": [
+    "2 years dashboard access",
+    "Live doubt-clearing sessions",
+    "Community discussion forum",
+    "Dedicated private Discord community",
+    "5 capstone projects",
+    "Breakdowns of 25+ research papers"
+  ],
+  "_comment_perks": "All six are stated verbatim in the checkout listing's 'Program Features' block and the feature bullets above it. Nothing inferred — perks is Tier 3 and goes into the generate prompt as fact.",
+
+  "_comment_objectives": "§1 corroboration rule applied, and it caught one. Every objective below maps to a named syllabus topic. DROPPED: the capstone paragraph promises deployment 'to AWS with Kubernetes', but Kubernetes appears in exactly that one marketing sentence and in no module of either published curriculum — the AWS/Bedrock and CI-CD claims are corroborated (Bedrock AgentCore, LLM gateways, agent CI/CD, deployment prep), Kubernetes is not. An uncorroborated objective is a lie with a citation attached, because validate cites these back to the user as reasons.",
+  "objectives": [
+    "Understand transformer internals end to end: self-attention, multi-head and masked attention, cross-attention, positional encodings and encoder/decoder variants",
+    "Reason about inference cost and architecture trade-offs using KV cache math, attention variants (MHA, MQA, GQA, MLA) and compute-optimal scaling laws",
+    "Run the full fine-tuning lifecycle from data preparation and synthetic dataset generation through PEFT, supervised fine-tuning and preference alignment",
+    "Compress and ship models for constrained hardware using quantization, knowledge distillation and small language model design",
+    "Train and evaluate frontier architectures including Mixture of Experts and reasoning models trained with GRPO and chain-of-thought",
+    "Build multimodal systems with vision transformers, vision-language models and Whisper speech fine-tuning",
+    "Design and evaluate eight RAG architectures including Graph RAG, multimodal RAG, vectorless retrieval, caching and retrieval security",
+    "Ship production agents with LangGraph, PydanticAI, MCP servers and the A2A protocol, including function calling and human-in-the-loop workflows",
+    "Operate LLM systems safely with guardrails, LLM gateways, RBAC, agent observability and evaluation harnesses"
+  ],
+  "objectives_dropped": [
+    "Deploy AI systems to AWS with Kubernetes — the capstone blurb names Kubernetes, but no module in either published curriculum covers it; AWS/Bedrock, CI/CD and observability are corroborated and are kept, K8s is not"
+  ],
+
+  "_comment_modules": "TWO CURRICULA ARE PUBLISHED FOR THIS COURSE AND THEY DO NOT MATCH — this is the §3 version-skew case, live. (a) advancedroute.krishnaik.cloud/#syllabus lists 49 numbered items: 44 topics plus 5 named capstones. (b) The checkout listing enumerates 24 consolidated 'Module NN' titles. 43 of the 44 topics map cleanly onto the 24 modules (e.g. modules 01 = topics 1-2, 06 = topics 10-12), so these are two GRANULARITIES of one curriculum, not two generations of it. But the overlap is not total in either direction: the 24-module list omits Graph RAG, Caching in RAG, Securing RAG, PydanticAI, Guardrails, LLM Gateways and RBAC in AI Systems, while it ADDS 'Module 14: Embedding Models: Taxonomy, Matryoshka & Fine-Tuning', which appears nowhere in the 49-item list. §3 forbids merging two versions' module lists, so the groups below are built from the 49-item syllabus site ALONE — the user named it as the syllabus source and it is the more specific document. The Embedding Models module is therefore NOT represented below; it is recorded here instead. Resolve against the detailed PDF (see source_urls) on the next pass. The 44 topics are clustered into 12 thematic groups per §4 — 44 chunks from one course would dominate RRF outright.",
+  "module_groups": [
+    {
+      "group": "Transformer architecture and tokenization",
+      "modules": [
+        "Embeddings: from discrete to continuous space",
+        "The attention mechanism; self-attention",
+        "Multi-head attention and masked multi-head attention",
+        "Cross-attention and positional encoding",
+        "Encoder-decoder, encoder-only and decoder-only transformers",
+        "Tokenization deep dive"
+      ]
+    },
+    {
+      "group": "Inference optimization and scaling laws",
+      "modules": [
+        "KV cache",
+        "Attention variants and positional encodings",
+        "Scaling laws"
+      ]
+    },
+    {
+      "group": "Fine-tuning lifecycle, pre-training and training data",
+      "modules": [
+        "Finetuning transformer architectures",
+        "The modern LLM finetuning development lifecycle",
+        "Pre-training deep dive",
+        "Data preparation for fine-tuning",
+        "Synthetic dataset generation"
+      ]
+    },
+    {
+      "group": "PEFT, supervised fine-tuning and preference alignment",
+      "modules": [
+        "Parameter-efficient fine-tuning (PEFT)",
+        "Supervised fine-tuning (SFT)",
+        "Preference alignment"
+      ]
+    },
+    {
+      "group": "Quantization, deployment prep and fine-tuning tooling",
+      "modules": [
+        "Quantization and deployment preparation",
+        "Tooling and frameworks"
+      ]
+    },
+    {
+      "group": "Frontier architectures: Mixture of Experts and reasoning models",
+      "modules": [
+        "Mixture of Experts",
+        "Reasoning models"
+      ]
+    },
+    {
+      "group": "Model efficiency: small language models and distillation",
+      "modules": [
+        "Small language models",
+        "Knowledge distillation"
+      ]
+    },
+    {
+      "group": "Multimodal: vision and speech models",
+      "modules": [
+        "Vision foundations",
+        "Visual language models",
+        "Speech AI and fine-tuning"
+      ]
+    },
+    {
+      "group": "LangChain and RAG foundations",
+      "modules": [
+        "LangChain",
+        "Foundations of RAG",
+        "Advanced RAG systems",
+        "Vector quantization and scaling"
+      ]
+    },
+    {
+      "group": "Specialised RAG architectures",
+      "modules": [
+        "Multi-modal RAG",
+        "Graph RAG",
+        "Vectorless RAG",
+        "Caching in RAG",
+        "Securing RAG"
+      ]
+    },
+    {
+      "group": "Agent frameworks and protocols",
+      "modules": [
+        "Pydantic: data validation and structured outputs",
+        "LangGraph",
+        "PydanticAI",
+        "Function calling",
+        "Model Context Protocol (MCP)",
+        "Agent-to-Agent (A2A) protocol",
+        "Agent observability tools"
+      ]
+    },
+    {
+      "group": "Prompt, context and harness engineering with production safety",
+      "modules": [
+        "Prompt engineering",
+        "Context engineering",
+        "Harness engineering",
+        "Evals",
+        "Guardrails",
+        "LLM gateways",
+        "RBAC in AI systems"
+      ]
+    }
+  ],
+  "projects": [
+    "MEDSCRIPTAI — capstone 1",
+    "EdgeReason — capstone 2",
+    "LexisGraph — capstone 3",
+    "QueryMesh — capstone 4",
+    "SynthForge — capstone 5"
+  ],
+  "_comment_projects": "The syllabus publishes the five capstone NAMES and nothing else — no per-project scope. The names invite obvious guesses (LexisGraph → legal Graph RAG, SynthForge → synthetic data, EdgeReason → on-device reasoning) and those guesses are deliberately NOT recorded, because projects is an embedded chunk and a wrong project description is a fabricated selling point. What the source does state collectively is that across the five, students fine-tune and align LLMs with QLoRA and DPO, build multimodal GraphRAG systems, design multi-agent pipelines with LangGraph, FastMCP and A2A, and generate synthetic training datasets at scale, deploying to AWS with CI/CD and observability. That sentence is corroborated by real modules and is reflected in the objectives; the name-to-scope mapping is not. The detailed PDF in source_urls should settle it.",
+
+  "skills": [
+    "Transformer internals (self-attention, multi-head, cross-attention)",
+    "Tokenization (BPE, WordPiece, SentencePiece)",
+    "KV cache and FlashAttention",
+    "Attention variants (MHA, MQA, GQA, MLA)",
+    "Scaling laws (Chinchilla, compute-optimal training)",
+    "PEFT (LoRA, QLoRA, DoRA, AdaLoRA)",
+    "Supervised fine-tuning (SFT)",
+    "Preference alignment (DPO, GRPO, ORPO, RLHF)",
+    "Synthetic dataset generation (Self-Instruct, Alpaca)",
+    "LLM-as-judge scoring and calibration",
+    "Quantization (GPTQ, AWQ, BNB NF4, GGUF)",
+    "Mixture of Experts",
+    "Reasoning model training (DeepSeek-R1, GRPO)",
+    "Knowledge distillation",
+    "Small language model design and pruning",
+    "Vision transformers (ViT, CLIP, SigLIP, DINOv2)",
+    "Vision-language models (VLMs)",
+    "Whisper speech fine-tuning",
+    "LangChain",
+    "LangGraph",
+    "Advanced RAG (rerankers, Self-RAG, corrective, adaptive)",
+    "Graph RAG with Neo4j",
+    "Multimodal RAG (ColPali, VL embeddings)",
+    "Vector quantization (scalar, binary, product)",
+    "Vectorless RAG (PageIndex)",
+    "PydanticAI",
+    "Model Context Protocol (MCP)",
+    "Agent-to-Agent (A2A) protocol",
+    "Context engineering",
+    "Harness engineering",
+    "Agent observability (LangSmith, Logfire, Langfuse)",
+    "AI guardrails and prompt-injection defence",
+    "LLM gateways (LiteLLM, Bedrock)",
+    "RBAC for AI systems (SAML, JWT)",
+    "Fine-tuning tooling (Unsloth, Axolotl, vLLM)",
+    "Production LLMOps and CI/CD"
+  ],
+  "_comment_skills": "36 entries, so validate_seed.py will warn above its 30 threshold — that warning is expected and this is the confirmation §7 asks for. The published 'Skills You Will Acquire' block is exactly 30 items, but it omits several of the course's own headline technologies: LangChain and LangGraph (topics 23 and 33), Graph RAG and Neo4j (topic 28, and a Why-Us headline), RBAC (topic 44), and the Unsloth/Axolotl/vLLM tooling named in the Why-Us block. Every addition is corroborated by a named topic. Sibling files in this catalog carry 39 and 41 skills for shorter programs, so 36 for a 44-topic, 8-month course is proportionate rather than padded.",
+  "career_roles": ["LLM Engineer", "AI Systems Architect", "Agentic AI Developer"],
+  "_comment_career_roles": "Stated verbatim by the source ('if you are serious about becoming an LLM Engineer, AI Systems Architect, or Agentic AI Developer'), so no inference was needed. Card field only — §4 keeps roles out of embedding text.",
+
+  "prereq_ids": ["ultimate-data-science-ai-engineering-3-0"],
+  "related_ids": ["full-stack-genai-agentic-ai-bootcamp", "agentic-ai-genai-cloud-bootcamp"],
+  "_comment_ladder": "The prereq edge is CURATOR-BUILT, not a vendor claim — the sponsor names no prior course. It is justified because the stated entry requirements (strong Python, NLP and deep-learning fundamentals, GenAI fundamentals) are precisely what ultimate-data-science-ai-engineering-3-0 delivers over 12 months, making this the natural top of that ladder and the catalog's first genuine beginner→advanced chain. related_ids point at the two mid-tier GenAI bootcamps as cheaper alternatives for anyone who fails the 2+ years experience gate. All three slugs resolve today, so this file adds no pending refs.",
+
+  "source_url": "https://www.krishnaik.in/liveclass2/Advanded-Route?id=12",
+  "source_urls": [
+    "https://www.krishnaik.in/liveclass2/Advanded-Route?id=12",
+    "https://advancedroute.krishnaik.cloud/#syllabus",
+    "https://drive.google.com/file/d/1IXKOj274mZm-ooEpqRhtMqWBNNVrv04b/view"
+  ],
+  "_comment_sources": "Three documents, and they are authoritative for different things. (1) krishnaik.in/liveclass2 is the landing/checkout page — authoritative for price, dates, schedule, mentors and program features, so it is `source_url`. Note the path contains the sponsor's own typo 'Advanded-Route'; it is kept because that is the address that actually resolves. (2) advancedroute.krishnaik.cloud/#syllabus is authoritative for the CURRICULUM and is what module_groups is built from. (3) The Google Drive PDF is the sponsor's 'Detailed Syllabus' and has not been read — reading it is the way to settle the 49-vs-24 skew and the unmapped capstone scopes recorded above. Also unread: the FAQ answers on the landing page (only the ten questions were captured), which is why prerequisites here come from the checkout listing's explicit block rather than from the FAQ.",
+  "is_active": true
+}

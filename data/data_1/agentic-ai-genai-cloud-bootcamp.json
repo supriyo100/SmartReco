@@ -1,0 +1,98 @@
+{
+  "slug": "agentic-ai-genai-cloud-bootcamp",
+  "title": "Live Agentic AI & Generative AI Application with Cloud (AWS & GCP)",
+
+  "_comment_overview": "PARAPHRASED from the sponsor's page — never copy marketing prose verbatim into the repo. Facts (price, modules, format) are used as-is.",
+  "overview": "A live, mentor-led bootcamp on building production agentic AI systems. Covers the LangChain/LangGraph stack, multi-agent design with CrewAI and AutoGen, agentic RAG, LLM observability, and deployment of generative AI workloads on AWS and GCP through end-to-end projects.",
+
+  "category": "Agentic AI",
+  "secondary_categories": ["GenAI / LLM Engineering", "Cloud", "MLOps / LLMOps"],
+  "level": "intermediate",
+  "price": 4500,
+  "currency": "INR",
+  "is_free": false,
+  "price_band": "mid",
+  "rating": 4.8,
+
+  "format": {
+    "mode": "live",
+    "duration": "4-5 months",
+    "schedule": "Sat-Sun, 15:00-18:00 IST",
+    "access": "1.5 years dashboard access",
+    "cohort_start": null,
+    "_comment_cohort_start": "NULL on purpose. The only cohort date the source publishes (2025-01-25) is in the past and lives in cohort_start_stale. Per schema §3 a past date must never sit in cohort_start — generate reads that field as a live persuasion fact. The consequence is deliberate and correct: freshness.py demotes a live/hybrid course with no future cohort to the `recorded` mode prior, because recordings of a finished cohort is operationally what a buyer gets today.",
+    "enrollment_status": "open",
+    "recording_available": true,
+    "content_updated": null,
+    "published_at": "2025-01-25",
+    "curriculum_version": null
+  },
+  "mentors": ["Krish Naik", "Sourangshu Pal", "Mayank Agarwal", "Sunny Savita"],
+  "perks": [
+    "Live doubt-clearing after each session",
+    "Community chat forum",
+    "Hackathons with rewards",
+    "Job referrals",
+    "1.5 years dashboard access"
+  ],
+  "_comment_cohort": "Listed start date (Jan 2025) is a PAST cohort. Stored for reference only, flagged stale — NEVER inject a stale date into recommendation copy. Field is excluded from the generate context.",
+  "cohort_start_stale": "2025-01-25",
+
+  "_comment_objectives": "SOURCE MISMATCH — see notes. The objectives block published alongside this course lists SpaCy / HuggingFace / text classification / NER / sentiment analysis, none of which appear in the 28-module syllabus. Those four are DROPPED. Only objectives corroborated by a real module are kept, because validate cites these to users.",
+  "objectives": [
+    "Develop agentic systems using multi-agent collaboration, decision-making frameworks, and feedback loops",
+    "Master retrieval-augmented generation (RAG) for grounding LLM outputs in retrieved information",
+    "Apply frameworks like LangChain and LangFlow to build scalable LLM workflows",
+    "Build and deploy conversational agents and chatbots with LangGraph, including third-party tool and API integration",
+    "Apply observability techniques for monitoring LLMs and agentic systems using Langfuse, LangWatch and LangSmith",
+    "Explore generative AI techniques including transformers and language models for text generation tasks",
+    "Deploy and fine-tune foundation models on AWS (Bedrock, SageMaker) and GCP (Vertex AI, Gemini)"
+  ],
+  "objectives_dropped": [
+    "NLP with SpaCy / HuggingFace",
+    "Text classification, sentiment analysis, named entity recognition"
+  ],
+
+  "_comment_modules": "28 flat modules are grouped into 7 THEMATIC CLUSTERS. Do not emit 28 chunks: 3-word module titles embed poorly, and 28 vectors from one course would dominate RRF and starve the rest of the catalog.",
+  "module_groups": [
+    {
+      "group": "Agentic AI foundations and frameworks",
+      "modules": ["Introduction to Agentic AI", "Phi Data: Agentic AI framework", "CrewAI platform", "Introduction to AutoGen"]
+    },
+    {
+      "group": "LangChain stack and deployment",
+      "modules": ["LangChain", "LCEL (LangChain Expression Language)", "LangServe for efficient AI deployment"]
+    },
+    {
+      "group": "LangGraph, agentic RAG and multi-agent systems",
+      "modules": ["LangGraph", "UX and human-in-the-loop with LangGraph", "Agentic RAG", "Designing multi-agent systems with LangGraph"]
+    },
+    {
+      "group": "Low-code workflows and tool integration",
+      "modules": ["LangFlow overview and setup", "Integration with third-party tools"]
+    },
+    {
+      "group": "LLM observability and monitoring",
+      "modules": ["Langfuse for LLM observability", "Metrics and monitoring in LangWatch", "LangSmith"]
+    },
+    {
+      "group": "Generative AI on AWS",
+      "modules": ["AWS cloud and services for generative AI", "AWS Bedrock", "AWS SageMaker", "AWS Lambda", "AWS API Gateway", "Text summarization with AWS services", "Fine-tuning foundation models on custom data", "Project: AWS"]
+    },
+    {
+      "group": "Generative AI on GCP",
+      "modules": ["GCP basics and introduction to Vertex AI", "Gemini models with Vertex AI and Google AI Studio", "Project: GCP"]
+    }
+  ],
+  "projects": ["End-to-end agentic AI projects", "AWS generative AI project", "GCP generative AI project"],
+
+  "skills": ["LangGraph", "LangChain", "LCEL", "LangServe", "LangFlow", "CrewAI", "AutoGen", "Phi Data", "Agentic RAG", "Multi-agent systems", "Human-in-the-loop", "Langfuse", "LangWatch", "LangSmith", "AWS Bedrock", "AWS SageMaker", "AWS Lambda", "API Gateway", "Vertex AI", "Gemini", "Fine-tuning"],
+  "career_roles": ["AI Agent Developer", "GenAI Engineer", "LLM Engineer", "Applied AI Engineer"],
+
+  "_comment_ladder": "The free->paid ladder edges. Slugs must exist in the catalog — seed.py validate_graph() enforces this.",
+  "prereq_ids": ["python-crash-course-free", "building-agentic-ai-free"],
+  "related_ids": ["langgraph-language-agents", "llmops-industry-ready-projects"],
+
+  "source_url": "https://learn.krishnaikacademy.com/web/checkout/67756cdadbaa44bc0baaec31",
+  "is_active": true
+}

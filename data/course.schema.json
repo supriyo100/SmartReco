@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://smartreco.local/schemas/course-1.0.json",
+  "title": "SmartReco Course v1.0",
+  "description": "One curated course. See data/COURSE_SCHEMA.md for the curation rules this schema cannot express (paraphrase-only overview, objective corroboration, module-group clustering, stale-date handling).",
+  "type": "object",
+  "required": ["slug", "title", "overview", "category", "level", "is_free", "skills", "objectives", "source_url"],
+
+  "properties": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Stable identity. Must equal the filename stem. Ladder edges reference it, so it is effectively immutable after ingest."
+    },
+    "title": {"type": "string", "minLength": 4, "description": "Verbatim from source — the one field copied exactly."},
+    "overview": {
+      "type": "string",
+      "minLength": 80,
+      "description": "PARAPHRASED, 2-4 sentences. Never sponsor marketing prose verbatim."
+    },
+
+    "category": {
+      "type": "string",
+      "enum": ["Agentic AI", "GenAI / LLM Engineering", "Data Science", "Data Engineering",
+               "MLOps / LLMOps", "NLP", "Computer Vision", "Analytics", "Cloud"],
+      "description": "Exactly one primary. Drives the B3 diversity cap, so a wrong bucket distorts the whole rec set."
+    },
+    "secondary_categories": {
+      "type": "array",
+      "items": {"$ref": "#/properties/category"},
+      "maxItems": 4
+    },
+
+    "level": {
+      "type": "string",
+      "enum": ["beginner", "intermediate", "advanced"],
+      "description": "The fusion-match anchor (0.15*level_match in confidence). Exactly one value, even for wide-span courses."
+    },
+    "level_range": {
+      "type": "array",
+      "items": {"$ref": "#/properties/level"},
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "[min, max] for genuinely wide courses. Stored only — NOT scored in v2.3. `level` must still stand alone."
+    },
+
+    "price": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "INR. null is legitimate for coupon-driven/volatile pricing and REQUIRES price_note. Null price is excluded from price-bounded retrieval filters."
+    },
+    "currency": {"type": "string", "enum": ["INR", "USD"], "default": "INR"},
+    "price_note": {
+      "type": "string",
+      "description": "Required when price is null. Quoted by the generate node in place of a number."
+    },
+    "price_band": {
+      "type": "string",
+      "enum": ["free", "low", "mid", "high"],
+      "description": "free=0, low=1-2999, mid=3000-9999, high>=10000 INR. When price is null this is estimated from the platform's typical range; record the basis in _comment_price."
+    },
+    "is_free": {
+      "type": "boolean",
+      "description": "Independent of price. Never inferred from it."
+    },
+    "rating": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 5,
+      "description": "null when not visible at the source. Never guess — the validator's null warning is expected behaviour."
+    },
+
+    "format": {
+      "type": "object",
+      "description": "Delivery + freshness block. Read by app/catalog/freshness.py. NEVER embedded (Tier 3).",
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["live", "hybrid", "self-paced", "recorded"],
+          "description": "live=scheduled cohort; hybrid=live + durable library; self-paced=always-on on-demand; recorded=replay of a FINISHED cohort."
+        },
+        "cohort_start": {
+          "type": ["string", "null"],
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "FUTURE dates only. A past date here is the most dangerous defect in this schema — generate reads it as a live persuasion fact. Move passed cohorts to top-level cohort_start_stale."
+        },
+        "enrollment_status": {
+          "type": "string",
+          "enum": ["open", "closing_soon", "waitlist", "closed"],
+          "default": "open"
+        },
+        "schedule": {"type": "string", "description": "Human-readable, with timezone. e.g. 'Sat & Sun, 20:00-23:00 IST'"},
+        "duration": {"type": "string", "description": "Calendar duration, e.g. '12 months'"},
+        "duration_hours": {"type": ["number", "null"], "description": "Content hours for self-paced; null for live cohorts."},
+        "effort": {"type": "string", "description": "e.g. '6 hrs/week'"},
+        "access": {"type": "string", "description": "e.g. '1.5 years dashboard access'"},
+        "recording_available": {"type": "boolean"},
+        "content_updated": {
+          "type": ["string", "null"],
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "Last real CURRICULUM revision, not last page edit. Leave null rather than guess — the scorer has defined unknown behaviour."
+        },
+        "published_at": {
+          "type": ["string", "null"],
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "First release. Recency fallback when content_updated is unknown."
+        },
+        "curriculum_version": {"type": ["string", "null"], "description": "Sponsors ship overlapping versions (3.0 page vs 2.0 PDF). Record which you curated, or null when the source publishes none — §7's null-with-a-comment rule applies."}
+      }
+    },
+
+    "cohort_start_stale": {
+      "type": ["string", "null"],
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "PAST cohorts only. Reference/recency input; excluded from generate context. Never rendered into copy."
+    },
+    "source_platform": {
+      "type": "string",
+      "enum": ["own_site", "udemy", "coursera", "youtube", "other"],
+      "default": "own_site"
+    },
+
+    "objectives": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"type": "string", "minLength": 20},
+      "description": "Highest-value retrieval keys — one chunk each, phrased as user intent. CORROBORATION RULE: keep only objectives a real module supports; validate cites these back to users."
+    },
+    "objectives_dropped": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Published objectives with no supporting module. Retained as an audit trail; never embedded, never cited."
+    },
+
+    "module_groups": {
+      "type": "array",
+      "maxItems": 12,
+      "description": "6-12 THEMATIC clusters, never one chunk per module: 3-word titles embed poorly and 28 vectors from one course starve the catalog out of RRF.",
+      "items": {
+        "type": "object",
+        "required": ["group", "modules"],
+        "properties": {
+          "group": {"type": "string", "minLength": 4},
+          "modules": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+        }
+      }
+    },
+    "projects": {"type": "array", "items": {"type": "string"}},
+
+    "skills": {
+      "type": "array",
+      "minItems": 4,
+      "items": {"type": "string"},
+      "description": "Concrete named technologies/techniques, not adjectives. 8-25 is typical; there is deliberately NO maxItems — a 12-month four-category program legitimately carries 40+, and that is a judgment call for validate_seed.py to warn about (which it does above 30), not a structural error that blocks ingest."
+    },
+    "career_roles": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Card field only. Embedding these makes every course match every 'how do I become an X' query."
+    },
+    "mentors": {"type": "array", "items": {"type": "string"}},
+    "perks": {"type": "array", "items": {"type": "string"}},
+
+    "prereq_ids": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Slugs. Must resolve at ingest (validate_graph fails loudly); forward refs are fine mid-curation."
+    },
+    "related_ids": {
+      "type": "array",
+      "items": {"type": "string"},
+      "maxItems": 4,
+      "description": "Carries similar AND alternative semantics — there are deliberately no similar_ids/bundle_ids arrays (arch C4)."
+    },
+
+    "source_url": {"type": "string", "format": "uri"},
+    "source_urls": {"type": "array", "items": {"type": "string", "format": "uri"},
+                    "description": "Use when syllabus and landing page differ; name the authoritative one in _comment_sources."},
+    "is_active": {"type": "boolean", "default": true}
+  },
+
+  "allOf": [
+    {
+      "if": {"properties": {"price": {"const": null}}, "required": ["price"]},
+      "then": {
+        "required": ["price_note"],
+        "$comment": "Null price without a price_note would leave the generate node with nothing to say about cost."
+      }
+    },
+    {
+      "if": {"properties": {"is_free": {"const": false}}, "required": ["is_free"]},
+      "then": {"required": ["price_band"]}
+    }
+  ],
+
+  "patternProperties": {
+    "^_comment": {
+      "type": "string",
+      "description": "Curation audit note. Stripped before embedding and before SQL write. Write one for every judgment call."
+    }
+  },
+  "additionalProperties": false
+}

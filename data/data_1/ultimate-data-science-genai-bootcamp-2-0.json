@@ -1,0 +1,157 @@
+{
+  "slug": "ultimate-data-science-genai-bootcamp-2-0",
+  "_comment_slug": "Page header/title reads '2.0 Ultimate Data Science & GenAI Bootcamp'; the version number was moved to the end of the slug per this catalog's convention (agentic-ai-agentops-bootcamp-3-0, ultimate-data-science-ai-engineering-3-0). NOTE: this is a DIFFERENT slug/version from the existing ultimate-data-science-ai-engineering-3-0.json in this same directory — same academy, overlapping 'Ultimate Data Science' branding, but this page is explicitly versioned '2.0', prices at a flat ₹10,000 flat fee (vs. that course's own pricing), and was not opened/compared here per the task's read-only instruction to check only the schema and the agentic-ai-agentops-bootcamp-3-0.json sibling. Flag for a follow-up dedup pass against ultimate-data-science-ai-engineering-3-0.json before both ship.",
+  "title": "2.0 Ultimate Data Science & GenAI Bootcamp",
+
+  "_comment_overview": "PARAPHRASED from the krishnaik.in/learn.krishnaikacademy.com landing page — marketing prose never copied verbatim. Facts (12-month duration, fee, module count, four capstones, framework/tool names) are used as-is.",
+  "overview": "A 12-month live cohort that takes complete beginners from Python and statistics fundamentals through classical machine learning, deep learning and NLP into generative AI, RAG and multi-agent orchestration with LangChain and LangGraph. Twenty-eight modules combine SQL/NoSQL database work and interactive Streamlit apps with production deployment via Docker, AWS and CI/CD pipelines. It closes with four end-to-end capstones spanning data engineering, machine learning, deep learning and a RAG Q&A system with CI/CD integration.",
+
+  "category": "Data Science",
+  "secondary_categories": ["GenAI / LLM Engineering", "Agentic AI", "NLP"],
+  "_comment_category": "Primary is unambiguous — the course is structured and marketed as a ground-up data science program ('No Experience Required, Expert on Exit'), with 12 of 28 modules covering Python/stats/classical ML/EDA before advanced topics begin. Secondary 'GenAI / LLM Engineering' for modules 17-20,26 (GenAI fundamentals, vector DBs, RAG, LangChain, MCP); 'Agentic AI' for modules 21-27 (Agentic AI intro through multi-agent research systems); 'NLP' for the dedicated NLP-for-ML and advanced-deep-learning-for-NLP modules (14, 16).",
+
+  "level": "beginner",
+  "level_range": ["beginner", "advanced"],
+  "_comment_level": "Page states explicitly 'No Experience Required, Expert on Exit' and opens with Python basics/container objects/loops — a true ground-zero anchor, unlike the sibling agentic-ai-agentops-bootcamp-3-0 which requires prior Python/NLP/DL knowledge. It genuinely spans up to multi-agent systems and MCP by module 27-28, hence level_range; `level` alone is what fusion_rank scores, and beginner is the correct anchor for who this course actually admits.",
+
+  "price": 10000,
+  "currency": "INR",
+  "_comment_price": "₹10,000.00 stated inclusive of GST, a flat course fee (not a monthly/EMI figure). Own-site cohort pricing, not coupon-driven, so a number is safe here. Band 'high' per §2 (>=₹10,000).",
+  "price_band": "high",
+  "is_free": false,
+
+  "rating": null,
+  "_comment_rating": "No star rating or review count published on the page. Null, not guessed — the validator's null-rating warning is expected.",
+
+  "source_platform": "own_site",
+
+  "format": {
+    "mode": "live",
+    "cohort_start": null,
+    "_comment_cohort_start": "Page states 'January 11, 2026'. Curation date is 2026-08-06 — nearly 7 months past that start date, so per schema §3 it CANNOT sit in format.cohort_start (generate would wrongly tell a user today to enrol for a cohort that already started). Moved to top-level cohort_start_stale. No next-cohort date is published, so cohort_start stays null; per §6 this demotes the freshness mode prior from 'live' (1.00) to the 'recorded' prior (0.45) until a future date is captured.",
+    "enrollment_status": "open",
+    "_comment_enrollment_status": "Page shows an active 'Enroll Now' CTA with no 'closed'/'waitlist' text captured, so 'open' is used per the schema default — but for a 12-month cohort that started ~7 months ago this is a weak signal (mid-cohort enrolment is atypical for this academy's other live programs); flag for confirmation against the live page.",
+    "schedule": "Sat & Sun, 09:00-13:00 IST & Wed, 20:30-22:30 IST",
+    "duration": "12 months",
+    "duration_hours": null,
+    "access": "3 years dashboard access",
+    "recording_available": true,
+    "_comment_recording": "'Features to Be Provided' lists 'Previous Batch Complete Recordings' as included.",
+    "content_updated": null,
+    "published_at": null,
+    "_comment_dates": "No publish or 'last updated' date is published. Both null rather than guessed. Recency falls through to cohort_start_stale (2026-01-11) under §6's fallback chain.",
+    "curriculum_version": "2.0",
+    "_comment_curriculum_version": "The page's own title/header names its version: '2.0 Ultimate Data Science & GenAI Bootcamp' / 'Ultimate Data Science & GenAI Bootcamp V2.0' — an actual stated fact, not inferred."
+  },
+  "cohort_start_stale": "2026-01-11",
+
+  "perks": [
+    "Dashboard access for 3 years",
+    "Previous batch complete recordings",
+    "Community chat forum for discussion",
+    "Live doubt clearing after each session",
+    "Hackathons with rewards",
+    "Job referrals (subject to availability)",
+    "Resume discussion and mock interview"
+  ],
+  "_comment_perks": "All seven items stated verbatim (paraphrased) under 'Features to Be Provided'. Item 6 on the page reads conditionally ('Job Referrals If we Have Any') — kept as a qualifier rather than a firm promise.",
+
+  "mentors": ["Krish Naik", "Sourangshu Pal", "Mayank Agarwal", "Sunny Savita", "Monal Kumar"],
+  "_comment_mentors": "Krish Naik, Sourangshu Pal, Mayank Agarwal and Sunny Savita are named on individual mentor cards (with titles Founder / Lead AI Researcher / Chief AI Dev / Sr AI Dev respectively) — canonical spellings matching the sibling agentic-ai-agentops-bootcamp-3-0.json. 'Monal Kumar' has no dedicated mentor card on this page but is corroborated twice in running text: the course-overview block ('Krish Naik Academy Mentors: Monal, Sourangshu Paul, Mayank Aggarwal And Sunny') and the Why-Us block ('Senior Data Scientist Sourangshu Pal & Monal Kumar') — included per the corroboration rule since two independent mentions agree, though the surname 'Kumar' itself is not directly confirmed on this page and should be verified.",
+
+  "objectives": [
+    "Write efficient, object-oriented Python and use Pandas, NumPy and Streamlit to analyze, visualize and present data in interactive web apps",
+    "Manage relational and document data with PostgreSQL on Supabase and MongoDB Atlas, writing queries and joins across both paradigms",
+    "Apply statistical reasoning, hypothesis testing and feature engineering to build, evaluate and tune ML models for regression, classification and clustering",
+    "Implement ensemble and advanced ML techniques -- SVMs, Decision Trees, Random Forests and XGBoost -- with gradient descent and Ridge/Lasso regularization, and process text with NLTK, TF-IDF and Word2Vec",
+    "Build deep learning models for NLP, including RNNs, LSTMs and modern Transformer architectures such as BERT and GPT",
+    "Master Generative AI fundamentals and vector databases (Chroma, Pinecone, FAISS) to build complete Retrieval-Augmented Generation systems",
+    "Use LangChain to build LLM chains and agents, and LangGraph to create stateful, graph-based workflows with memory and human-in-the-loop integration",
+    "Design multi-agent systems and deploy end-to-end AI projects to production using Docker, AWS, FastAPI and CI/CD automation pipelines"
+  ],
+  "_comment_objectives": "§1 corroboration rule applied -- nothing dropped. Each objective maps to a named module group: (1)->group 'Python & Data Analysis Toolkit' (modules 1,2,3,4,5,7), (2)->group 'Database Management' (module 6), (3)->group 'Statistics & Machine Learning' (modules 8-12), (4)->group 'Advanced ML & NLP' (modules 13-14), (5)->group 'Deep Learning & NLP' (modules 15-16), (6)->group 'Generative AI & RAG' (modules 17-19), (7)->group 'LangChain & LangGraph Orchestration' (modules 20-26), (8)->group 'Agentic AI & End-to-End Deployment' (modules 27-28). Written directly from the page's own eight 'What You Will Learn' card descriptions, restructured as user-intent phrasing per schema.",
+
+  "_comment_modules": "28 flat curriculum modules (only module 1 is individually broken into its 14 lectures on this page) clustered into the course's OWN 8 'What You Will Learn' section headings, used here as group names since the source already pre-clusters at the right granularity -- same approach as the sibling agentic-ai-agentops-bootcamp-3-0.json. Module 1's published lecture breakdown is folded into group 1 as a single descriptive entry rather than 14 separate chunks.",
+  "module_groups": [
+    {"group": "Python & Data Analysis Toolkit", "modules": [
+      "Python Foundations: objects, container types, operators, conditionals, loops, string methods, data structures, comprehensions, functions, iterators/generators and lambda/functional programming",
+      "Advanced Python Programming",
+      "Numerical Computing with NumPy",
+      "Data Analysis with Pandas",
+      "Data Visualization with Matplotlib & Seaborn",
+      "Building Interactive Data Apps with Streamlit"
+    ]},
+    {"group": "Database Management", "modules": [
+      "Working with Databases (SQL & NoSQL): PostgreSQL on Supabase and MongoDB Atlas, including queries and joins"
+    ]},
+    {"group": "Statistics & Machine Learning", "modules": [
+      "Foundations of Statistics",
+      "Advanced Statistical Analysis",
+      "Feature Engineering for Machine Learning",
+      "Exploratory Data Analysis (EDA)",
+      "Machine Learning Fundamentals: regression, classification and clustering"
+    ]},
+    {"group": "Advanced ML & NLP", "modules": [
+      "Ensemble and Advanced ML Techniques: SVMs, Decision Trees, Random Forests, XGBoost, gradient descent, Ridge/Lasso regularization",
+      "NLP for Machine Learning: NLTK, TF-IDF, Word2Vec"
+    ]},
+    {"group": "Deep Learning & NLP", "modules": [
+      "Deep Learning Foundations",
+      "Advanced Deep Learning for NLP: RNNs, LSTMs and Transformer architectures (BERT, GPT)"
+    ]},
+    {"group": "Generative AI & RAG", "modules": [
+      "Introduction to Generative AI",
+      "Vector Databases for AI Applications: Chroma, Pinecone, FAISS",
+      "Retrieval-Augmented Generation (RAG)"
+    ]},
+    {"group": "LangChain & LangGraph Orchestration", "modules": [
+      "Comprehensive Guide to LangChain: chains, agents, LCEL",
+      "Introduction to Agentic AI",
+      "LangGraph Fundamentals",
+      "State Management and Memory in LangGraph",
+      "UX & Human-in-the-Loop Systems in LangGraph",
+      "Agentic RAG Systems",
+      "Model Context Protocol (MCP)"
+    ]},
+    {"group": "Agentic AI & End-to-End Deployment", "modules": [
+      "Multi-Agent Systems for Research Automation",
+      "End-to-End AI & Data Projects: deployment with Docker, AWS EC2, FastAPI and CI/CD automation pipelines"
+    ]}
+  ],
+
+  "projects": [
+    "Data Engineering & Python Projects: full-stack database application with Supabase and Streamlit, plus an end-to-end review scraper",
+    "Machine Learning Project: Network Intrusion Detection System",
+    "Deep Learning Projects: text summarisation, machine translation and question answering models",
+    "Generative AI & RAG Project: RAG Q&A system with full CI/CD integration"
+  ],
+
+  "skills": [
+    "Python Programming (OOP)", "Data Analysis (Pandas & NumPy)", "Data Visualization (Matplotlib & Seaborn)",
+    "SQL (PostgreSQL & Supabase)", "NoSQL (MongoDB Atlas)", "Interactive Apps (Streamlit)",
+    "Statistics & Hypothesis Testing", "Feature Engineering (Scaling & Encoding)", "Machine Learning (XGBoost, SVM)",
+    "NLP (TF-IDF & Word2Vec)", "Deep Learning (Keras & PyTorch)", "Sequential Models (RNNs, LSTMs, GRUs)",
+    "Transformer Architectures (BERT, GPT)", "Generative AI Fundamentals", "Vector Databases (Chroma, Pinecone, FAISS)",
+    "Retrieval-Augmented Generation (RAG)", "LangChain (Chains, Agents, LCEL)", "LangSmith & LangServe (Deployment)",
+    "LangGraph for Agentic Workflows", "Agentic RAG (Adaptive, C-RAG, Self-RAG)", "Multi-Agent Systems",
+    "Human-in-the-Loop (HITL) Workflows", "Model Context Protocol (MCP)", "FastAPI Backend for Agents",
+    "CI/CD Automation (GitHub Actions)", "Deployment (Docker & AWS EC2)", "State Management in LangGraph"
+  ],
+  "_comment_skills": "27 entries taken directly from the page's own 'Skills You Will Acquire' bullet list -- already discrete named tools/techniques, no bundling to split (unlike agentic-ai-agentops-bootcamp-3-0's denser skills list).",
+
+  "career_roles": ["Data Scientist", "Machine Learning Engineer", "GenAI Engineer", "Agentic AI Engineer"],
+  "_comment_career_roles": "INFERRED from the overall curriculum shape (ground-up data science through ML/DL into GenAI and agentic systems) since the page does not publish an explicit target-audience/job-title list for this course. Card field only, never embedded.",
+
+  "prereq_ids": [],
+  "_comment_ladder": "Page explicitly states 'No Experience Required' -- a true ground-zero entry course, so prereq_ids is empty by design, not by omission. It is a plausible prerequisite FOR the more advanced agentic-ai-agentops-bootcamp-3-0 (which requires prior Python/NLP/DL/GenAI knowledge), so listed there via related_ids instead of duplicating the edge here.",
+  "related_ids": ["agentic-ai-agentops-bootcamp-3-0", "ultimate-data-science-ai-engineering-3-0"],
+  "_comment_related": "agentic-ai-agentops-bootcamp-3-0 is the natural advanced next step (its own prereq note points back to a course exactly like this one). ultimate-data-science-ai-engineering-3-0 is listed as related on name/topic overlap alone ('Ultimate Data Science' branding, same academy) -- per this task's instructions that file was not opened, so whether it is a near-duplicate, a superseding version, or a genuinely distinct offering is unconfirmed; needs a dedup pass.",
+
+  "source_url": "https://www.krishnaik.in/liveclass2/datascience?id=8",
+  "source_urls": [
+    "https://www.krishnaik.in/liveclass2/datascience?id=8",
+    "https://learn.krishnaikacademy.com/web/checkout/691b42c0b71f51e0ed062f11"
+  ],
+  "_comment_sources": "krishnaik.in/liveclass2/datascience?id=8 is the authoritative landing page for overview, curriculum, pricing, mentors and features. The learn.krishnaikacademy.com URL is this page's own checkout link, captured for reference only.",
+  "is_active": true
+}

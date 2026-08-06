@@ -1,0 +1,125 @@
+{
+  "slug": "ultimate-rag-bootcamp",
+  "title": "Ultimate RAG Bootcamp: Building Traditional to Agentic Systems with Cloud Deployment",
+
+  "_comment_overview": "PARAPHRASED from the krishnaik.in landing page and its accompanying checkout description — never copy sponsor marketing prose verbatim. Facts (fee, module count, framework list, five capstones, deployment targets) are used as-is; the 'move beyond theory' / 'ultimate' sales language is not reproduced.",
+  "overview": "A 4-5 month live weekend cohort that takes practitioners with existing Python, NLP and deep learning grounding from RAG foundations through to production-grade agentic retrieval systems. Seventeen modules move through document parsing, the LangChain/LlamaIndex/Haystack framework landscape, hybrid search and reranking, multimodal and structured RAG, conversational memory, agentic RAG with ReAct-style agents, and the Model Context Protocol, closing with Docker, Kubernetes and AWS EKS deployment. Learners build five progressively harder projects, from a basic RAG Q&A API to a multimodal assistant and an MCP-powered code review agent.",
+
+  "category": "GenAI / LLM Engineering",
+  "secondary_categories": ["Agentic AI", "MLOps / LLMOps", "Cloud"],
+  "_comment_category": "Primary is RAG/retrieval engineering — 12 of 17 modules are framework, parsing, retrieval-technique or multimodal RAG content. 'Agentic AI' secondary for the dedicated agentic RAG modules (12-13) and MCP module (16); 'MLOps / LLMOps' secondary for the production RAG module (14, Docker/FastAPI/CI-CD/monitoring); 'Cloud' secondary for the AWS EKS deployment target. Same convention as production-ai-llm-engineering, which also carries RAG+agents but is primaried on the LLM-engineering spine rather than the agentic minority.",
+
+  "level": "intermediate",
+  "level_range": ["intermediate", "advanced"],
+  "_comment_level": "The page states explicit prerequisites — good Python coding knowledge, basics of NLP and deep learning, basic knowledge of generative AI — which rules out a pure-beginner anchor, same reasoning as the sibling agentic-ai-agentops-bootcamp-3-0. The curriculum genuinely spans from RAG foundations (module 1) to agentic/production systems (modules 12-17), hence level_range; `level` alone is what fusion_rank scores.",
+
+  "price": 6999,
+  "currency": "INR",
+  "_comment_price": "₹6999.00 stated inclusive of GST on the checkout page. Own-site cohort pricing, not coupon-driven, so a number is safe here. Band 'mid' per §2 (₹3,000-9,999) — notably the cheapest of the Krish Naik Academy live bootcamps curated so far.",
+  "price_band": "mid",
+  "is_free": false,
+
+  "rating": null,
+  "_comment_rating": "No star rating or review count published on either the landing page or the checkout page. Null, not guessed — the validator's null-rating warning is expected.",
+
+  "source_platform": "own_site",
+
+  "format": {
+    "mode": "live",
+    "cohort_start": null,
+    "_comment_cohort_start": "Page states 'November 2, 2025'. Curation date is 2026-08-06 — that date is roughly nine months in the past, so per schema §3 it CANNOT sit in format.cohort_start (generate would wrongly tell a user today to enrol for a cohort that started last year). Moved to top-level cohort_start_stale. No next-cohort date is published, so cohort_start stays null; per §6 this demotes the freshness mode prior from 'live' (1.00) to the 'recorded' prior (0.45) until a future date is captured.",
+    "enrollment_status": "open",
+    "_comment_enrollment_status": "Page carries an active 'Enroll Now' CTA (repeated three times) with no waitlist/closed language, so 'open' reflects the page even though the stated cohort date is stale — flag for confirmation against the live page, since a genuinely started-and-finished cohort would normally show 'closed'.",
+    "schedule": "Sat & Sun, 09:00-12:00 IST",
+    "duration": "4-5 months",
+    "_comment_duration": "The Course Overview meta line states 'Duration : 4-5 months'; the top hero badge separately says '5 Months'; the sales-prose overview opens with 'a 4-month, project-driven program' and later says 'This 5 months, this intensive program...'. Stored the explicit meta-field figure ('4-5 months') as the most structured of the four mentions; softness in the marketing prose, not a version skew.",
+    "duration_hours": null,
+    "access": "1.5 years dashboard access",
+    "recording_available": true,
+    "_comment_recording": "Inferred, and flagged as such: perks list '1.5 years dashboard access' alongside 'Live Doubt Clearing After Session', which for this sponsor's other courses (see agentic-ai-agentops-bootcamp-3-0, production-ai-llm-engineering) consistently means session recordings on the dashboard. The page never uses the word 'recordings' itself.",
+    "content_updated": null,
+    "published_at": null,
+    "_comment_dates": "No publish or 'last updated' date is published. Both null rather than guessed. Recency falls through to cohort_start_stale (2025-11-02) under §6's fallback chain.",
+    "curriculum_version": null,
+    "_comment_curriculum_version": "Unlike agentic-ai-agentops-bootcamp-3-0, this page names no version number for itself, so null per §7 rather than inventing one."
+  },
+  "cohort_start_stale": "2025-11-02",
+
+  "perks": [
+    "1.5 years dashboard access",
+    "Free Udemy courses when coupons are available",
+    "Community chat forum for discussion",
+    "Live doubt clearing after each session",
+    "Hackathons with rewards",
+    "Resume discussion and mock interview"
+  ],
+  "_comment_perks": "Six benefits stated verbatim under 'Features to Be Provided' on the checkout page. Notably includes a resume/mock-interview perk not listed on the sibling agentops course.",
+
+  "mentors": ["Krish Naik", "Sourangshu Pal", "Mayank Agarwal", "Sunny Savita"],
+  "_comment_mentors": "Checkout page's own 'Mentors' line reads 'Sourangshu Paul,Mayank,Krish And Sunny' — canonicalized to the spellings already established across this catalog's other Krish Naik Academy files (Krish Naik, Sourangshu Pal, Mayank Agarwal) plus 'Sunny Savita', who mentors the sibling agentic-ai-genai-cloud-bootcamp under that same full name.",
+
+  "objectives": [
+    "Understand why Retrieval-Augmented Generation outperforms pure fine-tuning and prompt engineering, and set up end-to-end RAG pipelines starting from basic document Q&A",
+    "Build retrieval systems with LangChain, LlamaIndex and Haystack, covering ingestion, embeddings, advanced retrievers, hybrid search and framework integration",
+    "Parse and pre-process multi-format documents using tools like LlamaParse and Unstructured.io, and apply semantic chunking techniques",
+    "Orchestrate graph-based LLM workflows and stateful chatbots with LangGraph, including production-ready human-in-the-loop feedback",
+    "Apply enhanced retrieval techniques — hybrid dense and sparse search, reranking, query expansion and HyDE — to improve retrieval performance",
+    "Extend RAG across modalities and structured data sources, integrating SQL databases, APIs and JSON/CSV alongside text, images, tables, audio and video",
+    "Implement long-term conversational memory, personalization, context optimization and adaptive dialogue flows for contextual RAG",
+    "Develop agentic RAG systems using ReAct, tool calling and chain-of-thought reasoning, including multi-agent collaboration, Self-RAG and Graph RAG",
+    "Build custom Model Context Protocol (MCP) servers and integrate MCP with Claude and Cursor IDE using LangChain and Docker",
+    "Deploy scalable RAG pipelines to production with Docker, FastAPI, Kubernetes and AWS EKS, including CI/CD, monitoring and observability"
+  ],
+  "_comment_objectives": "§1 corroboration rule applied — nothing dropped. Each objective maps to a named module or 'What You Will Learn' section: (1)->module 1+3, (2)->modules 2,5,6,7, (3)->module 4, (4)->module 8, (5)->module 9, (6)->module 10, (7)->module 11, (8)->modules 12,13,15, (9)->module 16, (10)->module 14. Objectives closely mirror the page's own 'What You Will Learn' section headings/descriptions, which is why no mismatch surfaced here.",
+
+  "_comment_modules": "17 flat curriculum modules clustered into the course's OWN 12 'What You Will Learn' thematic section headings (used here as group names, since the source already pre-clusters at the right granularity), same convention as agentic-ai-agentops-bootcamp-3-0. Module 3 (Traditional RAG Implementation) has no dedicated 'What You Will Learn' heading and is folded into group 1 (Foundations) as the 'basic Q&A pipelines' mentioned in the overview prose.",
+  "module_groups": [
+    {"group": "Foundations of RAG", "modules": ["Why RAG matters over pure fine-tuning and prompt engineering", "Setting up end-to-end RAG pipelines with embeddings and vector databases", "Traditional RAG implementation: basic document Q&A pipelines"]},
+    {"group": "RAG Frameworks: LangChain, LlamaIndex and Haystack", "modules": ["LangChain for RAG ingestion, embeddings and retriever chains", "LlamaIndex data-centric retrieval pipelines", "Advanced LlamaIndex techniques", "Haystack for production search and QA pipelines"]},
+    {"group": "Document Parsing and Preprocessing", "modules": ["Multi-format document parsing with LlamaParse and Unstructured.io", "Semantic chunking strategies for retrieval quality"]},
+    {"group": "LangGraph and Workflow Orchestration", "modules": ["Graph-based LLM workflow orchestration with LangGraph", "Stateful chatbots and production-ready orchestrations with human-in-the-loop feedback"]},
+    {"group": "Enhanced RAG Techniques", "modules": ["Hybrid retrieval combining dense and sparse search", "Reranking strategies", "Query expansion and HyDE", "Advanced chunking for retrieval performance"]},
+    {"group": "Multimodal and Structured RAG", "modules": ["RAG over SQL databases, APIs and JSON/CSV", "Cross-modal search across text, images, tables, audio and video"]},
+    {"group": "Conversational and Contextual RAG", "modules": ["Long-term conversational memory", "Personalization and context optimization", "Adaptive dialogue flows"]},
+    {"group": "Agentic RAG Fundamentals and Advanced Patterns", "modules": ["Autonomous agents using the ReAct pattern", "Tool calling and chain-of-thought reasoning", "Multi-agent collaboration in retrieval workflows"]},
+    {"group": "Cutting-Edge RAG Techniques", "modules": ["Self-RAG", "Graph RAG", "Retriever fine-tuning", "Knowledge graph integration and domain adaptation"]},
+    {"group": "Model Context Protocol (MCP)", "modules": ["MCP fundamentals", "Integrating Claude and Cursor IDE via MCP", "Building custom MCP servers with LangChain and Docker"]},
+    {"group": "Production RAG Systems and Deployment", "modules": ["Deploying scalable RAG pipelines with Docker and FastAPI", "Kubernetes and AWS EKS deployment", "CI/CD, monitoring and observability for RAG systems"]},
+    {"group": "End-to-End Portfolio Projects", "modules": ["Basic RAG Q&A system with CI/CD", "Multi-source RAG with a vector database", "Hybrid search RAG with advanced chunking", "Multimodal RAG assistant (text, images, audio)", "MCP-powered code review and bug-fix assistant"]}
+  ],
+
+  "projects": [
+    "Basic RAG Q&A System with CI/CD",
+    "Multi-Source RAG with Vector Database",
+    "Hybrid Search RAG with Advanced Chunking",
+    "Multimodal RAG (Text + Images + Audio)",
+    "Smart Code Review & Bug Fix Assistant with MCP"
+  ],
+  "_comment_projects": "Five named projects, stated consistently in both the 'Projects You'll Build' section and the standalone Hands-on list. No version skew here, unlike the sibling agentops course's module-count discrepancy.",
+
+  "skills": ["Retrieval-Augmented Generation (RAG) pipelines", "LangChain", "LlamaIndex", "Haystack", "LangGraph",
+             "LlamaParse", "Unstructured.io", "Semantic chunking", "Hybrid search (dense + sparse retrieval)",
+             "Reranking", "Query expansion", "HyDE (Hypothetical Document Embeddings)", "Vector databases",
+             "Embeddings", "Multimodal RAG (text, images, audio, video)", "Structured RAG (SQL, APIs, JSON/CSV)",
+             "Conversational memory", "Context optimization", "Agentic RAG", "ReAct agent pattern", "Tool calling",
+             "Chain-of-thought reasoning", "Multi-agent collaboration", "Self-RAG", "Graph RAG",
+             "Retriever fine-tuning", "Knowledge graph integration", "Model Context Protocol (MCP)",
+             "MCP server development", "Claude Code / Cursor IDE integration", "Docker", "FastAPI", "Kubernetes",
+             "AWS EKS", "CI/CD"],
+  "_comment_skills": "35 entries exceeds the schema's 30-item guidance, matching the sponsor's own dense 'What You Will Learn' + module list breadth. Bundled published phrases (e.g. 'LangChain, LlamaIndex & Haystack', 'Docker, FastAPI, Kubernetes, and AWS EKS') were split into discrete named tools per §1; every entry maps to a real module.",
+
+  "career_roles": ["RAG Engineer", "GenAI / LLM Engineer", "Agentic AI Engineer", "AI Solutions Developer"],
+  "_comment_career_roles": "INFERRED from the stated audience ('AI engineers, ML practitioners, and developers who want to move beyond theory and master production-grade RAG systems') and the MCP-integrated code-review capstone. Card field only, never embedded.",
+
+  "prereq_ids": ["ultimate-data-science-ai-engineering-3-0"],
+  "_comment_ladder": "Curator-built edge, not a vendor claim — the page names no specific prior course, only skill prerequisites (Python, NLP/deep-learning fundamentals, GenAI basics). Same justification as production-ai-llm-engineering's prereq edge: ultimate-data-science-ai-engineering-3-0 delivers exactly those fundamentals over 12 months. related_ids point to the catalog's other GenAI/RAG/agentic programs for comparison shopping.",
+  "related_ids": ["production-ai-llm-engineering", "agentic-ai-agentops-bootcamp-3-0", "full-stack-genai-agentic-ai-bootcamp"],
+
+  "source_url": "https://www.krishnaik.in/liveclass2/ultimate-rag-bootcamp?id=7",
+  "source_urls": [
+    "https://www.krishnaik.in/liveclass2/ultimate-rag-bootcamp?id=7",
+    "https://learn.krishnaikacademy.com/web/checkout/68bbbf371263fba553cd0492"
+  ],
+  "_comment_sources": "Landing page (id=7) is authoritative for the curriculum, 'What You Will Learn' section and project descriptions used for module_groups and objectives. The checkout page is authoritative for fee, mentors, perks and prerequisites, and independently confirms the module list via its Google Drive syllabus link (not re-fetched beyond the captured module titles).",
+  "is_active": true
+}

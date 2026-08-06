@@ -1,0 +1,98 @@
+{
+  "slug": "complete-agentic-ai-bootcamp-langgraph-langchain",
+  "title": "Complete Agentic AI Bootcamp With LangGraph and Langchain",
+  "_comment_title": "§1 verbatim rule taken literally — the Udemy listing capitalises 'With' and writes 'Langchain' (no camel-case K). Earlier revision of this file silently 'corrected' both. The prose fields below use the vendor's own spelling 'LangChain'; only `title` is a copy.",
+
+  "_comment_overview": "PARAPHRASED — never copy Udemy marketing prose verbatim. Facts (45.5h, 27 sections / 183 lectures, self-paced) are used as-is; the wording is rewritten.",
+  "overview": "A self-paced, project-heavy bootcamp on building AI agents and multi-agent systems with LangGraph and LangChain. It runs from Python fundamentals through the LangChain retrieval stack and into production agentic patterns — ReAct agents, RAG variants, human-in-the-loop, MCP and deep agents. 45.5 hours of on-demand video across 27 sections, closing with four end-to-end agentic applications.",
+
+  "category": "Agentic AI",
+  "secondary_categories": ["GenAI / LLM Engineering", "NLP"],
+  "level": "intermediate",
+  "level_range": ["beginner", "advanced"],
+  "_comment_level": "Genuinely spans both — the first ~45 lectures are Python syntax, Numpy/Pandas and Pydantic; the last are multi-agent MCP and deep-agent systems. `level` is the fusion_rank anchor (intermediate = safest single match point); `level_range` is stored for a future two-sided level_match term and is NOT scored today.",
+  "_comment_prereqs": "Listing states requirements: basic Python (variables, functions, classes), basic REST/API familiarity, and conceptual familiarity with LLMs — no prior LangGraph. Those are generic entry conditions rather than a named catalog course, so `prereq_ids` stays empty; recording them here so a later curator doesn't read the empty array as 'not checked'.",
+
+  "price": null,
+  "_comment_price": "Udemy price is coupon-driven (the source URL carries ?couponCode=KEEPLEARNING) and fluctuates with sales. DO NOT store a number — it would be wrong within days and generate would inject a stale price as fact. price_band 'low' is estimated from Udemy's typical discounted India range (₹500-₹4,000), not from an observed number; §2 requires that basis be recorded, and this is it.",
+  "price_note": "Priced via Udemy, frequently discounted — check current price at checkout",
+  "is_free": false,
+  "price_band": "low",
+  "currency": "INR",
+
+  "source_platform": "udemy",
+  "_comment_platform": "Unlike the krishnaikacademy.com courses (source_platform 'own_site'). Lets the card disclose the platform and lets external-platform courses be excluded from the owned-site upsell chain (D5) if that is ever restricted.",
+
+  "format": {
+    "mode": "self-paced",
+    "duration_hours": 45.5,
+    "_comment_duration": "Two figures on one page: the 'This course includes' box says '45.5 hours on-demand video', the curriculum header says '27 sections • 183 lectures • 45h 40m total length' (=45.67h). Stored the includes-box figure; the 10-minute gap is listing rounding, not a version skew.",
+    "access": "lifetime (per Udemy standard terms)",
+    "enrollment_status": "open",
+    "recording_available": true,
+    "cohort_start": null,
+    "content_updated": null,
+    "published_at": null,
+    "_comment_dates": "Neither a publish date nor a 'Last updated' badge was captured in the source dump. Left null rather than guessed — freshness.py scores unknown recency at the defined 0.35 floor (below the one-year mark), which is the honest outcome: this course must not out-rank a known-fresh one on an invented date. Udemy does publish 'Last updated' on the listing; capture it next pass and freshness rises on real evidence.",
+    "curriculum_version": null,
+    "_comment_curriculum_version": "Udemy publishes no version string for this course. Null per §7 rather than inventing one — note that the syllabus does track LangChain v1 (a 'Langchain Updates V1' lecture plus the middleware lectures), so the content is post-v1."
+  },
+  "perks": [
+    "45.5 hours on-demand video",
+    "47 downloadable resources",
+    "1 role play exercise",
+    "Closed captions",
+    "Access on mobile and TV",
+    "Certificate of completion"
+  ],
+  "rating": null,
+  "_comment_rating": "Star rating and review count were not present in the captured text — leave null, don't guess. validate_seed.py's null-rating warning is expected here.",
+
+  "objectives": [
+    "Understand the core principles of Agentic AI and how to design intelligent, autonomous agents for real-world tasks",
+    "Master building AI agents using LangGraph, including workflows, agent state, memory, and event-driven behavior",
+    "Develop and deploy multi-agent collaborative systems that communicate, reason, and solve complex problems together",
+    "Implement hands-on projects such as autonomous research agents, task automation systems, and knowledge retrieval assistants",
+    "Build retrieval-augmented agents using agentic, corrective, adaptive and vectorless RAG patterns",
+    "Add human-in-the-loop control, guardrails and streaming to production agent workflows"
+  ],
+  "_comment_objectives": "§1 corroboration rule applied — nothing dropped. All four published objectives are supported by real lectures (ReAct architecture, agent memory/streaming, the multi-agent travel assistant, agentic RAG, MCP servers). The last two objectives are ADDED by curation, not published: the RAG-variant and human-in-the-loop/guardrails blocks are ~15 lectures of the syllabus and are the course's strongest differentiator, yet the marketing objectives never name them. They are corroborated by module_groups, which is the direction the rule cares about.",
+
+  "_comment_sections": "The listing header says 27 sections / 183 lectures, but the captured dump preserved only a flat lecture list with no section headers. The ten groups below are a topic clustering of that flat list, i.e. an APPROXIMATION of the real section structure — deliberate under §4 (6-12 thematic chunks, never one chunk per lecture; 183 lecture vectors would starve the rest of the catalog out of RRF). Follow-up, non-blocking: copy the actual 27 section titles from the course page.",
+  "module_groups": [
+    {"group": "Python foundations", "modules": ["Environment setup: Anaconda, VS Code, conda and uv virtual environments", "Python syntax, data types, control flow, loops, comprehensions", "Functions, lambda/map/filter, modules and packages, file and path handling", "OOP: classes, inheritance, polymorphism, encapsulation, abstraction, magic methods", "Exceptions, iterators, generators, closures and decorators", "Numpy, Pandas dataframes and data manipulation, logging, Pydantic"]},
+    {"group": "LangChain core and retrieval stack", "modules": ["Data ingestion with document loaders", "Text splitters: recursive character, character, HTML header, recursive JSON", "Embeddings: OpenAI, Ollama, HuggingFace", "Vector stores: FAISS and Chroma DB", "Retrievers and chains"]},
+    {"group": "LangChain applications and deployment", "modules": ["Building GenAI apps with LCEL prompt and output-parser chains", "Local models with Ollama; open-source models via the Groq API", "Deploying runnables and chains as APIs with LangServe", "Tracing and monitoring with LangSmith"]},
+    {"group": "LangChain agents and structured output", "modules": ["AI agent vs agentic AI; LangChain v1 updates", "Creating agents, tools, and message types", "Invoke, batch and streaming", "Structured output with Pydantic, TypedDict and dataclasses", "Summarization and human-in-the-loop middleware"]},
+    {"group": "LangGraph fundamentals", "modules": ["Nodes, edges and StateGraph construction and compilation", "API key setup for OpenAI, Groq and LangSmith", "State schemas with dataclasses and Pydantic", "LLM-powered chatbot graphs", "Chains and routers in LangGraph"]},
+    {"group": "LangGraph agent patterns", "modules": ["Tools and ToolNode integration; chatbots with multiple tools", "ReAct agent architecture and implementation", "Agent memory and checkpointing", "Streaming, including astream_events", "LangGraph Studio for debugging"]},
+    {"group": "Workflow design patterns", "modules": ["Prompt chaining", "Parallelization", "Routing", "Orchestrator-worker", "Evaluator-optimizer", "Human-in-the-loop: interrupts, editing and runtime feedback"]},
+    {"group": "RAG variants, guardrails and gateways", "modules": ["Agentic RAG: theory and implementation", "Corrective RAG", "Adaptive RAG", "Vectorless RAG with PageIndex; traditional vs vectorless comparison", "Guardrails with LangChain", "LLM gateways"]},
+    {"group": "Model Context Protocol and the Claude ecosystem", "modules": ["MCP components and inter-component communication", "MCP with Claude Desktop; Cursor IDE; Smithery AI", "Building MCP servers, tools and clients from scratch with LangChain", "Claude Code: setup, agents, agent views, agent teams, hooks, skills and plugins"]},
+    {"group": "Deep agents and context engineering", "modules": ["Deep agents basics and customization", "Backends in deep agents; deep agents vs the Claude SDK", "Context engineering and its types; skills for context engineering", "Sub-agents in deep agents"]},
+    {"group": "End-to-end agentic projects", "modules": ["Streamlit + LangGraph agentic app with GitHub repo and project structure", "AI news agent: Tavily search, summarize and save-results nodes", "Blog generation and translation service with FastAPI and LangGraph Studio", "Multi-agent travel assistant"]}
+  ],
+  "projects": [
+    "End-to-end Streamlit agentic application with a LangGraph graph-builder pipeline",
+    "AI news agent that fetches, summarizes and saves results using Tavily search",
+    "Blog generation and multi-language translation API built with FastAPI and LangGraph",
+    "Multi-agent travel assistant using LangGraph",
+    "MCP servers, tools and clients built from scratch with LangChain"
+  ],
+
+  "skills": ["LangGraph", "LangChain", "LCEL", "LangServe", "LangSmith", "LangGraph Studio",
+             "ReAct agents", "Multi-agent systems", "Agentic RAG", "Corrective RAG",
+             "Adaptive RAG", "Vectorless RAG", "Human-in-the-loop workflows", "LLM guardrails",
+             "Model Context Protocol (MCP)", "Claude Code", "Deep agents", "Context engineering",
+             "FAISS", "ChromaDB", "OpenAI API", "Ollama", "Groq API", "HuggingFace embeddings",
+             "Tavily", "Pydantic", "FastAPI", "Streamlit"],
+  "career_roles": ["AI Agent Developer", "GenAI Engineer", "LLM Engineer", "AI/ML Engineer"],
+  "_comment_career_roles": "Derived from the listing's 'Who this course is for' (AI/ML engineers, data scientists, software engineers moving into multi-agent orchestration). Card field only — §4 keeps roles out of embedding text so this course doesn't match every 'how do I become an X' query.",
+
+  "prereq_ids": [],
+  "related_ids": ["langgraph-language-agents", "agentic-ai-genai-cloud-bootcamp"],
+
+  "source_url": "https://www.udemy.com/course/complete-agentic-ai-bootcamp-with-langgraph-and-langchain/",
+  "_comment_sources": "Landing page is authoritative for everything here. The ?couponCode=KEEPLEARNING query param is stripped from source_url — it is a marketing token, not part of the course's address, and it would expire.",
+  "is_active": true
+}

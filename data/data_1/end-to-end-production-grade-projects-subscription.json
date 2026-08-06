@@ -1,0 +1,136 @@
+{
+  "slug": "end-to-end-production-grade-projects-subscription",
+  "_comment_type": "NOT a syllabus-based course. Per the source page this is an annual SUBSCRIPTION to a growing library of standalone, production-grade projects spanning AI/ML, Data Science, GenAI, Agentic AI and Data Engineering/MLOps, plus live project-walkthrough sessions. There is no single curriculum, no cohort, and no named module list — only project categories and a shared project-design template. module_groups below reflects that: it clusters the source's stated project categories and design methodology, not a lecture syllabus.",
+  "title": "End To End Production Grade Industry Ready Projects(AI/ML/DS/Gen AI/Agentic AI/ DE)-Subscription",
+  "_comment_title": "Copied verbatim from the checkout page, including its irregular spacing/punctuation ('Gen AI/Agentic AI/ DE', no space before the parenthesis) per §1's copy-exactly rule for title.",
+
+  "_comment_overview": "PARAPHRASED from the sponsor's checkout page — never copy marketing prose verbatim. Facts (yearly subscription, five project domains, alternate-weekend live sessions, Krish Naik Academy) are used as-is; the 'bridges the gap' / 'toy datasets vs real company environments' framing is rewritten rather than quoted.",
+  "overview": "An annual subscription from Krish Naik Academy giving access to a growing library of standalone, production-grade projects across AI/ML, Data Science, Generative AI, Agentic AI, and Data Engineering/MLOps, rather than a single fixed syllabus. Each project follows the same industry-style template — problem framing, system architecture, data pipelines, model or agent development, deployment-ready implementation, and evaluation — with new projects added throughout the subscription period. Alternate Saturday and Sunday evening sessions provide project walkthroughs and doubt clarification alongside the self-paced project library.",
+
+  "category": "MLOps / LLMOps",
+  "_comment_category": "JUDGMENT CALL. The page names five equally-weighted domains (AI/ML, Data Science, GenAI, Agentic AI, Data Engineering & MLOps), so no domain is textually dominant. Primary is set to MLOps/LLMOps because that is what actually differentiates THIS service from the catalog's teaching bootcamps: unlike e.g. ultimate-data-science-ai-engineering-3-0, this page teaches no fundamentals (no Python/stats/DL modules) and its entire pitch is deployment-grade engineering practice — 'production-level', 'scalable', 'deployment-ready implementation', 'real deployment scenarios', 'architecture diagrams'. Data Science, GenAI/LLM Engineering, Agentic AI and Data Engineering are all carried as secondaries so the diversity cap (B3) still sees the full span.",
+  "secondary_categories": ["Data Science", "GenAI / LLM Engineering", "Agentic AI", "Data Engineering"],
+
+  "level": "intermediate",
+  "level_range": ["intermediate", "advanced"],
+  "_comment_level": "Page targets 'Aspiring Data Scientists, ML Engineers, AI Engineers', professionals 'transitioning into' GenAI/Agentic AI roles, and learners wanting 'industry exposure beyond courses' — i.e. people who already have foundational knowledge and want applied, production-grade practice, not first-time learners. No beginner track is offered anywhere on the page, so beginner is excluded from level_range. `level`=intermediate is the fusion anchor; level_range is stored only, not scored (§1).",
+
+  "price": 9000,
+  "currency": "INR",
+  "is_free": false,
+  "price_band": "mid",
+  "_comment_price": "Page shows a struck-through ₹12000 list price and a current ₹9000/yearly price. Stored the current effective price (₹9000) as the number a buyer actually pays today, matching how other own-site Krish Naik Academy pages in this catalog store the displayed price rather than a list price. Band 'mid' per §2 (₹3,000-9,999). This is own-site fixed pricing, not Udemy coupon pricing, so a number (not null) is appropriate here — but the visible markdown means it could move; re-check at re-curation.",
+  "rating": null,
+  "_comment_rating": "No star rating or review count published on the page. Null, not guessed — the validator's null-rating warning is expected.",
+
+  "source_platform": "own_site",
+
+  "format": {
+    "mode": "hybrid",
+    "_comment_mode": "'hybrid' because the offering is BOTH a durable, always-available project library (start any project today) AND scheduled live sessions (project walkthroughs and doubt clarification, alternate Sat & Sun). Not 'self-paced' because live sessions are explicitly part of delivery; not 'live' because there is no single cohort start — access begins on purchase.",
+    "cohort_start": null,
+    "_comment_cohort_start": "No cohort exists for a rolling-enrollment subscription — this is a structural null, not a stale-past-date case like the sibling bootcamp files. No next cohort to record. Per §6 this still demotes the freshness mode prior toward 'recorded' (0.45) in the absence of a future date, which is an accurate reflection of what freshness.py can determine from a subscription with no time-bound intake.",
+    "enrollment_status": "open",
+    "schedule": "Project walkthroughs & doubt clarification, alternate Sat & Sun, 20:00-23:00 IST",
+    "duration": "12 months",
+    "duration_hours": null,
+    "_comment_duration_hours": "Null by design — the project library is open-ended and growing throughout the subscription; no total content-hours figure is published.",
+    "access": "1 year (annual) access to the full project library, with new projects added during the subscription period",
+    "content_updated": null,
+    "published_at": null,
+    "curriculum_version": null,
+    "_comment_dates": "No publish date, 'last updated' badge, or version string is published, and none is implied by a stable module list since the library is explicitly described as growing. All three left null per §7 rather than guessed; recency falls through to the unknown floor (0.35, §6)."
+  },
+
+  "_comment_mentors": "No individual mentor/instructor names are published on this page (only the academy name, 'By Krish Naik Academy'). `mentors` is omitted rather than guessed, unlike the sibling bootcamp pages which name specific instructors.",
+  "perks": [
+    "Annual access to all existing projects in the library",
+    "New projects added regularly during the subscription period",
+    "Live project walkthrough and doubt-clarification sessions, alternate Sat & Sun 20:00-23:00 IST",
+    "Step-by-step walkthroughs with production-quality code",
+    "Architecture diagrams, workflows and best-practice documentation per project"
+  ],
+
+  "_comment_objectives": "§1 corroboration rule applied. Each objective maps to one of the five stated project domains or the shared project-design template below — nothing published was dropped, and nothing was added beyond what the page states.",
+  "objectives": [
+    "Build real-world prediction systems and production ML training pipelines, with evaluation and optimization strategies used in industry",
+    "Practice complete data science workflows — EDA, feature engineering, business problem framing and insight generation — on production-style problems",
+    "Build production-ready Generative AI applications such as RAG systems, AI assistants, copilots and other LLM-powered tools",
+    "Design autonomous and multi-agent Agentic AI systems that can plan, reason, use tools and execute workflows end-to-end",
+    "Build scalable data engineering and MLOps pipelines covering ingestion, orchestration, versioning, deployment and monitoring",
+    "Follow an industry-style project process — problem framing, system architecture, data pipelines, model/agent development, deployment-ready implementation and performance evaluation — on every project",
+    "Build a strong, industry-ready project portfolio to prepare for interviews, promotions and career transitions into AI, GenAI or Agentic AI roles"
+  ],
+
+  "_comment_modules": "No lecture-level modules are published (see _comment_type). The two groups below are the page's own structure: its five stated project domains, and its shared six-step project-design template ('How Projects Are Designed'). This is coarser than the 6-12 thematic groups in the sibling bootcamp files because the source itself is coarser — a project catalog, not a syllabus.",
+  "module_groups": [
+    {
+      "group": "AI/ML and Data Science production projects",
+      "modules": [
+        "Real-world prediction systems, model training pipelines, evaluation strategies and optimization techniques",
+        "Complete data science workflows: EDA, feature engineering, business problem framing and insight generation"
+      ]
+    },
+    {
+      "group": "Generative AI and Agentic AI projects",
+      "modules": [
+        "Production-ready GenAI applications: RAG systems, AI assistants, copilots and LLM-powered tools",
+        "Autonomous and multi-agent systems that plan, reason, use tools and execute workflows end-to-end"
+      ]
+    },
+    {
+      "group": "Data Engineering and MLOps projects",
+      "modules": [
+        "Scalable ETL pipelines and data ingestion systems",
+        "Orchestration, versioning, deployment and monitoring"
+      ]
+    },
+    {
+      "group": "Shared industry-style project design template",
+      "modules": [
+        "Problem statement and business context",
+        "System architecture and design decisions",
+        "Data ingestion and processing pipelines",
+        "Model development / GenAI / agent workflows",
+        "Deployment-ready implementation",
+        "Performance evaluation and optimization"
+      ]
+    }
+  ],
+
+  "_comment_projects_field": "No individual project titles are named anywhere on the page — only the five domain categories and the shared design template captured in module_groups above. Naming specific projects here would be fabrication, so the `projects` field is omitted entirely rather than filled with invented examples.",
+
+  "_comment_skills": "The page names no specific vendor tools/frameworks anywhere (unlike the sibling bootcamp pages, which list LangGraph, AWS Bedrock, etc.) — it only describes techniques and system components. Entries below are those techniques, phrased as concrete retrieval keys per §1, not adjectives, and not invented product names.",
+  "skills": [
+    "Prediction system design",
+    "Model training pipelines",
+    "Model evaluation strategies",
+    "Model optimization techniques",
+    "Exploratory Data Analysis (EDA)",
+    "Feature engineering",
+    "Business problem framing",
+    "Retrieval-Augmented Generation (RAG)",
+    "LLM-powered application development",
+    "AI copilots and assistants",
+    "Multi-agent systems",
+    "Agent planning and tool use",
+    "ETL pipeline design",
+    "Data ingestion systems",
+    "Workflow orchestration",
+    "Data and model versioning",
+    "Production deployment",
+    "System monitoring",
+    "System architecture design",
+    "Performance evaluation and optimization"
+  ],
+
+  "career_roles": ["Data Scientist", "Machine Learning Engineer", "AI Engineer", "GenAI Engineer", "Agentic AI Engineer", "Data Engineer"],
+  "_comment_career_roles": "From 'Who This Service Is For': aspiring Data Scientists/ML Engineers/AI Engineers, professionals transitioning into GenAI/Agentic AI roles, and Data Engineers wanting production-level experience. Card field only, never embedded (§4).",
+
+  "prereq_ids": [],
+  "_comment_ladder": "Page targets learners who already know concepts and want applied practice ('bridges the gap between learning concepts and applying them'), but names no specific prerequisite course, so prereq_ids stays empty rather than guessing. related_ids links the broad-foundation and domain-specific Krish Naik Academy bootcamps this subscription complements.",
+  "related_ids": ["ultimate-data-science-ai-engineering-3-0", "agentic-ai-agentops-bootcamp-3-0", "full-stack-genai-agentic-ai-bootcamp"],
+
+  "source_url": "https://learn.krishnaikacademy.com/web/checkout/696db98b889e1fd24afa8497",
+  "is_active": true
+}

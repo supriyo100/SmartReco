@@ -1,0 +1,134 @@
+{
+  "slug": "ultimate-data-science-ai-engineering-3-0",
+  "title": "3.0 Ultimate Data Science & AI Engineering",
+
+  "_comment_overview": "PARAPHRASED from the krishnaik.in landing page — never copy marketing prose verbatim. Facts (fee, dates, schedule, module list, mentors) are used as-is.",
+  "overview": "A 12-month live, mentor-led program that takes absolute beginners from Python and statistics through to production Generative AI and autonomous agent systems. Covers the full modern stack — Pandas, SQL/NoSQL, PySpark, MLflow, FastAPI, deep learning and transformers, LangChain, RAG, LangGraph and MCP — with end-to-end projects deployed via GitHub Actions, Docker and AWS.",
+
+  "category": "Data Science",
+  "secondary_categories": ["GenAI / LLM Engineering", "Agentic AI", "MLOps / LLMOps"],
+
+  "level": "beginner",
+  "level_range": ["beginner", "advanced"],
+  "_comment_level": "The page states zero prerequisites and the curriculum opens at Python syntax, so `beginner` is the honest fusion anchor — it is the audience the course is sold to. It genuinely ends at multi-agent MCP systems, hence level_range. Same treatment as the LangGraph bootcamp, opposite anchor: that one is sold to practitioners, this one is sold to newcomers.",
+
+  "price": 12000,
+  "currency": "INR",
+  "_comment_price": "₹12000.00 stated inclusive of GST. Own-site fixed pricing (not coupon-driven), so a number is safe here — unlike the Udemy course. price_band 'high' per schema §2 (>= ₹10,000).",
+  "price_band": "high",
+  "is_free": false,
+
+  "rating": null,
+  "_comment_rating": "No rating published on the landing page. null, not guessed. The validator warning on this is expected.",
+
+  "format": {
+    "mode": "live",
+    "cohort_start": "2026-09-06",
+    "_comment_cohort_start": "FUTURE cohort (31 days out as of curation on 6 Aug 2026) — this is the case cohort_start exists for, and the only course in the catalog currently carrying one. It puts this course at recency 1.0 in freshness.py (inside the 0-60 day enrollable window) and keeps the live mode prior, which is exactly the 'people want live and recent' behaviour the scoring is for. When 2026-09-06 passes, move it to cohort_start_stale.",
+    "enrollment_status": "open",
+    "schedule": "Sat & Sun, 20:00-23:00 IST",
+    "_comment_schedule": "Source says '8 Pm to 11 Pm' with no timezone. IST inferred — krishnaik.in is an India-based academy and the sibling cloud bootcamp publishes IST explicitly. Flagged rather than silently assumed.",
+    "duration": "12 months",
+    "duration_hours": null,
+    "effort": "6 hrs/week",
+    "_comment_effort": "Sat+Sun x 3h = 6 hrs/week from the schedule, and the attached syllabus independently states '10-12 months 6hrs/week'. Two sources agree, so this is stated rather than derived.",
+    "recording_available": true,
+    "content_updated": null,
+    "_comment_content_updated": "No revision date is published. Left null. Recency for this course comes from the future cohort_start (which dominates for live mode anyway), so nothing is lost by refusing to guess — the 3.0 version bump implies a recent revision but implication is not a date.",
+    "curriculum_version": "3.0"
+  },
+
+  "mentors": ["Monal Singh", "Sourangshu Pal"],
+  "_comment_mentors": "Listed mentors only: Monal Singh (Data Scientist), Sourangshu Pal (Lead AI Researcher). Krish Naik is the academy's founder but is NOT listed as a mentor on this page — not added.",
+
+  "_comment_objectives": "Two sources, reconciled. The attached PDF publishes a Learning Objectives block, but that PDF is the 2.0 syllabus (see _comment_modules); the landing page publishes a 3.0 'What You Will Learn' block. Every objective below is corroborated by a numbered module in the 32-module 3.0 curriculum, per schema §1. The four 3.0-only objectives (PySpark, MLflow, FastAPI, CI/CD deployment) are kept because they map to modules 17, 15, 14 and 24+32 — the exact modules 3.0 adds over 2.0. Nothing was dropped: unlike the cloud bootcamp, this course's objectives and syllabus agree.",
+  "objectives": [
+    "Write efficient, reusable Python code using OOP, file handling, and concurrency",
+    "Manipulate and analyse structured data with NumPy and Pandas, and process large-scale datasets with PySpark for distributed computing",
+    "Use statistical reasoning and hypothesis testing to explore, interpret, and validate real-world datasets",
+    "Build, evaluate, and tune regression, classification, and clustering models, including ensemble methods such as Random Forests and XGBoost",
+    "Track experiments and manage the model lifecycle with MLflow, and serve models through production APIs built with FastAPI",
+    "Work with RNNs, LSTMs, GRUs, Attention, and Transformer architectures including BERT and GPT",
+    "Manage and query data using SQL (PostgreSQL and Supabase) and NoSQL (MongoDB Atlas), and build data-driven apps with Streamlit",
+    "Use vector databases (Chroma, Pinecone, FAISS) for embedding-based search and build Retrieval-Augmented Generation systems with LangChain",
+    "Design agent architectures for research, automation, and reasoning using LangGraph and the Model Context Protocol, including memory and human-in-the-loop feedback",
+    "Implement CI/CD pipelines with GitHub Actions and deploy agent systems using Docker on AWS"
+  ],
+  "_comment_objectives_inferred": "One published claim was NOT promoted to an objective: LLM observability and evaluation (RAG Triad, LLM-as-a-Judge, LangSmith, Opik AI, Ragas) appears only in the page's 'Why This Course' marketing section and the skills list, with no dedicated module. Module 24 'Enterprise LLM Systems & Infrastructure' plausibly contains it, but plausibly is not corroboration — it is kept in `skills` (where it is a searchable term) and out of `objectives` (which validate cites back to users as fact).",
+
+  "_comment_modules": "VERSION SKEW, resolved. The landing page lists 32 modules (3.0). The syllabus PDF linked from the same page is headed 'Verson 2.0 Ultimate Data Science & GenAI Bootcamp' and lists 27. The diff is exact and verifiable: 3.0 adds FastAPI (14), MLflow (15), PySpark (17), Enterprise LLM Systems & Infrastructure (24), and End-to-End AI & Data Projects (32) — 27 + 5 = 32. This file curates the 32-module 3.0 list, which is what the September 2026 cohort is sold. The two lists are NOT merged (schema §3). The 32 flat modules are clustered into 10 thematic groups below rather than emitted as 32 chunks.",
+  "module_groups": [
+    {
+      "group": "Python programming foundations",
+      "modules": ["Python Foundations", "Advanced Python Programming"]
+    },
+    {
+      "group": "Data analysis and visualization toolkit",
+      "modules": ["Numerical Computing with NumPy", "Data Analysis with Pandas", "Data Visualization with Matplotlib & Seaborn"]
+    },
+    {
+      "group": "Databases and data applications",
+      "modules": ["Working with Databases (SQL & NoSQL)", "Building Interactive Data Apps with Streamlit", "Building Production APIs with FastAPI"]
+    },
+    {
+      "group": "Statistics and exploratory data analysis",
+      "modules": ["Foundations of Statistics", "Advanced Statistical Analysis", "Feature Engineering for Machine Learning", "Exploratory Data Analysis (EDA)"]
+    },
+    {
+      "group": "Machine learning and model lifecycle management",
+      "modules": ["Machine Learning Fundamentals", "Ensemble and Advanced ML Techniques", "MLflow"]
+    },
+    {
+      "group": "NLP for machine learning and big data processing",
+      "modules": ["Natural Language Processing (NLP) for Machine Learning", "Big Data Processing with PySpark"]
+    },
+    {
+      "group": "Deep learning and transformer architectures",
+      "modules": ["Deep Learning Foundations", "Advanced Deep Learning for NLP"]
+    },
+    {
+      "group": "Generative AI, vector databases and RAG",
+      "modules": ["Introduction to Generative AI", "Vector Databases for AI Applications", "Comprehensive Guide to LangChain", "Retrieval-Augmented Generation (RAG)", "Enterprise LLM Systems & Infrastructure"]
+    },
+    {
+      "group": "Agentic AI with LangGraph and MCP",
+      "modules": ["Introduction to Agentic AI", "LangGraph Fundamentals", "State Management and Memory in LangGraph", "UX & Human-in-the-Loop Systems with LangGraph", "Agentic RAG Systems", "Model Context Protocol (MCP)", "Multi-Agent Systems for Research Automation"]
+    },
+    {
+      "group": "End-to-end capstone projects and deployment",
+      "modules": ["End-to-End AI & Data Projects"]
+    }
+  ],
+
+  "projects": [
+    "End-to-end review scraper and a Supabase + Streamlit database application",
+    "Network intrusion detection system (machine learning)",
+    "Text summarization, machine translation and question answering (deep learning)",
+    "RAG Q&A system with CI/CD integration",
+    "Multi-agent system for research analysis and generation automation"
+  ],
+
+  "skills": ["Python", "OOP", "NumPy", "Pandas", "Matplotlib", "Seaborn", "SQL", "PostgreSQL",
+             "Supabase", "MongoDB Atlas", "PySpark", "Streamlit", "FastAPI", "Statistics",
+             "Hypothesis testing", "Feature engineering", "EDA", "Scikit-learn", "XGBoost",
+             "MLflow", "PyTorch", "Keras", "Transformers", "BERT", "GPT", "TF-IDF", "Word2Vec",
+             "Chroma", "Pinecone", "FAISS", "LangChain", "RAG", "LangGraph",
+             "Model Context Protocol (MCP)", "Agentic RAG", "Multi-agent systems", "LangSmith",
+             "Ragas", "Docker", "AWS", "GitHub Actions"],
+  "_comment_skills": "42 entries exceeds the schema's 30-item guidance for a single course, which is a real signal rather than a slip: this is a 12-month, 32-module program spanning four categories. Kept in full because each term is a genuine retrieval key someone would search for, and skills feed the SKILLS OVERLAPPING USER INTEREST line. If retrieval precision degrades, trim the generic foundations (Matplotlib, Seaborn, TF-IDF) first — they are the least discriminating.",
+
+  "career_roles": ["Data Scientist", "Machine Learning Engineer", "AI Engineer", "GenAI Engineer"],
+  "_comment_career_roles": "INFERRED from the curriculum and the mentors' stated titles — the page markets 'Launch Your Data Career' but publishes no role list. career_roles is a card field and is never embedded, so the blast radius is limited to generated copy; flagged so it is not mistaken for a sourced fact.",
+
+  "prereq_ids": [],
+  "_comment_ladder": "Empty prereqs is a sourced fact, not an omission: the page states 'Zero prerequisites' and 'No Experience Required'. This makes the course a natural ladder ENTRY point — both related courses sit above it, so it is a strong prereq candidate for them on a future curation pass.",
+  "related_ids": ["agentic-ai-genai-cloud-bootcamp", "complete-agentic-ai-bootcamp-langgraph-langchain"],
+
+  "source_url": "https://www.krishnaik.in/liveclass2/Datascience?id=13",
+  "source_urls": [
+    "https://www.krishnaik.in/liveclass2/Datascience?id=13",
+    "https://drive.google.com/file/d/1s0yFmALxP7lqy5l0Er0ONF_fXvZFMw0L/view"
+  ],
+  "_comment_sources": "The landing page is AUTHORITATIVE (32-module 3.0 curriculum, fee, cohort date, schedule, mentors). The Drive PDF is the 2.0 syllabus and is retained only as the source for the Learning Objectives wording and the '6hrs/week' effort figure — its module list is superseded. See _comment_modules.",
+  "is_active": true
+}

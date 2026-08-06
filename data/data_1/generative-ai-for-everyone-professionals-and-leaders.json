@@ -1,0 +1,104 @@
+{
+  "slug": "generative-ai-for-everyone-professionals-and-leaders",
+  "_comment_slug": "Slug shortens the page's own 'AiForLeaders' URL slug into the full readable title; unique among the catalog, no collision with modern-no-code-ai-route-ai-generalist-to-ai-builder despite the overlapping no-code/professional-audience theme.",
+  "title": "Generative AI for EveryOne-Professionals and Leaders",
+
+  "_comment_overview": "PARAPHRASED from the krishnaik.in landing page and the learn.krishnaikacademy.com checkout page — never copy marketing prose verbatim. Facts (fee, duration, schedule, tool names, mentors, audience) are used as-is.",
+  "overview": "A 2-2.5 month live, 100% no-code generative AI program for professionals and leaders who want to apply AI immediately without writing code. Saturday and Sunday evening sessions led by Krish Naik and Mayank Agarwal cover practical use of tools such as Gemini, ChatGPT, Jasper, Grammarly, Zapier, Make and n8n for content creation, data analysis, research and workflow automation. It is aimed at engineers, product managers, sales/marketing/HR leaders, consultants, entrepreneurs and operations managers who want to lead AI adoption strategically rather than write code themselves.",
+
+  "category": "GenAI / LLM Engineering",
+  "secondary_categories": ["Analytics"],
+  "_comment_category": "Primary reflects the course's core: applying generative AI assistants and no-code tools end to end for professional productivity. 'Analytics' secondary for the dedicated data-analysis tooling (Julius, Tableau AI) under 'Data Analysis with AI'. No 'Agentic AI' secondary added (unlike the sibling no-code course) — this page names Zapier/Make/n8n only as workflow-automation tools, with no explicit AI-agent-building module called out on the page as curated here.",
+
+  "level": "beginner",
+  "level_range": ["beginner", "intermediate"],
+  "_comment_level": "Page explicitly markets to 'first-time AI users' and 'non-technical' professionals with no prerequisites, so beginner is the honest fusion anchor. level_range extends to intermediate because the workflow-automation and AI-workflow-development modules (multi-step automations, custom business solutions) require more structured technical thinking than the earlier tool-usage modules — stored only, not scored per schema §1, matching the same pattern used for the sibling no-code course.",
+
+  "price": 6500,
+  "currency": "INR",
+  "_comment_price": "₹6500.00 stated inclusive of GST on both the krishnaik.in landing page and the learn.krishnaikacademy.com checkout page — fixed price, not coupon-driven, so a number is safe here. price_band 'mid' per schema §2 (₹3,000-₹9,999).",
+  "price_band": "mid",
+  "is_free": false,
+
+  "rating": null,
+  "_comment_rating": "No star rating or review count published on either source page. Null, not guessed — the validator's null-rating warning is expected.",
+
+  "source_platform": "own_site",
+
+  "format": {
+    "mode": "live",
+    "cohort_start": null,
+    "_comment_cohort_start": "Page states 'Start Date: September 14, 2025' / 'September 14th 2025'. Curation date is 2026-08-06 — that date is roughly 11 months in the past, so per schema §3 it CANNOT sit in format.cohort_start (generate would wrongly tell a user today to enrol for a cohort that already started and finished nearly a year ago). Moved to top-level cohort_start_stale. No next-cohort date is published, so cohort_start stays null; per §6 this demotes the freshness mode prior from 'live' (1.00) to the 'recorded' prior (0.45) until a future cohort_start is captured.",
+    "enrollment_status": "open",
+    "_comment_enrollment_status": "Both source pages show active 'Enroll Now' CTAs and a stated fee despite the started/finished cohort — read as open enrollment (likely a rolling next batch), matching the same reasoning used for modern-no-code-ai-route-ai-generalist-to-ai-builder.",
+    "schedule": "Sat & Sun, 20:00-22:00 IST",
+    "_comment_schedule": "Both source pages consistently state '8 Pm to 10 Pm' / '8 PM to 10 PM IST' — a 2-hour weekend evening slot, distinct from the 8-11pm slot used by several sibling courses. No discrepancy between the two sources here.",
+    "duration": "2-2.5 months",
+    "_comment_duration": "Top badge on the landing page says '2-2.5 Months'; the checkout-page course-overview block separately states 'Duration : 2-3 months'. Stored the landing-page badge figure as primary per the same convention used for agentic-ai-agentops-bootcamp-3-0; the gap is listing softness, not a version skew.",
+    "duration_hours": null,
+    "access": "1.5 years dashboard access",
+    "content_updated": null,
+    "published_at": null,
+    "_comment_dates": "No publish or 'last updated' date is published on either source. Both null rather than guessed. Recency falls through to cohort_start_stale (2025-09-14) under §6's fallback chain.",
+    "curriculum_version": null,
+    "_comment_curriculum_version": "No version string published for this course. Null per §7 rather than inventing one."
+  },
+  "cohort_start_stale": "2025-09-14",
+
+  "perks": [
+    "Dashboard access for 1.5 years",
+    "Community chat forum for discussion",
+    "Live doubt clearing after each session",
+    "Hackathons with rewards",
+    "Resume discussion and mock interview"
+  ],
+  "_comment_perks": "Verbatim from the checkout page's 'Features to Be Provided' list — five items, matching the same perk set used by modern-no-code-ai-route-ai-generalist-to-ai-builder.",
+
+  "mentors": ["Krish Naik", "Mayank Agarwal"],
+  "_comment_mentors": "Landing page mentor cards read 'Mayank Agarwal — Chief Ai Dev' and 'Krish Naik — Founder'; the checkout-page body separately spells the same person 'Mayank Aggrawal' — treated as the same canonical spelling used across every other Krish Naik Academy course in this catalog (Krish Naik, Mayank Agarwal).",
+
+  "objectives": [
+    "Apply generative AI directly to daily professional tasks using no-code tools such as Gemini, Jasper, Grammarly, Zapier and Tableau AI for immediate productivity gains",
+    "Master core generative AI concepts and gain hands-on fluency with AI tools spanning content creation, data analysis, research and workflow automation",
+    "Build custom AI solutions and automate multi-step workflows by connecting multiple applications, including end-to-end AI systems for marketing and personal-assistant use cases",
+    "Lead AI adoption strategically, make data-driven decisions and transform business operations without needing to write code",
+    "Understand AI ethics, governance and foundational AI security concerns well enough to manage them responsibly across a team",
+    "Design context-engineered AI assistants for long-running projects and apply generative AI to customer, marketing and operations workflows",
+    "Stay ahead of the evolving generative AI landscape and foster AI literacy across teams to drive continuous innovation"
+  ],
+  "_comment_objectives": "§1 corroboration rule applied — paraphrased from the page's 'Course Details' outcomes block, with the 5th published bullet ('Expert-Led Interactive Learning', 90-120 minute live sessions) dropped since it describes session delivery format, not a learning outcome, and is already captured in format.schedule. The remaining objectives each map to a module_groups cluster below: (1)->No-Code Automation & Workflow Optimization + AI Content/Research/Data-Analysis Tools, (2)->Generative AI Foundations & Prompt Engineering, (3)->No-Code Automation & Workflow Optimization, (4)->AI Leadership & Change Management, (5)->AI Ethics, Governance & Security, (6)->AI Workflow Development & Business Transformation, (7)->AI Leadership & Change Management.",
+
+  "_comment_modules": "Source pages publish no itemized lecture/module list — only the 12-item 'Skills To Ace' block (each with a one-line description) and a 14-tool 'Tech Stack' block. Per §4, these were clustered into 6 THEMATIC groups rather than one chunk per skill, using the skill descriptions and named tools as the module bullets.",
+  "module_groups": [
+    {"group": "Generative AI Foundations & Prompt Engineering", "modules": ["Visual walkthrough of core generative AI concepts for non-technical learners", "Prompt engineering techniques including chain-of-thought and few-shot prompting", "Building a personal AI toolkit with ChatGPT, Gemini and Perplexity"]},
+    {"group": "No-Code Automation & Workflow Optimization", "modules": ["Building advanced automation workflows with Zapier, Make and n8n", "Optimizing workflows and designing multi-step automations", "Connecting multiple applications into end-to-end automated systems"]},
+    {"group": "AI Content, Research & Data Analysis Tools", "modules": ["AI-assisted content creation and editing with Jasper, Copy.ai and Grammarly", "AI-generated presentations and documents with Gamma and Humata", "Data-driven insights using Julius and Tableau AI"]},
+    {"group": "AI Ethics, Governance & Security", "modules": ["Understanding AI ethics and governance concerns in professional use", "Fundamentals of AI security for non-technical teams", "Managing risk in AI-assisted decision-making"]},
+    {"group": "AI Workflow Development & Business Transformation", "modules": ["Building, optimizing and scaling custom AI-powered business solutions", "Applying AI to customer, marketing and operations workflows", "Context engineering for designing persistent AI assistants on long-term projects"]},
+    {"group": "AI Leadership & Change Management", "modules": ["Preparing for and leading AI adoption across teams", "Building an AI adoption roadmap and driving business transformation", "Showcasing AI mastery and leading continuous innovation"]}
+  ],
+
+  "skills": ["ChatGPT", "Gemini", "Perplexity", "Jasper", "Copy.ai", "Grammarly", "Gamma", "Humata",
+             "Julius", "Tableau AI", "Zapier", "Make", "n8n", "AWS", "Prompt engineering",
+             "Chain-of-thought prompting", "Few-shot prompting", "No-code automation",
+             "Workflow automation", "AI ethics and governance", "AI security fundamentals",
+             "Context engineering", "AI workflow development", "Business process transformation",
+             "Change management for AI adoption", "AI leadership"],
+  "_comment_skills": "26 entries — combines the page's 14-tool 'Tech Stack' block verbatim with the named techniques from 'Skills To Ace'. Within the schema's 8-25 typical range plus one over; not flagged since the validator's soft warning threshold is 30.",
+
+  "career_roles": ["AI Adoption Leader", "AI-Enabled Product Manager", "AI Business Strategist", "AI Operations Lead"],
+  "_comment_career_roles": "INFERRED from the stated audience ('Engineers, Product Managers, and Technical Professionals', 'Sales, Marketing, and HR Leaders', 'Consultants and Entrepreneurs', 'Operations Managers', 'All Leaders and Decision-Makers') — the page names no explicit job-title list. Card field only, never embedded.",
+
+  "prereq_ids": [],
+  "_comment_ladder": "Page markets to 'First-time AI users' with no coding or technical background required — a sourced fact, making this a natural ladder ENTRY point rather than an omission, same pattern as the sibling no-code course.",
+  "related_ids": ["modern-no-code-ai-route-ai-generalist-to-ai-builder"],
+  "_comment_related": "Closest sibling in the catalog: same academy, same live no-code delivery model, same non-technical professional/leader audience, overlapping tool stack (Zapier, Make, n8n, Jasper, Grammarly). Kept to one entry rather than padding to 2-4 — no other curated course shares this audience/format combination closely enough to be a genuine 'related' recommendation.",
+
+  "source_url": "https://www.krishnaik.in/liveclass2/AiForLeaders?id=6",
+  "source_urls": [
+    "https://www.krishnaik.in/liveclass2/AiForLeaders?id=6",
+    "https://learn.krishnaikacademy.com/web/checkout/6894c9bfb98a0463e2a69a7d"
+  ],
+  "_comment_sources": "Landing page (id=6) is authoritative for the 'Course Details' outcomes, 'Skills To Ace', mentors and 'Tech Stack' sections used above. The checkout page is authoritative for the fee, the 'Features to Be Provided' perks list and the Start Date/Timing/Duration block, and is treated as the more detailed/reliable source for the duration figure per _comment_duration.",
+  "is_active": true
+}

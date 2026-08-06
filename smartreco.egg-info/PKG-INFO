@@ -22,6 +22,7 @@ Requires-Dist: fastapi>=0.115.0
 Requires-Dist: uvicorn[standard]>=0.35.0
 Requires-Dist: jinja2>=3.1
 Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: jsonschema
 Requires-Dist: itsdangerous>=2.2
 Requires-Dist: sqlalchemy>=2.0
 Requires-Dist: aiosqlite>=0.20

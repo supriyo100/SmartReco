@@ -1,0 +1,115 @@
+{
+  "slug": "modern-no-code-ai-route-ai-generalist-to-ai-builder",
+  "title": "Modern No-Code AI Route : AI Generalist to AI Builder",
+
+  "_comment_overview": "PARAPHRASED from the krishnaik.in landing page — never copy marketing prose verbatim. Facts (fee, dates, schedule, tool names, project list) are used as-is.",
+  "overview": "A live, mentor-led program that takes beginners and working professionals from foundational AI concepts to building real AI-powered products without writing code. It covers AI assistant mastery, prompt engineering, content and data-storytelling systems, no-code app development with Lovable, Bolt.new and v0 by Vercel, and workflow automation with Zapier, Make and n8n AI agents. Runs Saturday and Sunday evenings (IST) and closes with two capstone projects: a deployed no-code AI application and an automation system.",
+
+  "category": "GenAI / LLM Engineering",
+  "secondary_categories": ["Agentic AI", "Analytics"],
+  "_comment_category": "Primary category reflects the course's core: applying generative AI assistants and tools end to end. 'Agentic AI' is secondary for the n8n AI Agent module (module group 11); 'Analytics' is secondary for the data-storytelling/dashboard module (group 6).",
+
+  "level": "beginner",
+  "level_range": ["beginner", "intermediate"],
+  "_comment_level": "Page markets explicitly to 'first-time AI users' and 'non-technical' audiences with no prerequisites, so beginner is the honest fusion anchor. level_range extends to intermediate because the automation/AI-agent modules (Zapier/Make workflow design, n8n AI Agent construction) require more structured technical thinking than the earlier prompt/assistant modules — stored only, not scored per schema §1.",
+
+  "price": 7500,
+  "currency": "INR",
+  "_comment_price": "₹7500.00 stated inclusive of GST on the own-site landing page (fixed price, not coupon-driven), so a number is safe here. price_band 'mid' per schema §2 (₹3,000–₹9,999).",
+  "price_band": "mid",
+  "is_free": false,
+
+  "rating": null,
+  "_comment_rating": "No rating or review count published on the landing page. Left null rather than guessed — the validator's null-rating warning is expected.",
+
+  "source_platform": "own_site",
+
+  "format": {
+    "mode": "live",
+    "cohort_start": null,
+    "_comment_cohort_start": "Landing page states 'Start Date: May 17, 2026', but curation date is 2026-08-06 — that cohort has already begun, so per schema §3 it CANNOT live in format.cohort_start (generate would wrongly tell a user today to enrol for a cohort that already started). Moved to top-level cohort_start_stale instead. No next-cohort date is published, so cohort_start is left null; per §6 this demotes the freshness mode prior from 'live' (1.00) to the 'recorded' prior (0.45) until a future cohort_start is captured.",
+    "enrollment_status": "open",
+    "_comment_enrollment_status": "Page still shows active 'Enroll Now' CTAs and a stated fee despite the started cohort — read as open enrollment (likely joining the running batch or a rolling next batch), not confirmed closed/waitlisted.",
+    "schedule": "Sat & Sun, 20:00-23:00 IST",
+    "duration": "3-4 months",
+    "_comment_duration": "Two figures on the page: the overview header says '3 Months', the mentor bio block says '3-4 months'. Stored the mentor-block figure as the more detailed/conservative one; the gap is listing inconsistency, not a version skew.",
+    "duration_hours": null,
+    "access": "1.5 years dashboard access",
+    "recording_available": true,
+    "_comment_recording": "Page explicitly grants 'Access To 1.0 AI For Everyone Batch recordings' (a prior cohort) as a bonus perk, and offers 1.5-year dashboard access — taken together this implies session recordings are part of the delivery model, though the page does not explicitly confirm THIS batch's own live sessions are recorded for later viewing.",
+    "content_updated": null,
+    "published_at": null,
+    "curriculum_version": null,
+    "_comment_curriculum_version": "No version string published for this batch. Null per §7 rather than inventing one."
+  },
+  "cohort_start_stale": "2026-05-17",
+
+  "perks": [
+    "Dashboard access for 1.5 years",
+    "Access to 1.0 AI For Everyone Batch recordings",
+    "Community chat forum for discussion",
+    "Live doubt clearing after each session",
+    "Hackathons with rewards",
+    "Resume discussion and mock interview"
+  ],
+
+  "mentors": ["Krish Naik", "Mayank"],
+  "_comment_mentors": "Page states 'Mentors: Mayank, Krish' and is published 'By Krish Naik Academy' — Krish is Krish Naik, the academy founder, explicitly listed as a mentor on this course (unlike the 3.0 Data Science program).",
+
+  "objectives": [
+    "Understand how AI systems work — tokens, context and prompting — and build a personal AI toolkit spanning ChatGPT, Claude and Gemini for everyday professional tasks",
+    "Apply structured prompt engineering techniques such as role-based prompting, few-shot learning and reusable AI playbooks for consistent, high-quality outputs",
+    "Use AI research and productivity tools like Perplexity AI, NotebookLM and Google AI Studio to accelerate research, document analysis and decision-making",
+    "Build scalable AI content, presentation and data-storytelling systems using tools such as Jasper, Gamma and Power BI AI",
+    "Generate AI images, video and voice content with tools like Midjourney, HeyGen and Runway ML for marketing and training use cases",
+    "Build and deploy AI-powered web applications without writing code using no-code platforms such as Lovable, Bolt.new and v0 by Vercel",
+    "Design multi-step automation workflows and autonomous AI agents using Zapier, Make and n8n that connect apps and execute business tasks",
+    "Create a practical AI adoption roadmap, governance approach and personal portfolio to lead AI implementation as an AI-first professional"
+  ],
+  "_comment_objectives": "§1 corroboration rule applied. Each objective maps to a real module_groups cluster below: (1)->foundations+assistants, (2)->prompt engineering, (3)->research & productivity, (4)->writing+presentations, (5)->image+video, (6)->no-code apps, (7)->automation+n8n, (8)->strategy. Nothing published was dropped.",
+
+  "_comment_modules": "VERSION/UI SKEW noted. The full curriculum body on the page describes 12 thematic sections (Foundations, Assistants, Prompt Engineering, Research, Writing, Presentations & Data Storytelling, Image, Video, No-Code Apps, Automation Foundations, Advanced Automation/n8n, Strategy). A separate numbered tab/footer element on the same page lists only 10 names, omitting 'AI Presentations & Data Storytelling' and 'Automation Foundations (Zapier & Make)' — almost certainly a UI tab-count artifact, not a real 10-vs-12 curriculum difference, since both missing sections are fully described in the body copy with real tool names. The 12-section body is treated as authoritative. Source page publishes no itemized lecture list per section, only paragraph descriptions naming specific tools/techniques — the module bullets below extract those named facts (tool names, concrete techniques), not paraphrase.",
+  "module_groups": [
+    {"group": "AI Foundations & Landscape", "modules": ["How AI systems work: tokens, context and prompting explained visually", "Landscape of leading AI models and tools", "Building a personal AI toolkit for everyday professional tasks"]},
+    {"group": "AI Assistants Mastery", "modules": ["ChatGPT, Claude and Gemini for writing, analysis, research and daily professional tasks", "Advanced assistant capabilities: memory, document analysis and multimodal inputs", "Structured decision frameworks for choosing the right assistant per task"]},
+    {"group": "Prompt Engineering & AI Playbooks", "modules": ["Role-based prompting, few-shot learning and step-by-step reasoning", "Reusable prompt templates and structured AI playbooks for teams", "A/B testing prompts for output optimization"]},
+    {"group": "AI for Research & Productivity", "modules": ["Perplexity AI, NotebookLM and Google AI Studio for real-time research and document analysis", "Fathom and Otter.ai for meeting summaries and knowledge capture", "Automating email processing and decision support with AI assistants"]},
+    {"group": "AI Writing & Content Systems", "modules": ["Jasper, Copy.ai and Grammarly AI for on-brand professional content", "Generating emails, reports and marketing materials", "Scalable content systems: one idea repurposed across blogs, social media and campaigns"]},
+    {"group": "AI Presentations & Data Storytelling", "modules": ["Gamma, Beautiful.ai and Tome for AI-generated presentations", "Julius AI, Tableau AI and Power BI AI for dataset analysis and dashboards", "Turning data and ideas into data-driven business insights"]},
+    {"group": "AI Image Generation & Design", "modules": ["Midjourney v7, Ideogram and Adobe Firefly for visuals and product mockups", "AI-generated marketing creatives and brand assets", "Scalable design workflows for consistent visuals across campaigns"]},
+    {"group": "AI Video & Voice Production", "modules": ["HeyGen, Sora, Runway ML Gen-4.5, Kling AI 2.5 and Pika 2.5 for video production", "Veed.io for video editing and post-production", "AI voiceover, audio content and music generation pipelines"]},
+    {"group": "No-Code AI App Development", "modules": ["Lovable, Bolt.new and v0 by Vercel for natural-language app building", "Building web apps, dashboards and internal or client-facing tools", "Rapid prototyping and deployment of AI-powered products"]},
+    {"group": "Automation Foundations (Zapier & Make)", "modules": ["Identifying automation opportunities across everyday workflows", "Designing workflows using triggers, actions and conditions", "Multi-step automations connecting apps with Zapier and Make"]},
+    {"group": "Advanced Automation & AI Agents (n8n)", "modules": ["Complex n8n workflows connecting APIs and data across systems", "Building autonomous AI agents with the n8n AI Agent node", "VAPI as a bonus tool for voice-based agent workflows"]},
+    {"group": "AI Strategy, Career & Future Readiness", "modules": ["Designing a practical AI adoption plan and governance framework", "Prioritising high-impact AI use cases for teams", "Building an AI-first professional portfolio and thought leadership"]}
+  ],
+
+  "projects": [
+    "AI Product Builder: a no-code AI web application built with Lovable, Bolt.new or v0 by Vercel, integrating chatbot, data-analysis or automation features, taken from concept through deployment and stakeholder demo",
+    "AI Automation System: a workflow automation pipeline built with n8n, Make or Zapier that connects tools and executes tasks such as email handling, content pipelines or lead generation"
+  ],
+
+  "skills": ["ChatGPT", "Claude", "Gemini", "Prompt engineering", "Few-shot prompting",
+             "Role-based prompting", "Perplexity AI", "NotebookLM", "Google AI Studio", "Fathom",
+             "Otter.ai", "Jasper", "Copy.ai", "Grammarly AI", "Gamma", "Beautiful.ai", "Tome",
+             "Julius AI", "Tableau AI", "Power BI AI", "Midjourney", "Ideogram", "Adobe Firefly",
+             "HeyGen", "Sora", "Runway ML", "Kling AI", "Pika", "Veed.io", "Lovable", "Bolt.new",
+             "v0 by Vercel", "Zapier", "Make", "n8n", "n8n AI Agent", "VAPI",
+             "No-code app development", "Workflow automation"],
+  "_comment_skills": "39 entries exceeds the schema's 30-item guidance, which is a real signal here rather than a slip: the page itself advertises '40+ industry-leading tools' across four learning tracks (assistants, content, no-code apps, automation). Kept in full since each is a genuine named tool a user might search for.",
+
+  "career_roles": ["AI Generalist", "AI Builder", "AI Automation Specialist", "No-Code AI Developer"],
+  "_comment_career_roles": "INFERRED from the course title ('AI Generalist to AI Builder') and its stated audience (engineers, PMs, sales, marketing, HR, ops, consultants, entrepreneurs, students) — the page names no explicit role list. Card field only, never embedded.",
+
+  "prereq_ids": [],
+  "_comment_ladder": "Page markets to 'first-time AI users' with no coding or technical background required — a sourced fact, making this a natural ladder ENTRY point rather than an omission.",
+  "related_ids": ["ultimate-data-science-ai-engineering-3-0", "complete-agentic-ai-bootcamp-langgraph-langchain"],
+
+  "source_url": "https://www.krishnaik.in/liveclass2/nocode?id=10",
+  "source_urls": [
+    "https://www.krishnaik.in/liveclass2/nocode?id=10",
+    "https://drive.google.com/file/d/1Zcu0o70pGyl5bOyiLAR5tBCOFnMcud0G/view?usp=sharing"
+  ],
+  "_comment_sources": "Landing page (id=10) is authoritative for everything curated above — fee, dates, schedule, mentors, curriculum body, projects, tools. The Drive link is the 'detailed syllabus' PDF the landing page itself points to; it was not independently fetched/read for this file, so module_groups above is sourced from the page's own section descriptions only. Re-check module_groups against the PDF on a follow-up pass if a discrepancy needs resolving (same pattern as the version-skew cases elsewhere in this dataset).",
+  "is_active": true
+}

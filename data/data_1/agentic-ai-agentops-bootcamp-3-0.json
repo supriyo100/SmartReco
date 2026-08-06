@@ -1,0 +1,118 @@
+{
+  "slug": "agentic-ai-agentops-bootcamp-3-0",
+  "_comment_slug": "Title carries a trailing 'with Cloud' qualifier; dropped from the slug for brevity (slug only needs to be stable/unique) but kept in `title` verbatim. Distinct course from `agentic-ai-genai-cloud-bootcamp` (₹4500, 28 modules, AWS+GCP only, no MCP/A2A/AgentOps) despite the similar informal name 'Agentic AI & GenAI with Cloud 3.0' used in this page's own overview header — confirmed distinct by price, module count, curriculum depth and mentors list.",
+  "title": "Agentic AI & AgentOps Specialization Bootcamp 3.0 with Cloud",
+
+  "_comment_overview": "PARAPHRASED from the krishnaik.in landing page — never copy marketing prose verbatim. Facts (fee, duration, module count, frameworks, protocols, four capstones) are used as-is.",
+  "overview": "A 5-6 month live cohort that takes practitioners with existing Python, ML, deep learning and NLP fundamentals into production-grade multi-agent engineering. Twenty-three modules cover the full 2026 agent framework landscape — LangChain, LangGraph, OpenAI Agents SDK, Google ADK, AWS Strands, CrewAI, LlamaIndex, Claude Code, AutoGen, n8n and LangFlow — plus the MCP and A2A protocols, agentic RAG, context engineering, agent security and the full AgentOps observability lifecycle. It closes with four end-to-end capstone projects deployed across AWS, GCP, Azure and a fully local stack.",
+
+  "category": "Agentic AI",
+  "secondary_categories": ["GenAI / LLM Engineering", "Cloud", "MLOps / LLMOps"],
+  "_comment_category": "Primary is unambiguous — agent design patterns, orchestration and multi-agent systems dominate the syllabus. 'MLOps / LLMOps' secondary for the dedicated AgentOps/observability module and CI/CD deployment module; 'Cloud' secondary for the four-cloud (AWS/GCP/Azure/local) capstone architecture.",
+
+  "level": "intermediate",
+  "level_range": ["intermediate", "advanced"],
+  "_comment_level": "Unlike the sibling full-stack GenAI bootcamp (which explicitly welcomes newcomers to LLMs), this page states hard prerequisites — Python coding, NLP and deep learning knowledge, and GenAI basics — and targets 'experienced engineers looking to transition into production-grade multi-agent systems'. That rules out a pure-beginner anchor. It genuinely spans up to enterprise multi-cloud architecture (module 23), hence level_range; `level` alone is what fusion_rank scores.",
+
+  "price": 8000,
+  "currency": "INR",
+  "_comment_price": "₹8000.00 stated inclusive of GST. Own-site cohort pricing, not coupon-driven, so a number is safe here. Band 'mid' per §2 (₹3,000-9,999).",
+  "price_band": "mid",
+  "is_free": false,
+
+  "rating": null,
+  "_comment_rating": "No star rating or review count published on the page. Null, not guessed — the validator's null-rating warning is expected.",
+
+  "source_platform": "own_site",
+
+  "format": {
+    "mode": "live",
+    "cohort_start": null,
+    "_comment_cohort_start": "Page states 'Start Date: June 21th 2026'. Curation date is 2026-08-06 — that date is already ~7 weeks in the past, so per schema §3 it CANNOT sit in format.cohort_start (generate would wrongly tell a user today to enrol for a cohort that already started). Moved to top-level cohort_start_stale. No next-cohort date is published, so cohort_start stays null; per §6 this demotes the freshness mode prior from 'live' (1.00) to the 'recorded' prior (0.45) until a future date is captured.",
+    "enrollment_status": "open",
+    "_comment_enrollment_status": "No explicit 'Enroll Now'/'closed'/'waitlist' text was captured in this dump (unlike the sibling course pages), so 'open' is the schema default rather than a directly observed CTA — flag for confirmation against the live page.",
+    "schedule": "Sat & Sun, 08:00-11:00 IST",
+    "_comment_schedule": "SUSPECTED TYPO, stored as published. Page literally states 'Timing: 8am to 11am IST' — but every sibling Krish Naik Academy course in this catalog (agentic-ai-genai-cloud-bootcamp, ultimate-data-science-ai-engineering-3-0, full-stack-genai-agentic-ai-bootcamp, modern-no-code-ai-route) runs an evening 20:00-23:00 IST weekend slot, and this same page's top summary block separately shows other Krish Naik courses timed '8 Pm to 11 Pm'. A live cohort at 8-11am IST would be a real outlier. Stored literally per the no-guessing rule rather than silently 'corrected' to PM — confirm against the live page before this ships to a user as fact.",
+    "duration": "5-6 months",
+    "_comment_duration": "Page badge says '5-6 months'; the overview prose on the same page says 'Over 5 months'. Stored the badge figure; softness in the prose, not a version skew.",
+    "duration_hours": null,
+    "access": "1.5 years dashboard access",
+    "content_updated": null,
+    "published_at": null,
+    "_comment_dates": "No publish or 'last updated' date is published. Both null rather than guessed. Recency falls through to cohort_start_stale (2026-06-21) under §6's fallback chain.",
+    "curriculum_version": "3.0",
+    "_comment_curriculum_version": "Unlike its siblings, this course names its own version in the title ('Bootcamp 3.0') — an actual stated fact, not inferred."
+  },
+  "cohort_start_stale": "2026-06-21",
+
+  "perks": [
+    "Dashboard access for 1.5 years",
+    "Community chat forum for discussion",
+    "Live doubt clearing after each session",
+    "Hackathons with rewards"
+  ],
+  "_comment_perks": "Only four benefits are stated under 'Features to Be Provided' on this page — notably no recordings/job-support perk is listed here (unlike the no-code sibling course), so none was added.",
+
+  "mentors": ["Krish Naik", "Sourangshu Pal", "Mayank Agarwal"],
+  "_comment_mentors": "Page's own Overview block spells these 'Mayank Aggarwal, Sourangshu Paul, Krish' — treated as the same three people who mentor the other Krish Naik Academy courses in this catalog (canonical spelling used there: Krish Naik, Sourangshu Pal, Mayank Agarwal), since the mentor-card section on the same page independently confirms 'Mayank Agarwal — Chief AI Dev', matching the sibling courses' spelling exactly.",
+
+  "objectives": [
+    "Understand agent design patterns — ReAct, Supervisor, Swarm, Pipeline and Mesh — and the Perception-Memory-Reasoning-Action loop that separates true agents from chatbots and LLMs",
+    "Build production agents across the full framework landscape, including LangChain, LangGraph, OpenAI Agents SDK, Google ADK, AWS Strands, CrewAI, LlamaIndex and AutoGen",
+    "Implement the two 2026 agentic protocols — MCP for tool integration and A2A for cross-framework agent-to-agent communication",
+    "Build advanced and agentic RAG systems using hybrid search, re-ranking, Adaptive RAG, Corrective RAG, Self-RAG and GraphRAG, evaluated with RAGAS and DeepEval",
+    "Apply context engineering and multi-tier memory systems — short-term, long-term, episodic, semantic and procedural — in LangGraph and LlamaIndex",
+    "Design multi-agent orchestration with Supervisor, Swarm, Pipeline and Hierarchical patterns, including handoffs, shared state and human-in-the-loop gates",
+    "Secure agentic systems against prompt injection and tool misuse with guardrails, and evaluate them with trajectory-based and LLM-as-judge methods",
+    "Operate the full AgentOps lifecycle and deploy multi-agent systems to production across AWS, GCP, Azure and local stacks using Docker, FastAPI, BentoML, CI/CD, AgentOps SDK, LangSmith, Opik and Langfuse"
+  ],
+  "_comment_objectives": "§1 corroboration rule applied — nothing dropped. Each objective maps to a named module or 'What You Will Learn' section: (1)->module 1, (2)->the Framework Landscape section + modules 3,9-18, (3)->modules 5-6, (4)->module 7, (5)->module 8, (6)->module 22 + Orchestration section, (7)->module 19, (8)->modules 20-21. Unlike agentic-ai-genai-cloud-bootcamp, no objective/syllabus mismatch was found here.",
+
+  "_comment_modules": "23 flat curriculum modules clustered into the course's OWN 10 'What You Will Learn' thematic section headings (used here as group names, since the source already pre-clusters at the right granularity) rather than one chunk per module. Module 1's individually published 7-lecture breakdown is folded into group 1. Module 2 (Pydantic) has no dedicated 'What You Will Learn' section on the page and is placed in group 1 as a foundational tooling topic used across every framework.",
+  "module_groups": [
+    {"group": "Agentic AI Foundations & Design Patterns", "modules": ["The Perception-Memory-Reasoning-Action loop and the agentic spectrum from tool-calling to autonomous systems", "Core design patterns: ReAct, Supervisor, Swarm, Pipeline and Mesh", "Agents vs. Generative AI vs. AI Agents; multi-agent systems overview; the agentic protocol layer; reasoning models in agents", "Pydantic for data validation and structured outputs"]},
+    {"group": "The Full Agent Framework Landscape", "modules": ["LangChain and LCEL", "LangGraph stateful agent workflows", "OpenAI Agents SDK", "CrewAI multi-agent collaboration platform", "Google ADK (Agent Development Kit)", "AWS Strands Agents SDK", "Azure AI Foundry and Semantic Kernel", "LlamaIndex data-centric agents", "Claude Code for agentic coding", "n8n AI workflow automation", "LangFlow low-code agent builder", "AutoGen conversational multi-agent framework"]},
+    {"group": "MCP & A2A: The Protocol Layer of 2026", "modules": ["Building custom MCP (Model Context Protocol) servers for tool integration", "Wrapping existing agents as A2A (Agent-to-Agent) compliant services", "Cross-framework workflows where ADK, CrewAI and LangGraph agents communicate across vendors and clouds"]},
+    {"group": "Advanced RAG & Agentic RAG Systems", "modules": ["Hybrid search, HyDE, re-ranking and contextual compression", "Adaptive RAG, Corrective RAG (CRAG) and Self-RAG", "GraphRAG with Microsoft GraphRAG and LightRAG", "Evaluation with RAGAS and DeepEval"]},
+    {"group": "Context Engineering & Memory Systems", "modules": ["Structured system prompts: CLAUDE.md and AGENTS.md patterns", "Token budgeting and dynamic context assembly", "Short-term, long-term, episodic, semantic and procedural memory in LangGraph and LlamaIndex"]},
+    {"group": "Multi-Agent Orchestration & Coordination", "modules": ["Supervisor, Swarm, Pipeline and Hierarchical orchestration patterns", "Handoffs, shared state, parallel execution and checkpointing", "Human-in-the-loop gates with LangGraph, CrewAI Flows, OpenAI Agents SDK and AWS Strands swarms", "Designing multi-agent systems in production"]},
+    {"group": "Agent Security, Guardrails & Evaluation", "modules": ["The agentic attack surface: prompt injection, tool misuse and data exfiltration", "Defences with NeMo Guardrails, Guardrails AI, input/output tripwires and sandboxed execution", "Trajectory-based evaluation, LLM-as-judge, and automated evaluation pipelines in CI/CD"]},
+    {"group": "AgentOps: The Full Observability Lifecycle", "modules": ["AgentOps SDK, LangSmith, Opik and Langfuse for session replay and tool-call tracing", "Cost tracking and LLM-as-judge evaluation at scale", "Anomaly detection for production agent systems"]},
+    {"group": "Production Deployment & CI/CD", "modules": ["Containerising agents with optimised Dockerfiles", "CI/CD pipelines with GitHub Actions", "Serving agents with FastAPI (async, streaming, WebSockets) and BentoML", "Deployment to ECS Fargate, Cloud Run, Vertex AI Agent Engine, Azure Container Apps, AWS Lambda and AgentCore Runtime"]},
+    {"group": "Multi-cloud and local capstone architectures", "modules": ["Multi-agent business automation platform on AWS with Strands and Bedrock", "RAG and MCP-powered enterprise knowledge assistant on GCP with Google ADK and Vertex AI", "Multi-agent customer intelligence platform on Azure with CrewAI and Azure OpenAI", "Fine-tuned fully local agent stack with LangGraph, Ollama and Chroma"]}
+  ],
+
+  "projects": [
+    "Multi-agent business automation platform on AWS using Strands Agents SDK and Bedrock",
+    "RAG and MCP-powered enterprise knowledge assistant on GCP using Google ADK and Vertex AI",
+    "Multi-agent customer intelligence platform on Azure using CrewAI and Azure OpenAI",
+    "Fine-tuned, fully local agent stack using LangGraph, Ollama and Chroma"
+  ],
+  "_comment_projects": "The curriculum section heading reads 'NIine End to End CLoud Projects with 4 different Cloud' — a typo ('NIine'/'CLoud') that also numerically contradicts its own body text, which describes exactly FOUR projects, one per AWS/GCP/Azure/local. This matches the top overview's 'four end-to-end portfolio projects' and the Why-Us section. Stored as four; 'Nine' is not corroborated anywhere else and treated as a typo, not a fact.",
+
+  "skills": ["Agentic AI design patterns (ReAct, Supervisor, Swarm, Pipeline)", "Multi-agent orchestration and handoffs",
+             "Model Context Protocol (MCP) server development", "Agent-to-Agent (A2A) protocol", "LangChain", "LCEL",
+             "LangGraph", "OpenAI Agents SDK", "Google ADK", "AWS Strands", "CrewAI", "LlamaIndex", "Claude Code",
+             "n8n", "LangFlow", "AutoGen", "Azure AI Foundry", "Semantic Kernel",
+             "Advanced RAG (hybrid search, HyDE, re-ranking)", "Agentic RAG (Adaptive, Corrective, Self-RAG, GraphRAG)",
+             "RAGAS", "DeepEval", "Context engineering", "Agent memory systems", "Agent security and guardrails",
+             "NeMo Guardrails", "Guardrails AI", "Prompt injection defence", "LLM-as-judge evaluation",
+             "AgentOps SDK", "LangSmith", "Opik", "Langfuse", "Pydantic", "Docker", "FastAPI", "BentoML",
+             "GitHub Actions CI/CD", "AWS Bedrock", "Vertex AI", "Ollama", "LoRA/QLoRA fine-tuning"],
+  "_comment_skills": "41 entries exceeds the schema's 30-item guidance, matching the published 'Skills You Will Acquire' list's own breadth: several published bundles ('OpenAI Agents SDK, Google ADK & AWS Strands', 'Docker, FastAPI, BentoML, GitHub Actions CI/CD') were split into discrete named tools per §1, and framework names covered by real modules but absent from the published list (LangChain, n8n, LangFlow, AutoGen, Azure AI Foundry, Semantic Kernel) were added since they are corroborated retrieval keys.",
+
+  "career_roles": ["Agentic AI Engineer", "AgentOps Engineer", "AI Solutions Architect", "GenAI Engineer"],
+  "_comment_career_roles": "INFERRED from the stated audience ('aspiring AI developers, machine learning engineers, data scientists, and software architects... professionals aiming to lead enterprise AI initiatives'). Card field only, never embedded.",
+
+  "prereq_ids": [],
+  "_comment_ladder": "Page states explicit skill prerequisites (Python, NLP, deep learning, GenAI basics) but names no specific catalog course, so prereq_ids stays empty rather than guessing a course match. ultimate-data-science-ai-engineering-3-0 covers those exact fundamentals and is listed in related_ids as the natural preparatory course instead.",
+  "related_ids": ["agentic-ai-genai-cloud-bootcamp", "full-stack-genai-agentic-ai-bootcamp", "ultimate-data-science-ai-engineering-3-0"],
+
+  "source_url": "https://www.krishnaik.in/liveclass2/AgenticAi?id=11",
+  "source_urls": [
+    "https://www.krishnaik.in/liveclass2/AgenticAi?id=11",
+    "https://agenticai3.lovable.app/"
+  ],
+  "_comment_sources": "Landing page (id=11) is authoritative for fee, dates, schedule, mentors and the 'What You Will Learn' section text used for module_groups. The lovable.app link is the page's own 'Interactive Syllabus' — used here only for the numbered 1-23 course-curriculum list and Module 1's lecture breakdown as captured in the page dump; it was not independently re-fetched beyond that.",
+  "is_active": true
+}
