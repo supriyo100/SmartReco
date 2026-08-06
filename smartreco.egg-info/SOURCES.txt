@@ -18,6 +18,7 @@ app/agent/nodes/retrieve.py
 app/agent/nodes/validate.py
 app/auth/__init__.py
 app/catalog/__init__.py
+app/catalog/catalogue.py
 app/catalog/chunker.py
 app/catalog/freshness.py
 app/catalog/ingest.py

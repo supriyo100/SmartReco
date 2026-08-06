@@ -1,231 +1,528 @@
-# SmartReco — Architecture v2 (FINAL, APPROVED)
+# SmartReco — Architecture (FINAL)
 
-**Status:** ✅ Approved for build. This supersedes the v1 plan (Opus, 3 Aug).
-**Today:** 5 Aug 2026 · **Deadline:** 9 Aug 2026 12:00 IST · **Remaining:** ~4 working days
-**Stack (unchanged):** FastAPI · SQLite (WAL + FTS5) · Chroma · LangGraph · APScheduler · LangSmith · Jinja2 · Mesh API
-
----
-
-## 0. What changed and why — the decision log
-
-Three critiques were reconciled. The governing principle: **Grok's calendar critique wins every tie.** Anything that doesn't survive contact with a 4-day window is either simplified, flagged behind config, or moved to README future-work.
-
-### Adopted (goes into code)
-
-| # | Change | Source | Cost | Why |
-|---|--------|--------|------|-----|
-| A1 | SQLite PRAGMA via SQLAlchemy connect-event listener (WAL, synchronous=NORMAL, cache, temp_store) | DeepSeek 1.1 | 15 min | v1 said "WAL mode" but never specified *how* with aiosqlite; this is the correct mechanism. Also add `wal_checkpoint(TRUNCATE)` to the nightly job. |
-| A2 | Structured-output fallback chain: `gemini-2.5-flash` → `gpt-4o-mini` on parse failure | DeepSeek 2.1 | 30 min | v1's trap list *knew* `response_format` fails silently but had no runtime fallback. This is the single highest-probability catastrophic failure. P0. |
-| A3 | **Deterministic-first grading.** Pure-Python coverage check (do top-5 candidates cover the inferred categories?). LLM grade + refine loop runs **only** when deterministic coverage is ambiguous (0 < ratio < 1). Loop cap: **1** (was 2). | DeepSeek 2.2 + Grok #2, reconciled | 45 min | Happy path drops from 3 LLM calls to 2 (analyze + generate). Grok wanted the loop cut; DeepSeek wanted it guarded. Deterministic-first does both: the loop still exists for the README/demo story but almost never fires, and can never fire on hallucinated insufficiency. |
-| A4 | SQLite **FTS5** virtual table + triggers, hybrid retrieval = vector + FTS via RRF | DeepSeek 1.3 | 1 h | Cheap, catches exact-title/category queries semantic search misses, and honestly earns the word "hybrid" in the README. Replaces the fuzzier v1 "multi-query only" story. |
-| A5 | **Batch embeddings** in the outbox drain (one Mesh call per drain batch, not per product) | DeepSeek 2.4 | 30 min | Seeding 60 products = 1–2 API calls instead of 60. Also makes the seed step in setup fast. |
-| A6 | Outbox indexes: `(status, created_at)` + partial on `attempts` | DeepSeek 1.2 | 5 min | Free. |
-| A7 | **Dual-horizon memory**: run the interest scorer twice — λ_long = ln2/72h (enduring interests) and λ_short = ln2/6h (current session intent) — merge as `0.6·long + 0.4·short`. Fingerprint over the merged vector; expose both vectors to the generate prompt ("long-running interest in X, today focused on Y"). | ChatGPT (long/short-term memory), implemented deterministically | 30 min | This is ChatGPT's best idea at 1/100th the cost it proposed. Two decay constants ≈ two memories. The generate node can now write copy like "you've been circling agentic AI for a week, and this morning you went deep on LangGraph" — directly serving the persuasion requirement. |
-| A8 | `conversion` event type + high scorer weight (10.0) + `rec_click` / `rec_dismiss` feedback events that feed back into the scorer (dismiss = negative weight −3 on that product's category) | DeepSeek 7.2 + ChatGPT feedback loop | 45 min | Closes the loop cheaply. The scorer *is* the interest model; feedback events updating it *is* the feedback loop. No new ML needed. |
-| A9 | **Recommendation cards** with per-item: `reason` (behavior-tied), `confidence` (deterministic: normalized fusion-rank score × interest-match, NOT an LLM number), and `next_step` (from A10 graph edges) | ChatGPT (confidence + explainability) + DeepSeek 7.1 | 1 h | Judges see explanation without a separate `/explain` endpoint (rejected, see R6). Confidence is honest because it's computed, not hallucinated. |
-| A10 | **Lightweight product graph in seed data**: `prereq_ids` and `related_ids` fields per product in `seed/products.json`. Used for (a) the card's "next step" suggestion, (b) a +boost in fusion ranking for products adjacent to already-viewed ones. | ChatGPT (knowledge graph), scoped to 1 hour | 1 h | The full KG is scope inflation; two ID-list columns in the seed JSON are not. Gives the README a "graph-aware retrieval" line that is *true*. |
-| A11 | Cookie flags (`HttpOnly`, `SameSite=lax`, `Secure` in prod), no Authorization header in logs | DeepSeek 6.1/6.3 | 15 min | Free correctness. |
-| A12 | `GET /api/events/stats` (queue depth, processed today, dropped) | DeepSeek 3.1 | 20 min | Judges testing with scripts get visibility; costs nothing. |
-| A13 | Scroll milestone fix: check every 150 ms, emit the **highest** milestone crossed (not first-match on throttled callback) | DeepSeek 3.2 | 10 min | v1's 250 ms throttle could skip 50% on fast scrolls. |
-| A14 | **Default rerank = deterministic weighted fusion** (RRF rank + interest-category match + rating prior + graph adjacency boost). `RERANK_MODE ∈ {fusion, cross_encoder, llm}` config flag; `fusion` is the submission default. | Grok #3 + engineering judgment | saves ~2 GB of torch deps + a failure mode | Kills the local cross-encoder from the critical path: no Mesh-purity optics question, no sentence-transformers install in setup, no cold-start model download. Cross-encoder stays available behind the flag and gets one ablation row *if* time allows. |
-| A15 | Persona diversity in evals: add `confused`, `price_sensitive`, `two_interests` personas | DeepSeek 5.1 | 30 min | The `two_interests` persona directly validates the multi-query + RRF design (blended queries would fail it). |
-| A16 | Nightly cleanup job: orphaned anonymous events > 90 days; WAL checkpoint | DeepSeek 3.3/1.1 | 10 min | Folded into the existing 03:00 reconcile job. |
-
-### Rejected (goes into README "future work", not into code)
-
-| # | Proposal | Source | Why rejected |
-|---|----------|--------|--------------|
-| R1 | LLM Planner Agent deciding retrieve/clarify/memory/similar-users | ChatGPT | **The trigger policy is the planner, and it being deterministic is the thesis.** An LLM planner adds a call to every run and re-introduces exactly the waste the design exists to eliminate. The README gets a paragraph saying precisely this — it converts the "not truly agentic" criticism into the submission's strongest argument. |
-| R2 | Full knowledge graph (prereq chains, bundle edges, graph retrieval) | ChatGPT | A10 captures 80% of the demo value at 5% of the cost. Neo4j/networkx layers in 4 days is how submissions die. |
-| R3 | LightGBM ranker + feature engineering | ChatGPT | Needs training data that doesn't exist (no real users). A model trained on synthetic personas would be theater. Fusion ranking (A14) with explicit, documented weights is more honest and more explainable. Future work. |
-| R4 | Kafka / Redis Streams / feature store | ChatGPT | The asyncio queue *is* the stream for this scale. README sentence: "swap the in-process queue for Redis Streams at multi-instance scale." |
-| R5 | Collaborative filtering / similar-user retrieval | ChatGPT | Cold-start platform with 4 seeded personas — there are no similar users. Future work, honestly labeled. |
-| R6 | Separate `POST /recommendations/{id}/explain` endpoint that re-calls the LLM | DeepSeek 7.1 | An extra LLM call per view contradicts the efficiency thesis. Explanations are generated *once* inside `generate` and stored on the card (A9). Same judge-visible outcome, zero marginal tokens. |
-| R7 | Category-similarity collapse in the fingerprint | DeepSeek 2.3 | Valid concern, wrong fix for the window: a hand-tuned similarity matrix is another artifact to debug. Mitigation instead: fingerprint over the **merged dual-horizon vector** (A7), which is naturally smoother, and keep the cosine-distance trigger (>0.15) as the primary signal with the bucket-hash as cache key only. Documented as a known trade-off. |
-| R8 | 5-seed statistical ablations (mean ± std) | DeepSeek 5.2 | Right in principle; at 4 days, one clean run per config with the caveat "single run, directional" written honestly beats fabricated rigor. **Metrics must be measured or labeled — never invented** (consistent with the SENTINEL sourced-or-labeled rule). |
-| R9 | PR-trigger changes / retry loops in the CI workflow | DeepSeek 4.x | The workflow file is platform-supplied and freshly re-issued; the platform validates runs server-side. Don't edit what the organizer controls. (Separate note: run it with a throwaway, spend-capped Mesh key — it executes remote code with your secrets in env.) |
-| R10 | Rate-limit middleware, PII masking, prompt-injection detection, secrets manager | ChatGPT/DeepSeek | Admin routes already role-gated; the rest is a README security paragraph, not code, at this scale. |
-
-### Cut-list re-ordering (Grok's calendar critique, accepted in full)
-
-The v1 day-by-day was a 10–14 day plan. v2 re-plans from **today** (schedule in §8). Standing rule: **the digest cron + SMTP is the first thing cut** — `POST /admin/trigger-digest` rendering the HTML email is enough for the video. The four never-cut items stand: dual-write sync, non-blocking tracking, validate node, trigger policy.
+**Status:** approved for build. Rewritten 6 Aug 2026 against the code that exists, superseding the
+v2.1 adjudication document (which was written before the catalog pipeline landed and no longer
+describes the system).
+**Deadline:** 9 Aug 2026 12:00 IST.
+**Stack:** FastAPI · SQLite (WAL + FTS5) · Chroma · LangGraph · APScheduler · Jinja2 · Mesh API ·
+LangSmith (optional).
 
 ---
 
-## 1. System architecture v2 (delta view)
+## 0. What this system is
 
-Unchanged from v1 unless marked ▲.
+A course-recommendation platform that watches what a user actually does — pages browsed, searches
+run, time spent, cards clicked and dismissed — and turns that behavior into a small set of grounded,
+persuasive recommendations.
+
+The thesis in one sentence: **the expensive part (an LLM) runs only when cheap deterministic code
+has established that behavior materially changed.** Everything below is downstream of that.
+
+Three claims the build must be able to demonstrate:
+
+1. **Behavior drives recommendations.** Not a static popularity list with an LLM writing captions.
+2. **Recommendations are grounded.** Every recommended course ID came from retrieval over the real
+   catalog, and a validate node enforces that — the model cannot invent a course.
+3. **The system is efficient by design.** A deterministic planner gates LLM calls; the README
+   reports measured call counts, not adjectives.
+
+---
+
+## 1. The platform (foundation)
+
+This is the layer the rest of the system sits on, and the part that must be finished first.
+
+### 1.1 Web application
+
+A server-rendered FastAPI app (Jinja2 templates, no SPA). Server-rendered is a deliberate choice:
+the behavioral tracker needs real page loads to observe, and a four-day window has no room for a
+frontend build pipeline.
+
+**Authentication — email/password, deliberately simple.** No OAuth, no magic links, no email
+verification. Passwords hashed with bcrypt via `passlib`. Session held in a signed cookie
+(`itsdangerous`), flags `HttpOnly` + `SameSite=lax`, plus `Secure` when `ENV != development`.
+Sessions carry `user_id` and `role`; there is no server-side session store, because there is nothing
+in a session worth the table.
+
+**Two roles, one column.** `users.role ∈ {user, admin}`:
+
+| Role | Can do |
+|---|---|
+| `user` | Browse and search the catalog, view course pages, receive recommendations, click/dismiss recommendation cards. |
+| `admin` | Everything a user can, plus full product CRUD, the ingest/reingest trigger, and the `agent_runs` observability page. |
+
+Enforcement is a single FastAPI dependency, `require_admin`, applied to the admin router — not
+per-handler checks, which is how one handler eventually gets missed. Anonymous visitors may browse
+and are tracked by `session_id`; on login their prior anonymous events are stitched to their
+`user_id` (§4.2), so a first recommendation can draw on what they did before signing up.
+
+**Route map**
 
 ```
-BROWSER
-  tracker.js — batch(10 | 5s | sendBeacon) · scroll milestones ▲A13
-             · rec_click / rec_dismiss / conversion events ▲A8
-        │
-        ▼
-FASTAPI
-  POST /api/events → 202 → asyncio.Queue → executemany writer
-  GET  /api/events/stats ▲A12
-  Auth (cookie: HttpOnly/SameSite/Secure ▲A11)
-  Admin CRUD → product_service.upsert() → SQLite ──► vector_outbox
-                                    │                    │ (batched embeds ▲A5)
-                                    └─► FTS5 triggers ▲A4 └──► CHROMA (Mesh embeddings)
-  GET /recommendations → RecommendationService
-        │
-   interest_scorer (dual-horizon λ72h + λ6h ▲A7, feedback-aware ▲A8)
-        │ fingerprint unchanged → cached card (0 LLM calls)
-        │ changed / trigger fired
-        ▼
-   LANGGRAPH AGENT (2-LLM happy path ▲A3) → LangSmith → Mesh
-        ▼
-   recommendations table → recommendation cards ▲A9
+GET  /                     landing / browse
+GET  /search?q=            catalog search (FTS5 + filters)
+GET  /course/{slug}        course detail — the main tracked surface
+GET  /recommendations      the rec cards (§6)
 
-APSCHEDULER (single worker, SCHEDULER_ENABLED flag)
-  30s   drain outbox (batch embed ▲A5)
-  15m   refresh stale recs (active users only)
-  03:00 reconcile + WAL checkpoint + orphan cleanup ▲A16
-  16:00 digest  ← BONUS TIER, first cut; manual trigger endpoint ships regardless
+GET  POST /auth/register   email + password
+GET  POST /auth/login
+POST /auth/logout
+
+POST /api/events           tracker ingest → 202 (§4)
+GET  /api/events/stats     queue depth, processed, dropped
+
+GET  /admin/products                 list
+GET  POST /admin/products/new        create
+GET  POST /admin/products/{id}/edit  update
+POST /admin/products/{id}/delete     soft delete (is_active=false)
+POST /admin/ingest                   re-run catalog ingest
+GET  /admin/agent-runs               observability
+
+GET  /healthz  /health     liveness
 ```
 
-## 2. Schema deltas
+### 1.2 Database schema
 
-Everything from v1 §2 stands. Additions:
+SQLite with WAL (`app/db/session.py` sets the pragmas on every connect: `journal_mode=WAL`,
+`synchronous=NORMAL`, 64 MB cache, `temp_store=MEMORY`, `foreign_keys=ON`). One writer, many
+readers — which is exactly this workload.
 
-```sql
--- ▲A4  full-text search, kept in sync by triggers
-CREATE VIRTUAL TABLE products_fts USING fts5(
-  title, description, category, tags, content=products, content_rowid=id);
--- + AFTER INSERT / UPDATE / DELETE triggers (see setup.sh)
+The tables and how they relate:
 
--- ▲A6
-CREATE INDEX idx_outbox_status_created ON vector_outbox(status, created_at);
+```
+users ──1:1──► user_profiles          derived interest state, one row per user
+  │
+  ├──1:N──► events                    the raw behavioral log (user_id nullable)
+  │
+  └──1:N──► recommendations           stored rec sets, one current per user
 
--- ▲A8  new event types (no schema change — event_type values):
---   'conversion' (weight 10.0), 'rec_click' (+4 on category),
---   'rec_dismiss' (−3 on that product's category)
+products ──1:N──► vector_outbox       pending Chroma sync work
+   │
+   └── products_fts                   FTS5 virtual table, trigger-maintained
 
--- ▲A9  recommendations.items JSON items gain:
---   {product_id, reason, hook, confidence, next_step_id}
-
--- ▲A10  products gain: prereq_ids JSON, related_ids JSON  (from seed data)
-
--- ▲A7  user_profiles gains: interests_short JSON (long-horizon stays in interests)
+agent_runs        one row per agent invocation (observability)
+embedding_cache   text_hash → vector, avoids re-embedding identical text
+digest_log        (user_id, sent_date) unique — digest idempotency
 ```
 
-## 3. The agent v2 — two LLM calls on the happy path
+**`users`** — `id`, `email` (unique), `password_hash`, `role`, `digest_opt_in`, `created_at`.
+
+**`products`** — the course catalog. `id`, `slug` (unique, the stable identity), `title`,
+`description`, `category`, `level`, `price`, `tags`, `instructor`, `rating`, `is_active`,
+`content_hash`, plus the two ladder columns `prereq_ids` / `related_ids` (§3.3), and timestamps.
+`content_hash` is what makes re-ingest cheap: unchanged courses are skipped rather than re-embedded.
+
+**`events`** — the behavioral log and the source of truth for everything the recommender knows.
+`event_uuid` is unique and client-generated, which makes retries idempotent — the tracker uses
+`sendBeacon`, which can duplicate on page unload. `user_id` is nullable (anonymous browsing);
+`session_id` is always present. Indexed on `(user_id, ts)` and `(session_id, ts)`, because every
+read is "recent events for this identity."
+
+Event types: `page_view`, `product_view`, `product_dwell`, `search`, `search_result_click`,
+`category_filter`, `add_to_wishlist`, `cta_click`, `scroll_depth`, `conversion`, `rec_click`,
+`rec_dismiss`.
+
+**`user_profiles`** — derived, never authoritative; fully rebuildable from `events`. Holds
+`interests` (long horizon) and `interests_short` (session horizon) as category→weight JSON,
+`price_band`, `stage`, `llm_summary`, `fingerprint`, `events_seen`.
+
+**`recommendations`** — `narrative` plus an `items` JSON array of
+`{product_id, reason, hook, confidence, next_step_id, rank}`, the `fingerprint` it was generated
+for, `trigger_reason`, `model_used`, `token_cost`, and `is_current`. Indexed `(user_id, is_current)`.
+Old sets are kept with `is_current=false` — they are the recency-penalty input (§5.3) and the
+audit trail.
+
+**`vector_outbox`** — `product_id`, `op`, `status`, `attempts`, `last_error`. The transactional
+sync record between SQLite and Chroma (§3.4). Indexed `(status, created_at)` plus a partial index
+on `attempts`.
+
+**`agent_runs`** — one row per invocation: `node_path`, `llm_calls`, `retrieval_rounds`,
+`fallback_used`, `cos_dist`, `trigger_reason`, `cache_hit`, `latency_ms`, `status`. This table is
+where the README's efficiency numbers come from; without it they would be assertions.
+
+Schema, FTS5 table, triggers and indexes are all created by `python -m app.db.init_db`. There is no
+migration tool — `init_db` is the migration story for a greenfield app with a four-day life.
+
+---
+
+## 2. The catalog — hand-curated, three-tier
+
+The catalog is not scraped. Each course is hand-written into `data/data_1/<slug>.json` from its
+source page, against a frozen standard (`data/COURSE_SCHEMA.md`) enforced by
+`data/course.schema.json` and `data/data_1/validate_seed.py`. Twelve courses are curated today;
+`data/courses_catalogue.json` is the generated tracker (`make catalogue`) that reports counts,
+distributions and open issues.
+
+This matters architecturally because of §0 — a curated catalog is what makes "grounded" checkable.
+Marketing pages lie by omission, and the standard exists to catch that: the validator has already
+caught an objectives-vs-syllabus mismatch, a coupon price that would have gone stale in days, and a
+27-vs-32 module version skew.
+
+**The three tiers decide where a field is allowed to travel:**
+
+| Tier | Destination | Fields |
+|---|---|---|
+| **T1 — Filter** | SQL columns + Chroma metadata | `slug` `category` `level` `price` `price_band` `is_free` `is_active` `mode` `enrollment_status` |
+| **T2 — Embed** | Chroma chunk text | `title` `overview` `objectives` `module_groups` `projects` `skills` |
+| **T3 — Persuade** | Injected into the generate prompt at answer time, **never embedded** | `price` `format` `mentors` `perks` `cohort_start` `career_roles` `rating` |
+
+**The hard rule: a T3 field never enters embedding text.** Embedding "₹12000, Sat–Sun 8pm" makes
+every course match every price query and every schedule query, and retrieval precision quietly
+dies. `NEVER_EMBED_KEYS` in the validator enforces it.
+
+Two more curation rules with architectural consequences:
+
+- **The corroboration rule.** An objective is kept only if a real module supports it; uncorroborated
+  ones go to `objectives_dropped` and are not embedded. The validate node cites objectives back to
+  the user as reasons — an uncorroborated objective would be a lie with a citation attached.
+- **`_comment_*` keys are the audit trail.** They live in the files forever, and `strip_comments()`
+  in `app/catalog/loader.py` removes them before anything is written or embedded. `null` plus a
+  comment beats a plausible guess, every time.
+
+**Chunking** (`app/catalog/chunker.py`): one chunk per objective (the highest-value retrieval keys,
+because objectives are phrased the way users phrase intent), one per *module group* — never per
+module, since three-word titles embed terribly and 28 chunks from one course would dominate RRF and
+starve a 12-course catalog — plus overview, projects and skills chunks. Every chunk carries
+`parent_id`; retrieval dedupes to parent.
+
+---
+
+## 3. Retrieval and ranking
+
+### 3.1 Hybrid retrieval
+
+Two retrievers over the same catalog, fused by Reciprocal Rank Fusion:
+
+- **Vector** — Chroma, embeddings via Mesh (`EMBED_MODEL`), one query per inferred interest rather
+  than one blended query. Blending two interests produces a centroid that matches neither, which is
+  exactly what the `two_interests` eval persona is built to catch.
+- **FTS5** — the SQLite virtual table, trigger-maintained. Catches exact title, category and
+  technology-name matches that semantic search softens.
+
+RRF because it needs no score calibration between two retrievers whose scores are not comparable.
+
+### 3.2 Deterministic fusion ranking
+
+Default `RERANK_MODE=fusion`. A local cross-encoder stays available behind the flag but is off the
+critical path — it would add ~2 GB of torch dependencies, a cold-start model download, and a
+"why isn't this going through Mesh" question, to reorder a handful of candidates.
+
+```
+score = 0.40·norm(rrf)
+      + 0.28·interest_match
+      + 0.10·freshness
+      + 0.09·popularity
+      + 0.08·rating_prior
+      + 0.05·graph_adjacency
+```
+
+Then two adjustments: a **−0.15 recency penalty** on items shown in the user's previous current rec
+set (a penalty, not a hard exclusion — a 12-course catalog starves under exclusions), and **outright
+exclusion** of anything with a `conversion` event, because you do not re-sell a course someone
+bought. Final selection caps any single category at **3 of 5**, which protects multi-interest users
+without the tuning burden of MMR.
+
+### 3.3 Freshness — the live-vs-recorded axis
+
+`app/catalog/freshness.py`. People want live and they want recent, and no amount of embedding
+similarity captures that: a cohort starting in four weeks and the same syllabus recorded eighteen
+months ago have nearly identical text. It is a fact about time, so it is computed, never asked of
+an LLM.
+
+```
+freshness = enrollment_multiplier × (0.55·mode_prior + 0.45·recency)
+```
+
+Mode priors: `live` 1.00, `hybrid` 0.85, `self-paced` 0.60, `recorded` 0.45. Enrollment multiplier:
+`open`/`closing_soon` 1.0, `waitlist` 0.7, `closed` 0.25.
+
+**The demotion rule** is the load-bearing part: a `live` or `hybrid` course with **no future
+cohort** is scored at the `recorded` prior. The course really is sold as live, but what a buyer gets
+*today* is recordings of a cohort that already ran. Without this, a dead cohort outranks a genuinely
+upcoming one on the strength of the word "live" in its metadata. `declared_mode` is preserved so the
+card can still say "live bootcamp" truthfully.
+
+Recency is measured from whichever date is meaningful for that mode: days-until-start for future
+cohorts (0–60 days → 1.0), a 365-day half-life on `content_updated` otherwise, and **0.35 when no
+date exists at all** — deliberately below the one-year mark, because unknown recency must never
+outrank known-fresh and we do not invent a date to fill the gap.
+
+### 3.4 The ladder, and dual-write
+
+`prereq_ids` / `related_ids` are arrays of slugs — two ID lists, not a knowledge graph. They drive
+the card's **Next step** line and the `0.05` adjacency boost. `validate_graph()` fails loudly on a
+dangling edge, with a `prune_pending` escape hatch for incremental curation (edges to not-yet-written
+courses drop in memory only, and reconnect themselves as files land).
+
+**Dual-write:** every product mutation writes SQLite and Chroma. The submission ships synchronous
+embed-on-upsert with a `vector_outbox` row as the durable record; the outbox drain job upgrades this
+to fully asynchronous if time allows. Either form is an honest dual-write — the outbox is about
+failure recovery, not about correctness on the happy path.
+
+---
+
+## 4. Behavioral tracking
+
+### 4.1 Non-blocking ingest
+
+`tracker.js` batches events (10 events, or 5 s, or `sendBeacon` on unload) to `POST /api/events`,
+which validates and pushes to an in-process `asyncio.Queue` (`maxsize=10_000`) and returns **202
+immediately**. A background writer task drains with `executemany`. Tracking must never make the site
+feel slow — that is the whole design constraint.
+
+Queue overflow uses `put_nowait` with a `DROPPED` counter surfaced at `/api/events/stats` alongside
+depth and processed-today. Dropping loudly beats blocking silently. The queue is dev-grade by
+design; Redis Streams is the multi-instance answer and is named as future work rather than built.
+
+Scroll milestones are checked every 150 ms and emit the **highest** milestone crossed, not the first
+match on a throttled callback — a coarser throttle skips 50% milestones on fast scrolls.
+
+### 4.2 Identity stitching
+
+Anonymous events carry `session_id` only. On login or registration, events for that `session_id`
+with `user_id IS NULL` are backfilled with the new `user_id`. This is what lets a brand-new account
+receive a behavior-driven first recommendation instead of a cold-start placeholder.
+
+---
+
+## 5. The interest model — deterministic, dual-horizon
+
+`app/agent/scorer.py`. Pure Python, no model, and it is the layer that makes the whole efficiency
+argument work.
+
+Every event has a weight, decayed exponentially by age and summed per category:
+
+```
+page_view 1.0 · product_view 2.0 · search 3.0 · search_result_click 3.0
+category_filter 1.5 · scroll_depth_75 1.0 · add_to_wishlist 5.0 · cta_click 6.0
+conversion 10.0 · rec_click +4.0 · rec_dismiss −3.0     (+2.0 dwell bonus > 30 s)
+```
+
+**Two decay constants ≈ two memories:**
+
+- λ_long = ln2/72 h — enduring interests
+- λ_short = ln2/6 h — what the user is doing *right now*
+- merged = `0.6·long + 0.4·short`
+
+Both vectors reach the generate prompt, which is what lets a card say "you've been circling agentic
+architectures all week — and this morning you went deep on LangGraph." That is the persuasion
+requirement, served by arithmetic.
+
+**The feedback loop is the same code.** `rec_click` and `rec_dismiss` are events with weights, so
+clicking a card strengthens that category and dismissing one weakens it. No second model, no
+training. And because negatives ride the same `exp(−λ·age)` decay as positives, a two-month-old
+dismissal is already ≈ 0 — the system forgives.
+
+### 5.1 Fingerprint and trigger policy — the planner
+
+The fingerprint is a hash over the merged interest vector. The trigger policy decides whether the
+agent runs at all:
+
+**Run iff** cosine distance from the last fingerprint > `0.15` · **or** ≥ 8 significant events since
+the last run · **or** the current rec is stale (> 6 h) and the user is active · **or** a high-intent
+event fired (`cta_click`, `conversion`, `add_to_wishlist`).
+
+**Suppress** on a 90 s debounce, on an in-flight run for that user (per-user lock, so concurrent
+requests coalesce onto one run), and below the cold-start floor of 3 events — under which the user
+gets trending-within-observed-signal, never generic popularity.
+
+Unchanged fingerprint → the cached card is served at **zero LLM calls**.
+
+> **On "is this really agentic?"** The planner here is deliberately not an LLM. The trigger policy —
+> fingerprint delta, event thresholds, high-intent signals, debounce, in-flight coalescing — *is* a
+> planner; it decides whether reasoning is worth paying for. A system that puts an LLM in the
+> planning seat spends tokens deciding whether to spend tokens. This one plans in microseconds and
+> reasons only when behavior has materially changed. The ablation row measures the difference.
+
+---
+
+## 6. The agent — two LLM calls on the happy path
+
+LangGraph, checkpointed to SQLite, traced to LangSmith when `LANGSMITH_TRACING=true`.
 
 ```
 load_state
     │
-analyze_behavior            ← LLM #1 (fast model, json_schema, fallback chain ▲A2)
-    │                          input: merged interests + dual-horizon summary ▲A7
-route_signal ─ insufficient ─► cold_start → persist
+analyze_behavior         ← LLM #1 (MODEL_FAST, json_schema, fallback chain §7)
+    │                       input: merged + dual-horizon interest vectors
+route_signal ─ insufficient ─► cold_start ─► persist
     │
-retrieve                    ← per-interest Chroma query + FTS5 query, RRF ▲A4
+retrieve                 ← per-interest Chroma query + FTS5 query, fused by RRF
     │
-fusion_rank                 ← ▲A14 deterministic: RRF + interest match
-    │                          + rating prior + graph adjacency ▲A10 → top 8
-deterministic_grade         ← ▲A3 pure Python coverage check
+fusion_rank              ← deterministic (§3.2) → top 8
     │
-    ├─ ratio == 1.0 ──────────────────────► generate
+deterministic_grade      ← pure Python: do the top-5 candidates cover the
+    │                       inferred categories?
+    ├─ ratio == 1.0 ─────────────────► generate
     ├─ ratio == 0.0 ─► refine_query (1 loop max) ─► retrieve
-    └─ 0 < ratio < 1 ─► llm_grade (LLM #2b, rare) ─► generate | refine
+    └─ 0 < ratio < 1 ─► llm_grade (rare) ─► generate | refine
     │
-generate                    ← LLM #2 (writer model): narrative referencing BOTH
-    │                          horizons ("all week… and this morning…") ▲A7
-    │                          + per-item reason/hook; confidence computed
-    │                          in Python from fusion scores, attached after ▲A9
-validate                    ← unchanged: IDs ⊆ retrieved set, active, ≤5,
-    │                          deduped, reasons ≤220 chars. The grounding guarantee.
+generate                 ← LLM #2 (MODEL_WRITER): narrative referencing both
+    │                       horizons, + per-item reason and hook.
+    │                       T3 persuasion facts injected here, verbatim.
+    │
+validate                 ← IDs ⊆ retrieved set · active · ≤ 5 · deduped ·
+    │                       reasons ≤ 220 chars.  THE GROUNDING GUARANTEE.
 persist → card
 ```
 
-**README framing for the "not truly agentic" critique (use this paragraph):**
-> The planner in this system is deliberately not an LLM. The trigger policy — fingerprint delta, event thresholds, high-intent signals, debounce, in-flight coalescing — is a deterministic planner that decides *whether reasoning is worth paying for*. Systems that put an LLM in the planning seat pay tokens to decide whether to pay tokens. Ours plans in microseconds and reasons only when behavior has materially changed: N× fewer LLM calls at equal recommendation quality (see ablation).
+**Deterministic-first grading** is why the happy path is two calls and not three. A Python coverage
+check answers "did retrieval find what the user cares about?" in microseconds; the LLM grader runs
+only when that check is genuinely ambiguous. It can therefore never fire on hallucinated
+insufficiency, and the refine loop is capped at one iteration.
 
-## 4. Mesh integration deltas
+**Confidence is computed, never asked of the model:**
 
-v1 §5.5 stands (ChatOpenAI → Mesh, embeddings via Mesh, MeshClient retry/backoff). Additions:
+```
+confidence = 0.5·norm(fusion_score) + 0.35·interest_match + 0.15·level_match
+```
 
-- ▲A2 `structured_call(messages, schema)`: try `MODEL_FAST` with `response_format`; on JSON parse failure or missing fields, one retry with `MODEL_FAST_FALLBACK=openai/gpt-4o-mini`. Log which path fired into `agent_runs`.
-- ▲A5 `embed_batch(texts: list[str])` — single POST; outbox drain and seed both use it.
-- Confirm structured-output support per model via `GET /v1/models` **at startup**, log the result; don't assume.
+Weighted-additive rather than multiplicative: multiplying five [0,1] terms collapses everything
+toward zero (0.8⁵ ≈ 0.33 reads as "poor" for an excellent match) and one noisy term nukes the score.
 
-## 5. Tracking deltas
-
-v1 §4 stands. Additions: A13 scroll fix, A8 new event types wired into the rec card UI (`rec_click` fires on card CTA, `rec_dismiss` on the card's ✕), A12 stats endpoint.
-
-## 6. Recommendation card (what the user and the judge see) ▲A9
+**The card:**
 
 ```
 ┌─ Agentic AI Bootcamp ────────────────────────── 92% match ─┐
-│ "You've been circling agentic architectures all week —    │
-│  and this morning you went deep on LangGraph twice."      │
-│  ✓ 3 product views in Agentic AI   ✓ searched 'langgraph' │
-│  ✓ fits your ₹ band                ✓ intermediate level   │
-│  Next step: Advanced LangGraph Patterns →                 │
-│                                    [View course]  [✕]     │
-└───────────────────────────────────────────────────────────┘
+│ "You've been circling agentic architectures all week —     │
+│  and this morning you went deep on LangGraph twice."       │
+│  ✓ 3 product views in Agentic AI   ✓ searched 'langgraph'  │
+│  ✓ live cohort opens 6 Sep         ✓ intermediate level    │
+│  Next step: Advanced LangGraph Patterns →                  │
+│                                    [View course]  [✕]      │
+└────────────────────────────────────────────────────────────┘
 ```
-Confidence = `0.5·norm(fusion_score) + 0.35·interest_match + 0.15·level_match` — computed, displayed, and documented. Never asked of the LLM.
 
-## 7. Evaluation v2
-
-v1 metric table stands. Personas: the original four **plus** `confused`, `price_sensitive`, `two_interests` (▲A15). Ablation rows (single run each, labeled as directional — R8): trigger-policy off/on · fusion vs raw-RRF · grade-path off/on. Sourced-or-labeled rule applies to every number in the README.
-
-## 8. Re-planned schedule (from tonight, 5 Aug)
-
-| When | Work | Green means |
-|---|---|---|
-| **Aug 5 (rest of today)** | Repo + CI + secrets pushed (if not done). setup.sh run. Skeleton: config, models (+FTS5, pragmas listener), auth, admin CRUD, `product_service` dual-write with **simple synchronous embed-on-upsert** (outbox deferred), seed 60 courses via batched embeds. | Add product in admin → found by Chroma similarity search. CI green. |
-| **Aug 6** | tracker.js (with A13, A8 events) + `/api/events` queue/writer + stats + identity stitching + browse/search/product pages. Then: scorer (dual-horizon) + fingerprint + trigger policy + rec cache. | Browse → events land, p95 measured. Fingerprint changes with behavior. |
-| **Aug 7** | LangGraph v2: analyze → retrieve (hybrid) → fusion_rank → det_grade → generate → validate. Mesh fallback chain. Rec cards on the site. **Go/no-go checkpoint at EOD:** core loop demo-able end to end or bonuses get cut now. | Behavior visibly drives grounded, persuasive cards. LangSmith traces. |
-| **Aug 8 AM** | Upgrade embed-on-upsert → transactional outbox + drain (if AM is calm; else document sync as "synchronous dual-write, outbox as future work" — still honest dual-write). `agent_runs` admin page. | Outbox drains or fallback documented. |
-| **Aug 8 PM** | Eval harness (7 personas) + ablation + README (lead with efficiency numbers) + demo video (DeepSeek's 60s script is good — use it). Digest: manual trigger + rendered email; cron only if everything else is green. | README numbers are real. Video recorded. |
-| **Aug 9 by 10:00** | Buffer, optional deploy, final push. | Submitted 2h early. |
-
-**Cut order under pressure:** digest cron → outbox upgrade (keep sync dual-write) → cross-encoder ablation row → agent_runs page → deploy. **Never cut:** dual-write (either form), non-blocking tracking, validate node, trigger policy, measured efficiency numbers.
-
-## 9. README future-work section (converts rejections into credibility)
-
-One paragraph each, honestly labeled as not implemented: LLM planner trade-off analysis (R1) · full prerequisite knowledge graph (R2) · learned ranker once real interaction data exists (R3) · Redis Streams / feature store at multi-instance scale (R4) · collaborative filtering post cold-start (R5) · A/B framework over Mesh multi-model fan-out · statistical eval rigor (R8).
+Explanations are generated **once**, inside `generate`, and stored on the card. There is no
+`/explain` endpoint that re-calls the model — that would contradict the entire efficiency argument
+for zero judge-visible gain.
 
 ---
 
-# Addendum v2.1 — round-2 critique adjudication (5 Aug, late)
+## 7. Mesh integration
 
-Both critics approved v2. This addendum resolves their residual points. Same rule: the calendar wins ties. Total added build cost of everything adopted below: **≈ 2.5 h**.
+All LLM and embedding calls go through Mesh (`MESH_BASE_URL`), with retry and exponential backoff.
 
-## Adopted (patched into setup.sh where foundational)
+**The structured-output fallback chain** is the single highest-probability catastrophic failure in
+this design, so it has three layers of defense:
 
-| # | Change | Source | Disposition |
-|---|--------|--------|-------------|
-| B1 | **Fence-stripping JSON parser** in `mesh.py`: before `json.loads`, trim ```` ```json ```` fences and extract the outermost `{…}`. Applied to fast, fallback, and writer paths. | DeepSeek W1 | ✅ in setup.sh. Covers the case where *neither* model honors `response_format` — the last line of defense under the fallback chain. |
-| B2 | **Popularity term in fusion**: `0.45·norm(rrf) + 0.3·interest_match + 0.1·rating + 0.1·popularity(log views from events) + 0.05·graph_adjacency`. | GPT #4 | ✅ nearly free — popularity is a GROUP BY over `events`, not a "tool". |
-| B3 | **Diversity cap**: final selection allows ≤3 of 5 items from one category (simple cap, not MMR — same effect at this K, zero tuning). | GPT #9 | ✅ directly protects the `two_interests` persona. |
-| B4 | **Recency penalty, not exclusion**: items shown in the user's previous current rec get a −0.15 fusion penalty; items with a `conversion` event are **excluded outright** (you don't re-sell a bought course). | GPT #6/#10 | ✅ penalty (not hard 7-day exclusion) because a 60-product catalog starves under exclusion. |
-| B5 | `cos_dist` column on `agent_runs` + log `trigger_reason`/`cache_hit` per run — backs the 0.15 threshold with a measured distribution in the README. | GPT #11 + DeepSeek W3 | ✅ in setup.sh. |
-| B6 | **Seed graph validation**: `seed.py` verifies every `prereq_ids`/`related_ids` slug exists before writing; fails loudly. | DeepSeek minor | ✅ in setup.sh. |
-| B7 | **Chunked outbox embedding**: drain in chunks of 20; a failed chunk retries per-item, `attempts`+backoff absorb stragglers. | DeepSeek W2 | ✅ documented in the outbox TODO (built Aug 8). |
-| B8 | Eval adds **Coverage** (% of catalog ever recommended across personas) and **Diversity@5** (distinct categories per rec set). Serendipity/novelty skipped — they need baselines that don't exist yet. | GPT #12 | ✅ two trivial computations. |
-| B9 | Dev-ex: **Makefile** (`dev/seed/test/lint`), **pytest smoke tests** (`/healthz`, event ingest 202), **ruff** via `requirements-dev.txt`, `/health` alias. | GPT setup review + DeepSeek minor | ✅ in setup.sh. Docker, Alembic, pre-commit, black, mypy: rejected below. |
+1. `MODEL_FAST` with `response_format` — the happy path.
+2. On parse failure or missing fields, one retry against `MODEL_FAST_FALLBACK`.
+3. A **fence-stripping parser** that trims ```` ```json ```` fences and extracts the outermost `{…}`
+   before `json.loads` — the last line of defense for when neither model honors `response_format`.
 
-## Rejected (with the arguments — several go in the README)
+Which path fired is logged to `agent_runs.fallback_used`. Structured-output support is confirmed
+against `GET /v1/models` **at startup** and logged, rather than assumed.
 
-| # | Proposal | Source | Why |
-|---|----------|--------|-----|
-| C1 | Conversation memory / rolling chat summary | GPT #1 | **There is no conversation in this product.** The brief specifies browse/search behavior → recommendations; users never chat with the agent. This solves a problem the system doesn't have. If a chat surface were added later, the dual-horizon scorer's short vector is where session intent already lives. |
-| C2 | Rule-based dynamic planner step | GPT #2 | Already exists — it's `route_signal` + the trigger policy + the deterministic grade router. GPT's own example (`intent == new topic → retrieve, else cached`) *is* the fingerprint check. Disposition: README wording, zero code. |
-| C3 | Tool layer (inventory/price/review/trending "tools") | GPT #3, echoed in closing | These are columns, not tools. Wrapping `products.price` in a "Price Tool" so the generator can "reason over tool outputs" adds latency, failure modes, and tokens to retrieve data the retrieval step already returns. Multi-tool orchestration goes in future work as an honest trade-off note — the README paragraph from §3 already argues why deterministic beats LLM-mediated here. |
-| C4 | Extra graph arrays (`similar_ids`, `alternative_ids`, `bundle_ids`) | GPT #5 | `related_ids` already carries similar/alternative semantics at this catalog size; three more arrays = three more things to hand-curate in seed data by tomorrow. |
-| C5 | Decay negative feedback | GPT #7 | **Already the case.** Every weight in the scorer — including `rec_dismiss: −3` — passes through `exp(−λ·age)`. A two-month-old dismissal is already ≈0. The critique missed that negatives ride the same decay as positives. README gets one sentence so judges don't miss it too. |
-| C6 | Multiplicative confidence | GPT #8 | Multiplying five [0,1] terms collapses everything toward 0 (0.8⁵ ≈ 0.33 reads as "low" for a great match) and any single noisy term nukes the score. Weighted additive with documented weights is more stable and more explainable. Keep. |
-| C7 | Docker + compose, Alembic, pre-commit/black/mypy | GPT setup | Greenfield SQLite app with a 4-day window: `init_db.py` *is* the migration story, and the judge runs `setup.sh`, not `docker compose`. Each is one README sentence under future work. ruff alone gives 80% of the lint value. |
-| C8 | Redis-durable event queue | DeepSeek W6 | Agreed it's dev-grade; that's the design. README sentence: "swap `asyncio.Queue` for Redis Streams for durability across restarts at multi-instance scale" (already the R4 note). |
+`embed_batch(texts)` is a single POST — seeding the catalog is one or two calls, not one per course.
+`embedding_cache` keys on text hash so unchanged content is never re-embedded.
 
-## Confirmations (no action)
+---
 
-- Queue overflow protection already exists: `maxsize=10_000`, `put_nowait` + `DROPPED` counter surfaced at `/api/events/stats` (DeepSeek W6-adjacent).
-- CI workflow untouched; throwaway spend-capped Mesh key stands (both critics now agree).
-- DeepSeek's fallback plan is adopted as official: **if LangGraph slips on Aug 7, ship scorer + fusion + single writer-LLM call for the narrative.** That is still a behavior-driven, grounded, efficient system — the graph is presentation, the policy is the product.
+## 8. Scheduler
 
-*Adjudicated and frozen 5 Aug 2026 (v2.1). No further architecture rounds — every remaining hour goes to code.*
+APScheduler, single worker, behind `SCHEDULER_ENABLED`:
+
+| Every | Job |
+|---|---|
+| 30 s | Drain `vector_outbox` in chunks of 20; a failed chunk retries per-item with `attempts` + backoff. |
+| 15 min | Refresh stale recommendations for **active users only**. |
+| 03:00 | Reconcile SQLite ↔ Chroma · `wal_checkpoint(TRUNCATE)` · delete orphaned anonymous events > 90 days. |
+| 16:00 | Digest email — **bonus tier, first to be cut.** |
+
+`POST /admin/trigger-digest` renders the digest on demand and ships regardless of whether the cron
+survives; the manual trigger is all the demo needs.
+
+---
+
+## 9. Evaluation
+
+Seven personas: the original four plus `confused`, `price_sensitive`, and `two_interests` — the last
+directly validates the multi-query + RRF design, since a blended-query implementation fails it.
+
+Metrics: relevance, grounding rate (must be 100% — the validate node makes it a guarantee, so any
+other number is a bug), **Coverage** (% of catalog ever recommended across personas), **Diversity@5**
+(distinct categories per set), LLM calls per recommendation, and p95 tracking latency.
+
+Ablations, one run each: trigger-policy off/on · fusion vs raw RRF · grade-path off/on.
+
+**Every number in the README is measured or labeled.** Single runs are reported as single runs and
+called directional. Fabricated rigor is worse than honest imprecision, and a five-seed mean±std that
+nobody actually ran is fabricated rigor.
+
+---
+
+## 10. Build order
+
+| When | Work | Green means |
+|---|---|---|
+| **Aug 6** | **Foundation (§1): auth + roles + admin CRUD.** Wire routers into `main.py`. Browse/search/course pages. | Register → login → admin adds a course → it is findable by search and by similarity. |
+| **Aug 6 PM** | `tracker.js` + `/api/events` queue/writer + stats + identity stitching. Then scorer + fingerprint + trigger policy + rec cache. | Browse → events land, p95 measured. Fingerprint moves with behavior. |
+| **Aug 7** | LangGraph: analyze → retrieve → fusion_rank → grade → generate → validate. Mesh fallback chain. Cards on the site. **Go/no-go at EOD.** | Behavior visibly drives grounded cards. Traces in LangSmith. |
+| **Aug 8 AM** | Outbox drain upgrade (or document synchronous dual-write and move on). `agent_runs` admin page. | Outbox drains, or the fallback is documented. |
+| **Aug 8 PM** | Eval harness + ablations + README + demo video. Digest manual trigger. | README numbers are real. Video recorded. |
+| **Aug 9 by 10:00** | Buffer, final push. | Submitted two hours early. |
+
+**Cut order under pressure:** digest cron → outbox upgrade → cross-encoder ablation → `agent_runs`
+page → deploy.
+
+**Never cut:** the auth/role foundation · dual-write in either form · non-blocking tracking · the
+validate node · the trigger policy · measured efficiency numbers.
+
+---
+
+## 11. Deliberately not built
+
+Each of these is a real idea rejected for a stated reason, not an oversight. They belong in the
+README as trade-offs, because naming what you did not build and why is more credible than a feature
+list.
+
+| Not built | Why |
+|---|---|
+| **LLM planner agent** | The deterministic trigger policy *is* the planner, and that is the thesis (§5.1). An LLM planner pays tokens to decide whether to pay tokens. |
+| **Full knowledge graph** | Two slug arrays capture the demo value at 5% of the cost. Neo4j in four days is how submissions die. |
+| **Learned ranker (LightGBM)** | Needs interaction data that does not exist. A ranker trained on synthetic personas would be theater; documented fusion weights are honest and explainable. |
+| **Kafka / Redis Streams / feature store** | The asyncio queue *is* the stream at this scale. One README sentence names the swap. |
+| **Collaborative filtering** | Cold-start platform, a handful of seeded personas — there are no similar users yet. |
+| **Conversation memory** | There is no conversation in this product. Users browse; they never chat with the agent. |
+| **A "tool layer" over price/inventory/reviews** | Those are columns, not tools. Wrapping `products.price` in a tool call adds latency and failure modes to fetch data retrieval already returned. |
+| **Separate `/explain` endpoint** | An extra LLM call per view for an explanation `generate` already produced and stored. |
+| **Docker, Alembic, pre-commit, mypy** | `init_db.py` is the migration story; the judge runs `setup.sh`. `ruff` alone carries 80% of the lint value. |
+| **Rate limiting, PII masking, secrets manager** | Admin routes are role-gated; the rest is a security paragraph at this scale, not code. |
+
+---
+
+## 12. Configuration
+
+`.env` (gitignored; `.env.example` is the tracked template). `SUBMISSION_TOKEN` also lives here for
+local reference, but **CI reads it from the GitHub repository secret** — `.env` is never pushed.
+
+```
+MESH_API_KEY · MESH_BASE_URL
+MODEL_FAST=google/gemini-2.5-flash · MODEL_FAST_FALLBACK=openai/gpt-4o-mini
+MODEL_WRITER=openai/gpt-4o · EMBED_MODEL=openai/text-embedding-3-small
+
+SECRET_KEY · DATABASE_URL · CHROMA_DIR · ENV
+
+RERANK_MODE=fusion · FINGERPRINT_COS_THRESHOLD=0.15 · TRIGGER_MIN_EVENTS=8
+TRIGGER_DEBOUNCE_S=90 · REC_STALE_HOURS=6 · COLD_START_MIN_EVENTS=3
+
+SCHEDULER_ENABLED · DIGEST_HOUR · SMTP_*
+LANGSMITH_TRACING · LANGSMITH_API_KEY · LANGSMITH_PROJECT
+```
+
+`settings.use_mesh` is false when `ENV=test` or no key is set, so the test suite runs offline.
+
+**CI:** `.github/workflows/smartreco-build-challenge-2026-checks.yml` is platform-supplied and
+validated server-side. Do not edit it. It executes remote code with repository secrets in the
+environment, so the Mesh key registered there should be a throwaway with a spend cap.
+
+```bash
+make init       # schema + FTS5 + triggers + indexes
+make validate   # course JSON structure + curation rules
+make catalogue  # regenerate the curation tracker
+make ingest     # chunk → embed → Chroma + catalog.index.json
+make dev        # uvicorn --reload
+make test       # pytest
+make lint       # ruff
+```
