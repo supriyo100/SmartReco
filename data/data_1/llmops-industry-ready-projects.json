@@ -1,0 +1,108 @@
+{
+  "slug": "llmops-industry-ready-projects",
+  "title": "LLMOPS Industry Ready Projects",
+
+  "_comment_overview": "PARAPHRASED from the krishnaik.in landing page (id=4) — never copy marketing prose verbatim. Facts (fee, duration, module count, tool stack, nine portfolio projects) are used as-is.",
+  "overview": "A 4-5 month live cohort from Krish Naik Academy that walks practitioners through the full LLMOps pipeline, from foundational NLP and prompt engineering to production-grade generative AI systems. Seven project-based modules cover retrieval-augmented generation, agentic workflows with MCP integration, fine-tuning and serverless deployment on AWS, and multimodal vision-language applications. The course closes with hands-on delivery of production concerns — containerisation, CI/CD, monitoring and prompt evaluation — across nine portfolio projects including a PDF assistant, a search agent, a voice chatbot and a custom fine-tuned LLM.",
+
+  "category": "MLOps / LLMOps",
+  "secondary_categories": ["GenAI / LLM Engineering", "Agentic AI", "Cloud"],
+  "_comment_category": "Primary is unambiguous — the course's own name and 'What You Will Learn' section centre on the LLMOps pipeline (fine-tuning, dockerization, CI/CD, monitoring, prompt evaluation). 'GenAI / LLM Engineering' secondary for the RAG/multimodal/LLM-API modules; 'Agentic AI' secondary for the MCP-enabled and multi-agent modules (3 and 4); 'Cloud' secondary for module 5's dedicated AWS SageMaker/Lambda/API Gateway/S3/DynamoDB serverless deployment.",
+
+  "level": "intermediate",
+  "_comment_level": "Page states explicit prerequisites — good Python coding, basics of NLP and deep learning, and basic knowledge of generative AI — which rules out a pure-beginner anchor, matching the sibling agentic-ai-agentops-bootcamp-3-0's identical prerequisite framing. No wide beginner-to-advanced span is claimed for the audience itself (the 'basics to mastery' line describes curriculum breadth, not who can enrol), so no level_range was added.",
+
+  "price": 6500,
+  "currency": "INR",
+  "_comment_price": "₹6500.00 stated inclusive of GST, own-site cohort pricing, not coupon-driven — a number is safe here. Band 'mid' per §2 (₹3,000-9,999). Identical fee to the sibling generative-ai-for-everyone-professionals-and-leaders course, confirmed independently on this page's own 'Course Fee' block.",
+  "price_band": "mid",
+  "is_free": false,
+
+  "rating": null,
+  "_comment_rating": "No star rating or review count published on the page. Null, not guessed — the validator's null-rating warning is expected.",
+
+  "source_platform": "own_site",
+
+  "format": {
+    "mode": "live",
+    "cohort_start": null,
+    "_comment_cohort_start": "Page states 'Start Date: July 12th 2025'. Curation date is 2026-08-06 — that date is over a year in the past, so per schema §3 it CANNOT sit in format.cohort_start (generate would wrongly tell a user today to enrol for a cohort that started in mid-2025). Moved to top-level cohort_start_stale. No next-cohort date is published, so cohort_start stays null; per §6 this demotes the freshness mode prior from 'live' (1.00) to the 'recorded' prior (0.45) until a future date is captured.",
+    "enrollment_status": "open",
+    "_comment_enrollment_status": "Page shows an 'Enroll Now' CTA in two places with no 'closed'/'waitlist' text, but the cohort start itself is over a year stale — stored as the schema default 'open' since that is what the CTA literally says, but this should be reconfirmed against the live page rather than trusted at face value given the stale date.",
+    "schedule": "Sat & Sun, 14:00-17:00 IST",
+    "duration": "4-5 months",
+    "_comment_duration": "The Course Overview block's explicit 'Duration : 4-5 months' field is stored; the page's top hero badge rounds this to '5 Months'. Not a version skew, just a rounded summary figure vs. the detailed field.",
+    "duration_hours": null,
+    "access": "1.5 years dashboard access",
+    "content_updated": null,
+    "published_at": null,
+    "_comment_dates": "No publish or 'last updated' date is published. Both null rather than guessed. Recency falls through to cohort_start_stale (2025-07-12) under §6's fallback chain.",
+    "curriculum_version": null
+  },
+  "cohort_start_stale": "2025-07-12",
+
+  "perks": [
+    "Dashboard access for 1.5 years",
+    "Community chat forum for discussion",
+    "Live doubt clearing after each session",
+    "Hackathons with rewards",
+    "Resume discussion and mock interview"
+  ],
+
+  "mentors": ["Krish Naik", "Sourangshu Pal", "Mayank Agarwal", "Sunny Savita"],
+  "_comment_mentors": "Page states 'Mentors: Sourangshu Paul,Mayank,Krish And Sunny' — treated as the same four people who mentor the sibling agentic-ai-genai-cloud-bootcamp course in this catalog, using that course's canonical spelling (Krish Naik, Sourangshu Pal, Mayank Agarwal, Sunny Savita).",
+
+  "objectives": [
+    "Apply prompt engineering, embeddings, vector search and fine-tuning techniques, and work with LLM APIs including GPT, Claude and Gemini",
+    "Build production-ready Retrieval-Augmented Generation (RAG) pipelines using LangChain, LlamaIndex and vector databases such as ChromaDB and Weaviate",
+    "Fine-tune open-source LLMs and deploy them with proper CI/CD, dockerization and performance monitoring as part of a full LLMOps pipeline",
+    "Create autonomous agents that can search, code, summarise and use external tools via LangChain and Hugging Face, including MCP-enabled and multi-agent research workflows",
+    "Work with multimodal generative AI — voice, image and PDF inputs — using models like Gemini, GPT-4V and LLaVA for vision-language tasks",
+    "Deploy and scale robust LLM applications for real-world traffic using FastAPI, Docker and GitHub Actions, and build end-to-end ML pipelines with production monitoring"
+  ],
+  "_comment_objectives": "§1 corroboration rule applied — nothing dropped. Each objective maps to a module: (1)->module 1 (project setup) + LLM API tool stack, (2)->module 2 (RAG portal), (3)->module 5 (fine-tuning + serverless deployment), (4)->modules 3-4 (MCP e-commerce assistant, multi-agent research), (5)->module 7 (semantic image search) + multimodal tool stack, (6)->module 6 (end-to-end ML deployment project) + Production & Scaling section.",
+
+  "_comment_modules": "7 flat curriculum modules clustered into the course's OWN 6 'What You Will Learn' thematic section headings (used here as group names, matching the convention set by the sibling agentic-ai-agentops-bootcamp-3-0 file). Module 6 ('Network Intrusion Detection Using Machine Learning') is a traditional-ML project, not LLM-specific — it has no dedicated 'What You Will Learn' section of its own, so it is placed in 'Production & Scaling' as the course's example of a complete end-to-end deployment-and-monitoring pipeline, consistent with that section's stated theme.",
+  "module_groups": [
+    {"group": "LLMs in Action", "modules": ["Prompt engineering, embeddings, vector search, fine-tuning and LLM APIs (GPT, Claude, Gemini)", "Module 1: Complete Project Setup for AI Development"]},
+    {"group": "Retrieval-Augmented Generation (RAG)", "modules": ["Production-ready RAG pipelines using LangChain, LlamaIndex and vector databases", "Module 2: Document Analysis, Chat & Comparison Portal with Advanced RAG"]},
+    {"group": "Fine-Tuning & LLMOps", "modules": ["Fine-tuning open-source models and deploying with CI/CD, dockerization and performance monitoring", "Module 5: Serverless LLM Application with Fine-Tuning on AWS SageMaker and Deployment using Lambda, API Gateway, S3 & DynamoDB"]},
+    {"group": "Agents & Tool Use", "modules": ["Autonomous agents that search, code, summarise and use external tools via LangChain and Hugging Face", "Module 3: E-Commerce Product Assistant with Real-Time Data Enabled by MCP", "Module 4: Multi-Agent System for Research Analysis and Generation Automation"]},
+    {"group": "Multimodal GenAI", "modules": ["Voice, image and PDF inputs using models like Gemini, GPT-4V and LLaVA", "Module 7: LLM-Powered Semantic Image Search System"]},
+    {"group": "Production & Scaling", "modules": ["Deploying robust LLM apps with FastAPI, Docker and GitHub Actions, ready for real-world traffic", "Module 6: Network Intrusion Detection Using Machine Learning: An End-to-End Project"]}
+  ],
+
+  "projects": [
+    "GenAI PDF Assistant — chat assistant that reads and understands complex PDF documents using LLMs and embeddings",
+    "Google Search Agent — autonomous agent that performs real-time Google searches and summarises the results",
+    "Voice-Based Chatbot — multimodal assistant that listens, processes queries and speaks back with real-time answers",
+    "LangChain-Powered RAG App — complete Retrieval-Augmented Generation app using LangChain, vector stores and OpenAI APIs",
+    "End-to-End AI Chat App — full-stack chat interface (FastAPI + Streamlit) integrating real-time LLM responses",
+    "Custom Fine-Tuned LLM — open-source LLM fine-tuned on a custom dataset and deployed with Docker and GitHub Actions",
+    "Multimodal Q&A with Vision Models — answers questions from image inputs using GPT-4V and LLaVA",
+    "AI Agent that Codes — agent that reads problem statements, writes Python code and debugs itself using tools",
+    "End-to-End LLMOps Pipeline — takes an LLM project to production with logging, monitoring, CI/CD and performance checks"
+  ],
+
+  "skills": ["Prompt engineering", "Text embeddings", "Vector search", "LLM fine-tuning", "GPT API", "Claude API",
+             "Gemini API", "Retrieval-Augmented Generation (RAG)", "LangChain", "LlamaIndex", "Hugging Face",
+             "ChromaDB", "Weaviate", "Model Context Protocol (MCP)", "Multi-agent systems", "GPT-4V", "LLaVA",
+             "Multimodal AI", "FastAPI", "Docker", "GitHub Actions CI/CD", "AWS SageMaker", "AWS Lambda",
+             "AWS API Gateway", "AWS S3", "AWS DynamoDB", "Prompt evaluation and monitoring"],
+  "_comment_skills": "Drawn from the page's 'Tool Stack You'll Master' list (LangChain, LlamaIndex, Hugging Face, ChromaDB, Weaviate, FastAPI, Docker, GitHub Actions) plus concrete named techniques and APIs corroborated by the curriculum and 'What You Will Learn' sections (prompt engineering, embeddings, vector search, GPT/Claude/Gemini APIs, RAG, MCP, GPT-4V, LLaVA) and module 5's named AWS services.",
+
+  "career_roles": ["LLM Engineer", "GenAI Engineer", "AI Engineer", "MLOps Engineer"],
+  "_comment_career_roles": "INFERRED from the stated audience: 'AI practitioners, machine learning engineers, data scientists, and software developers who want to master the end-to-end lifecycle of large language model (LLM) applications'. Card field only, never embedded.",
+
+  "prereq_ids": [],
+  "_comment_ladder": "Page states explicit skill prerequisites (Python, NLP, deep learning, GenAI basics) but names no specific catalog course, so prereq_ids stays empty rather than guessing a course match, mirroring the sibling agentic-ai-agentops-bootcamp-3-0's ladder. This file also resolves the 'llmops-industry-ready-projects' pending-ladder-ref forward references from agentic-ai-genai-cloud-bootcamp and full-stack-genai-agentic-ai-bootcamp, both of which are added back here as related_ids for reciprocity, alongside the fundamentals course those prerequisites point to.",
+  "related_ids": ["agentic-ai-genai-cloud-bootcamp", "full-stack-genai-agentic-ai-bootcamp", "ultimate-data-science-ai-engineering-3-0"],
+
+  "source_url": "https://www.krishnaik.in/liveclass2/LLMOPS-Industry-Ready-Projects?id=4",
+  "source_urls": [
+    "https://www.krishnaik.in/liveclass2/LLMOPS-Industry-Ready-Projects?id=4",
+    "https://drive.google.com/file/d/1M68dUimo9qVT__cf0XXaM_OCFdR5UgZ7/view?usp=sharing"
+  ],
+  "_comment_sources": "Landing page (id=4) is authoritative for fee, dates, schedule, mentors, features and the 'What You Will Learn'/module list used above. The Google Drive link is the page's own linked 'detailed syllabus' PDF, captured for reference only and not independently re-fetched.",
+  "is_active": true
+}
