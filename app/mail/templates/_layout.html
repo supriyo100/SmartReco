@@ -1,0 +1,68 @@
+{#
+  Shared email shell. Table-based, inline styles only.
+
+  This looks like 2005 HTML because email clients are 2005 renderers: Outlook
+  composes with Word's engine, and Gmail strips <style> blocks entirely. Flex,
+  grid, and external CSS all fail. A table with inline `style=` attributes is
+  the one layout that survives every major client, so that is what this is.
+
+  600px is the conventional max width — wider than that clips in the Outlook
+  reading pane.
+
+  Blocks: `preheader` (inbox preview text), `content`, `footer_note`.
+#}
+<div style="margin:0;padding:0;background:#f4f5f7;">
+  {# The preheader is the grey line the inbox shows after the subject. Left
+     unset, clients grab the first text in the body — usually "View in browser"
+     or a nav link. Setting it is the difference between a subject that earns
+     an open and one that doesn't. Hidden in the body itself. #}
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;height:0;width:0;">
+    {% block preheader %}{% endblock %}
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="background:#f4f5f7;padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"
+               style="width:100%;max-width:600px;background:#ffffff;border-radius:12px;
+                      overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',
+                      Roboto,Helvetica,Arial,sans-serif;">
+
+          <tr>
+            <td style="background:#1b2a4a;padding:20px 28px;">
+              <a href="{{ ''|url }}" style="color:#ffffff;text-decoration:none;font-size:18px;
+                                            font-weight:700;letter-spacing:-0.2px;">{{ brand }}</a>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:28px;color:#1f2430;font-size:15px;line-height:1.6;">
+              {% block content %}{% endblock %}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:18px 28px 26px;border-top:1px solid #e8eaee;
+                       color:#7a8194;font-size:12px;line-height:1.6;">
+              {% block footer_note %}{% endblock %}
+              <p style="margin:10px 0 0;">
+                {# Every automated message must offer a way out in one click.
+                   It is a legal requirement in most jurisdictions and the
+                   alternative to unsubscribing is being marked as spam, which
+                   costs the sending domain far more. #}
+                <a href="{{ '/profile'|url }}" style="color:#7a8194;">Manage email preferences</a>
+                &nbsp;·&nbsp;
+                <a href="{{ '/profile'|url }}" style="color:#7a8194;">Unsubscribe</a>
+              </p>
+              <p style="margin:8px 0 0;color:#9aa1b1;">
+                Sent by {{ brand }} because you have an account with us.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</div>

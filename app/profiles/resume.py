@@ -1,15 +1,17 @@
 """Resume intake: accept a file, keep the artifact, extract usable text.
 
-Scope decision, stated plainly: this extracts text from .txt and .md natively,
-and makes a best effort on .pdf using pypdf ONLY if it happens to be installed.
-No PDF library is currently a dependency, and adding one four days from the
-deadline buys less than it costs — a resume's value here is its *text*, and the
-profile form has a paste box that gets that text with zero parsing risk.
+PDF and DOCX are both parsed for real. The earlier note here said adding a PDF
+library four days from the deadline cost more than it bought — that reasoning
+was wrong once the resume became the input to ATS scoring rather than one more
+prompt fragment. PDF is the format resumes actually arrive in, and an ATS score
+computed over text the user had to paste by hand is a demo, not a feature.
+`pypdf` is pure Python with no native build step; `.docx` needs no dependency
+at all, being a zip of XML the stdlib can already read.
 
-The important property is that failure is LOUD. An extractor that returns "" on
-a PDF it cannot read would leave the user with a green checkmark, a stored file,
-and an empty profile the agent can never use. Instead the upload succeeds (the
-file is kept), and the caller is handed a warning to show.
+The important property is unchanged: failure is LOUD. An extractor that returns
+"" on a PDF it cannot read would leave the user with a green checkmark, a stored
+file, and an empty profile the agent can never use. Instead the upload succeeds
+(the file is kept), and the caller is handed a warning to show.
 """
 from __future__ import annotations
 
@@ -69,28 +71,83 @@ def extract_text(raw: bytes, filename: str) -> tuple[str, str]:
             return _clean(raw.decode("latin-1", errors="replace")), ""
 
     if suffix == ".pdf":
-        try:
-            import pypdf  # optional; not in requirements.txt
-        except ImportError:
-            return "", ("PDF text could not be extracted (no PDF library installed). "
-                        "The file is saved, but paste the text below so it can be used.")
-        try:
-            import io
-            reader = pypdf.PdfReader(io.BytesIO(raw))
-            pages = [(p.extract_text() or "") for p in reader.pages]
-            text = _clean("\n\n".join(pages))
-        except Exception as exc:
-            return "", (f"PDF could not be read ({type(exc).__name__}). The file is "
-                        f"saved, but paste the text below so it can be used.")
-        if not text:
-            # A scanned resume is images; there are no glyphs to extract. Say so
-            # rather than storing an empty string and calling it success.
-            return "", ("No text found in that PDF — it may be a scan. The file is "
-                        "saved, but paste the text below so it can be used.")
-        return text, ""
+        return _extract_pdf(raw)
 
-    if suffix in {".doc", ".docx"}:
-        return "", ("Word files are not parsed. The file is saved, but paste the "
-                    "text below so it can be used.")
+    if suffix == ".docx":
+        return _extract_docx(raw)
+
+    if suffix == ".doc":
+        # Legacy .doc is a binary OLE format, not a zip — nothing in the stdlib
+        # reads it, and one library for a format Word stopped defaulting to in
+        # 2007 is not worth the dependency.
+        return "", ("Legacy .doc files can't be parsed — re-save as .docx or PDF, "
+                    "or paste the text below.")
 
     return "", f"Unsupported file type {suffix!r}."
+
+
+def _extract_pdf(raw: bytes) -> tuple[str, str]:
+    try:
+        import pypdf
+    except ImportError:
+        return "", ("PDF text could not be extracted (no PDF library installed). "
+                    "The file is saved, but paste the text below so it can be used.")
+    try:
+        import io
+        reader = pypdf.PdfReader(io.BytesIO(raw))
+        if reader.is_encrypted:
+            # An empty-password decrypt covers the common "protected but not
+            # really" export; a real password is a dead end we should name.
+            try:
+                reader.decrypt("")
+            except Exception:
+                return "", ("That PDF is password-protected. The file is saved, but "
+                            "paste the text below so it can be used.")
+        pages = [(p.extract_text() or "") for p in reader.pages]
+        text = _clean("\n\n".join(pages))
+    except Exception as exc:
+        return "", (f"PDF could not be read ({type(exc).__name__}). The file is "
+                    f"saved, but paste the text below so it can be used.")
+    if not text:
+        # A scanned resume is images; there are no glyphs to extract. Say so
+        # rather than storing an empty string and calling it success.
+        return "", ("No text found in that PDF — it may be a scan. The file is "
+                    "saved, but paste the text below so it can be used.")
+    return text, ""
+
+
+def _extract_docx(raw: bytes) -> tuple[str, str]:
+    """Read word/document.xml out of the .docx zip and strip the markup.
+
+    No python-docx: a .docx is an OOXML zip, and the two things that carry text
+    are <w:t> runs and the <w:p> paragraph boundaries between them. Converting
+    paragraph and break tags to newlines BEFORE stripping tags is what keeps
+    the line structure the section detector in ats.py depends on — strip tags
+    first and a resume collapses into one unreadable line.
+    """
+    import io
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+            xml = zf.read("word/document.xml").decode("utf-8", errors="replace")
+    except KeyError:
+        return "", ("That .docx has no document body — it may be corrupt. The file "
+                    "is saved, but paste the text below so it can be used.")
+    except Exception as exc:
+        return "", (f".docx could not be read ({type(exc).__name__}). The file is "
+                    f"saved, but paste the text below so it can be used.")
+
+    xml = re.sub(r"</w:p>|<w:br\s*/>|<w:cr\s*/>", "\n", xml)
+    xml = re.sub(r"</w:tc>", "\t", xml)          # table cells → columns, not runs
+    xml = re.sub(r"<[^>]+>", "", xml)
+    text = _clean(_unescape_xml(xml))
+    if not text:
+        return "", ("No text found in that .docx. The file is saved, but paste the "
+                    "text below so it can be used.")
+    return text, ""
+
+
+def _unescape_xml(text: str) -> str:
+    from html import unescape
+    return unescape(text)

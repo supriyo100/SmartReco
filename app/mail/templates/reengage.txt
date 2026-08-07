@@ -1,0 +1,24 @@
+{% if greeting_name %}{{ greeting_name }}, still{% else %}Still{% endif %} thinking about it?
+
+{% if last_title %}
+The last thing you opened was {{ last_title }}{% if days_since %}, about {{ days_since }} day{{ '' if days_since == 1 else 's' }} ago{% endif %}. It's still there.
+{% else %}
+It's been a little while. Here's what's worth a look in the areas you were browsing.
+{% endif %}
+
+{% for c in cards %}
+{{ loop.index }}. {{ c.p.title }}
+   {{ c.p.category }} · {{ c.p.level }} · {{ c.p.price|money }}
+{% if c.note %}
+   {{ c.note }}
+{% endif %}
+   {{ ('/course/' ~ c.p.slug)|url }}
+
+{% endfor %}
+Pick up where you left off: {{ '/recommendations'|url }}
+
+If this isn't useful, one click turns it off — we'd rather send nothing than noise.
+
+--
+Sent because there's been no activity on your account for {{ inactive_days }}+ days.
+Manage preferences or unsubscribe: {{ '/profile'|url }}

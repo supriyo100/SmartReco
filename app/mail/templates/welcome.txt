@@ -1,0 +1,33 @@
+Welcome{% if greeting_name %}, {{ greeting_name }}{% endif %}
+
+{% if target_role %}
+You're aiming for {{ target_role }}. From here on, everything we recommend is
+judged against that.
+{% else %}
+SmartReco watches what you actually read and recommends against it — no generic
+bestseller list.
+{% endif %}
+
+{% if missing %}
+Your profile is {{ percent }}% complete. The quickest wins:
+{% for label in missing %}
+  + {{ label }}
+{% endfor %}
+
+A new account has no browsing history, so what you tell us is the only thing the
+first set of recommendations can run on. It's worth two minutes.
+
+Finish your profile: {{ '/profile'|url }}
+{% else %}
+Your profile is complete — browse a few courses and your first recommendations
+will appear on their own.
+
+Open your profile: {{ '/profile'|url }}
+{% endif %}
+
+Upload a resume and we'll score it the way an applicant tracking system would,
+then point you at the courses that close the gaps it finds.
+
+--
+You're getting this because you just created an account.
+Manage preferences or unsubscribe: {{ '/profile'|url }}

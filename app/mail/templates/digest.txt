@@ -1,0 +1,29 @@
+{% if greeting_name %}{{ greeting_name }}, here{% else %}Here{% endif %}'s what we'd look at next
+{{ sent_on }}
+
+{% if narrative %}
+{{ narrative }}
+
+{% endif %}
+{% for c in cards %}
+{{ loop.index }}. {{ c.p.title }}
+   {{ c.p.category }} · {{ c.p.level }} · {{ c.p.price|money }}
+{% if c.item.hook %}
+   {{ c.item.hook }}
+{% endif %}
+{% if c.item.reason %}
+   Why: {{ c.item.reason }}
+{% endif %}
+   {{ ('/course/' ~ c.p.slug)|url }}
+
+{% endfor %}
+{% if missing_skills %}
+Chosen partly against the gaps in your resume for {{ target_role }}:
+{{ missing_skills|join(', ') }}.
+
+{% endif %}
+See all recommendations: {{ '/recommendations'|url }}
+
+--
+You're getting this daily digest because it's switched on for your account.
+Manage preferences or unsubscribe: {{ '/profile'|url }}

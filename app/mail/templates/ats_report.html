@@ -1,0 +1,110 @@
+{% extends "_layout.html" %}
+
+{% block preheader %}
+Your resume scored {{ ats.ats_score }}/100 against {{ target_role or 'your target role' }} — {{ band_label }}.
+{% endblock %}
+
+{% block content %}
+  <h1 style="margin:0 0 6px;font-size:21px;line-height:1.35;color:#12244a;font-weight:700;">
+    Your resume, scored
+  </h1>
+  <p style="margin:0 0 22px;color:#7a8194;font-size:13px;">
+    Against <strong style="color:#48506a;">{{ target_role or 'no target role set' }}</strong> · {{ sent_on }}
+  </p>
+
+  {# The score block. `band_color` comes from the same thresholds the web UI
+     uses (app/profiles/ats.py band()), so the number is never a different
+     colour in the inbox than on the page it came from. #}
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="margin:0 0 22px;border-radius:10px;background:{{ band_bg }};">
+    <tr>
+      <td align="center" style="padding:22px;">
+        <div style="font-size:40px;line-height:1;font-weight:700;color:{{ band_color }};">
+          {{ ats.ats_score }}<span style="font-size:18px;color:#7a8194;">/100</span>
+        </div>
+        <div style="margin-top:6px;font-size:14px;font-weight:600;color:{{ band_color }};">
+          {{ band_label }}
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="margin:0 0 24px;font-size:13px;">
+    {% for label, value in subscores %}
+      <tr>
+        <td style="padding:8px 0;border-bottom:1px solid #eef1f6;color:#48506a;width:45%;">{{ label }}</td>
+        <td style="padding:8px 0;border-bottom:1px solid #eef1f6;color:#1f2430;font-weight:600;">
+          {{ value }}/100
+        </td>
+      </tr>
+    {% endfor %}
+  </table>
+
+  {% if missing_skills %}
+    <h2 style="margin:0 0 8px;font-size:15px;color:#12244a;font-weight:700;">
+      What's missing
+    </h2>
+    <p style="margin:0 0 14px;color:#48506a;font-size:13px;line-height:1.6;">
+      These are the terms a screener for {{ target_role or 'this role' }} looks for and
+      your resume doesn't contain:
+    </p>
+    <p style="margin:0 0 22px;">
+      {% for skill in missing_skills %}
+        <span style="display:inline-block;margin:0 5px 6px 0;padding:5px 11px;background:#fdeeee;
+                     border-radius:99px;color:#a02b2b;font-size:12px;font-weight:600;">{{ skill }}</span>
+      {% endfor %}
+    </p>
+  {% endif %}
+
+  {% if matched_skills %}
+    <p style="margin:0 0 22px;color:#48506a;font-size:13px;line-height:1.6;">
+      <strong style="color:#1f7a42;">Already there:</strong> {{ matched_skills|join(', ') }}
+    </p>
+  {% endif %}
+
+  {% if suggestions %}
+    <h2 style="margin:0 0 10px;font-size:15px;color:#12244a;font-weight:700;">Fix these first</h2>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+           style="margin:0 0 24px;">
+      {% for s in suggestions %}
+        <tr>
+          <td style="padding:7px 0;color:#2c3346;font-size:13px;line-height:1.55;">
+            <span style="color:#2b5cd9;font-weight:700;">→</span>&nbsp; {{ s }}
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+
+  {% if cards %}
+    {# This is the payoff. A score with no route to improving it is a vanity
+       metric — ats.py says so in its own docstring — so the gap list is turned
+       into specific courses here. #}
+    <h2 style="margin:0 0 4px;font-size:15px;color:#12244a;font-weight:700;">
+      Courses that close those gaps
+    </h2>
+    <p style="margin:0 0 16px;color:#7a8194;font-size:13px;">
+      Picked against your missing skills, not the catalog's bestsellers.
+    </p>
+    {% for c in cards %}
+      {% with p = c.p, item = c.item, note = c.note %}{% include "_card.html" %}{% endwith %}
+    {% endfor %}
+  {% endif %}
+
+  <p style="margin:24px 0 0;">
+    <a href="{{ '/profile'|url }}"
+       style="display:inline-block;padding:11px 20px;background:#12244a;color:#ffffff;
+              text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">
+      Re-run after editing
+    </a>
+  </p>
+  <p style="margin:14px 0 0;color:#7a8194;font-size:12px;line-height:1.6;">
+    The score is computed in plain Python, not by a language model — edit your resume,
+    run it again, and any movement is real.
+  </p>
+{% endblock %}
+
+{% block footer_note %}
+  <p style="margin:0;">Sent because you ran a resume analysis.</p>
+{% endblock %}

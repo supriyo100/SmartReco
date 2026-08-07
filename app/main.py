@@ -10,6 +10,7 @@ from app.agent.mesh import check_models_at_startup
 from app.auth.deps import identity_middleware
 from app.auth.routes import router as auth_router
 from app.catalog.routes import router as catalog_router
+from app.chat.routes import router as chat_router
 from app.config import settings
 from app.profiles.routes import router as profile_router
 from app.tracking.queue import writer_loop
@@ -47,6 +48,7 @@ app.include_router(admin_router)     # every route behind require_admin (§1.1)
 app.include_router(web_router)
 app.include_router(profile_router)
 app.include_router(tracking_router)
+app.include_router(chat_router)
 app.include_router(catalog_router)   # last: owns "/" and "/course/{slug}"
 
 

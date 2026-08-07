@@ -20,6 +20,10 @@ data/catalog.index.json
 # artifacts, not source, and must never be committed.
 data/resumes/
 
+# Rendered emails written by the SMTP fallback. They contain real user names,
+# addresses and resume analysis — same personal-data reasoning as resumes above.
+data/outbox_mail/
+
 chroma_data/
 *.db
 *.db-wal

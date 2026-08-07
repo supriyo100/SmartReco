@@ -15,7 +15,6 @@ from app.main import app
 from app.profiles.resume import extract_text, sanitize_filename
 from app.profiles.routes import _split_skills
 
-
 # --- pure helpers ------------------------------------------------------------
 
 def test_skills_dedupe_is_case_insensitive_and_order_preserving():
@@ -60,9 +59,37 @@ def test_extract_text_never_raises_on_bad_bytes():
 
 
 def test_unsupported_type_warns_rather_than_returning_empty_silently():
-    text, warning = extract_text(b"data", "resume.docx")
+    # .docx is parsed now, so the unreadable case is a legacy .doc — the point
+    # of the test is unchanged: never return "" without saying why.
+    text, warning = extract_text(b"data", "resume.doc")
     assert text == ""
     assert "paste" in warning.lower()      # tells the user what to do instead
+
+
+def test_docx_extracts_paragraph_text():
+    """A .docx is a zip of XML; paragraph boundaries must survive as newlines,
+    because the ATS section detector reads line structure."""
+    import zipfile
+
+    body = ('<?xml version="1.0"?><w:document xmlns:w="x"><w:body>'
+            '<w:p><w:r><w:t>Ada Lovelace</w:t></w:r></w:p>'
+            '<w:p><w:r><w:t>Skills: Python &amp; SQL</w:t></w:r></w:p>'
+            '</w:body></w:document>')
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("word/document.xml", body)
+
+    text, warning = extract_text(buf.getvalue(), "cv.docx")
+    assert warning == ""
+    assert "Ada Lovelace" in text
+    assert "Python & SQL" in text           # XML entities decoded
+    assert "\n" in text                     # paragraphs did not collapse
+
+
+def test_corrupt_docx_warns_instead_of_raising():
+    text, warning = extract_text(b"not a zip at all", "cv.docx")
+    assert text == ""
+    assert "paste" in warning.lower()
 
 
 # --- HTTP --------------------------------------------------------------------
@@ -77,7 +104,7 @@ async def client():
     """
     from sqlalchemy import delete, select
 
-    from app.db.models import Event, User, UserProfile
+    from app.db.models import ChatMessage, Conversation, Event, ResumeAnalysis, User, UserProfile
     from app.db.session import async_session
 
     created: list[str] = []
@@ -98,6 +125,18 @@ async def client():
                 pathlib.Path(profile.resume_path).unlink(missing_ok=True)
             await s.execute(delete(Event).where(Event.user_id == user.id))
             await s.execute(delete(UserProfile).where(UserProfile.user_id == user.id))
+            # Children before parent: `foreign_keys=ON` is set on every connect
+            # (arch §1.2), so deleting the user first fails the FK constraint
+            # rather than silently orphaning rows.
+            await s.execute(delete(ResumeAnalysis)
+                            .where(ResumeAnalysis.user_id == user.id))
+            conv_ids = (await s.execute(select(Conversation.id)
+                                        .where(Conversation.user_id == user.id))).scalars().all()
+            if conv_ids:
+                await s.execute(delete(ChatMessage)
+                                .where(ChatMessage.conversation_id.in_(conv_ids)))
+                await s.execute(delete(Conversation)
+                                .where(Conversation.id.in_(conv_ids)))
             await s.execute(delete(User).where(User.id == user.id))
         await s.commit()
 
@@ -173,7 +212,7 @@ async def test_resume_upload_extracts_text_and_downloads_back(client):
               "skills": "", "experience_years": "", "resume_text": ""},
         files={"resume": ("ada_cv.txt", io.BytesIO(b"Ada\nSkills: Kubernetes"), "text/plain")},
         follow_redirects=True)
-    assert "characters of text extracted" in r.text
+    assert "characters extracted" in r.text
 
     r = await client.get("/profile/resume")
     assert r.status_code == 200

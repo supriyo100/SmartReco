@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Mail — SmartReco admin{% endblock %}
+{% block content %}
+<section>
+  <h1>Mail</h1>
+  <p class="muted">Four message kinds, one transport. The digest runs on its own at
+  {{ '%02d'|format(digest_hour) }}:00 and is idempotent per user per day; everything on this page
+  is a manual override for testing and demos.</p>
+
+  {% if message %}<p class="ok">{{ message }}</p>{% endif %}
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+  <h2>Transport</h2>
+  <table class="grid">
+    <tr><th>Mode</th>
+        <td>
+          {% if smtp_configured %}
+            <strong>SMTP</strong> — messages are delivered for real
+          {% else %}
+            <span class="warn">Fallback</span> — SMTP is unconfigured, so rendered messages are
+            written to <code>{{ outbox_dir }}</code> as <code>.eml</code> files instead of sent.
+            This is a supported mode, not an error.
+          {% endif %}
+        </td></tr>
+    <tr><th>Host</th><td>{{ smtp_host or '—' }}</td></tr>
+    <tr><th>Account</th><td>{{ smtp_user or '—' }}</td></tr>
+    <tr><th>From</th><td>{{ mail_from }}</td></tr>
+    <tr><th>Link base</th>
+        <td>{{ base_url }}
+          {% if 'localhost' in base_url %}
+            <span class="muted">— links in delivered mail will only work on this machine;
+            set PUBLIC_BASE_URL before sending to anyone else.</span>
+          {% endif %}
+        </td></tr>
+  </table>
+
+  <h2>Digest run</h2>
+  <p class="muted">The same fan-out the {{ '%02d'|format(digest_hour) }}:00 job performs. Run it
+  unforced and users already mailed today are skipped — that skip is the idempotency guarantee
+  working, not a failure.</p>
+  <form method="post" action="/admin/mail/digest-run" class="inline">
+    <button type="submit">Run digest now</button>
+  </form>
+  <form method="post" action="/admin/mail/digest-run" class="inline">
+    <input type="hidden" name="force" value="1">
+    <button type="submit">Run forced (re-send to everyone)</button>
+  </form>
+
+  <h2>Send one</h2>
+  <p class="muted">Bypasses the opt-out and the daily log, because an admin naming a user and a
+  template is explicitly asking for that send.</p>
+  <table class="grid">
+    <tr>
+      <th>User</th>
+      <th>Digest today</th>
+      {% for key, label, _ in kinds %}<th>{{ label }}</th>{% endfor %}
+    </tr>
+    {% for u in users %}
+      <tr>
+        <td>{{ u.email }}
+          {% if not u.digest_opt_in %}<span class="muted">(opted out)</span>{% endif %}
+        </td>
+        <td>{% if u.id in sent_today %}sent{% else %}<span class="muted">—</span>{% endif %}</td>
+        {% for key, label, _ in kinds %}
+          <td>
+            <form method="post" action="/admin/mail/send" class="inline">
+              <input type="hidden" name="kind" value="{{ key }}">
+              <input type="hidden" name="user_id" value="{{ u.id }}">
+              <button type="submit">Send</button>
+            </form>
+            <a href="/admin/mail/preview/{{ key }}/{{ u.id }}" target="_blank">preview</a>
+          </td>
+        {% endfor %}
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="muted">No active users.</td></tr>
+    {% endfor %}
+  </table>
+
+  <h2>What each kind needs</h2>
+  <table class="grid">
+    {% for key, label, needs in kinds %}
+      <tr><th>{{ label }}</th><td class="muted">{{ needs }}</td></tr>
+    {% endfor %}
+  </table>
+  <p class="muted">A kind whose precondition isn't met reports "nothing to send" rather than
+  mailing an empty shell — an email with no content in it trains people to ignore the sender.</p>
+
+  <p><a href="/admin">← Dashboard</a></p>
+</section>
+{% endblock %}

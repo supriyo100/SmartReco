@@ -1,0 +1,68 @@
+{% extends "_layout.html" %}
+
+{% block preheader %}
+{% if missing %}Two minutes of setup and your first recommendations get much better.{% else %}Your profile is ready — here's what happens next.{% endif %}
+{% endblock %}
+
+{% block content %}
+  <h1 style="margin:0 0 14px;font-size:21px;line-height:1.35;color:#12244a;font-weight:700;">
+    Welcome{% if greeting_name %}, {{ greeting_name }}{% endif %}
+  </h1>
+
+  <p style="margin:0 0 16px;">
+    {% if target_role %}
+      You're aiming for <strong>{{ target_role }}</strong>. From here on, everything we
+      recommend is judged against that.
+    {% else %}
+      SmartReco watches what you actually read and recommends against it — no
+      generic bestseller list.
+    {% endif %}
+  </p>
+
+  {% if missing %}
+    {# The personalization that matters in a welcome email is not the name in
+       the greeting — it is naming the specific fields this account is missing.
+       `completeness()` already computes that list for the profile page, so the
+       email asks for exactly the same things the meter is asking for. #}
+    <p style="margin:0 0 10px;">
+      Your profile is <strong>{{ percent }}% complete</strong>. The quickest wins:
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+           style="margin:0 0 20px;">
+      {% for label in missing %}
+        <tr>
+          <td style="padding:7px 0;border-bottom:1px solid #eef1f6;color:#2c3346;font-size:14px;">
+            <span style="color:#2b5cd9;font-weight:700;">+</span>&nbsp; {{ label }}
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+    <p style="margin:0 0 20px;color:#48506a;font-size:13px;line-height:1.6;">
+      A new account has no browsing history, so what you tell us is the only thing
+      the first set of recommendations can run on. It's worth two minutes.
+    </p>
+  {% else %}
+    <p style="margin:0 0 20px;">
+      Your profile is complete — browse a few courses and your first recommendations
+      will appear on their own.
+    </p>
+  {% endif %}
+
+  <p style="margin:0 0 24px;">
+    <a href="{{ '/profile'|url }}"
+       style="display:inline-block;padding:11px 20px;background:#2b5cd9;color:#ffffff;
+              text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">
+      {% if missing %}Finish your profile{% else %}Open your profile{% endif %}
+    </a>
+  </p>
+
+  <p style="margin:0;padding-top:18px;border-top:1px solid #eef1f6;color:#48506a;
+            font-size:13px;line-height:1.6;">
+    Upload a resume and we'll score it the way an applicant tracking system would,
+    then point you at the courses that close the gaps it finds.
+  </p>
+{% endblock %}
+
+{% block footer_note %}
+  <p style="margin:0;">You're getting this because you just created an account.</p>
+{% endblock %}

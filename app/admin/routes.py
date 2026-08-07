@@ -10,13 +10,24 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 
 from app.auth.deps import require_admin
-from app.db.models import AgentRun, Event, Product, User, VectorOutbox
+from app.config import settings
+from app.db.models import AgentRun, DigestLog, Event, Product, User, VectorOutbox
 from app.db.session import async_session
+from app.mail.sender import MAIL_DIR
 from app.web.templating import render
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
 LEVELS = ("beginner", "intermediate", "advanced")
+
+# (key, label, what it needs to produce anything) — drives the admin mail page,
+# so adding a template means adding one row here rather than editing markup.
+MAIL_KINDS = (
+    ("digest", "Daily digest", "a current recommendation set"),
+    ("welcome", "Welcome / onboarding", "nothing — always renders"),
+    ("ats", "Resume / ATS report", "a current resume analysis"),
+    ("reengage", "Re-engagement nudge", "a past product view"),
+)
 
 
 def _split_list(raw: str) -> list[str]:
@@ -230,6 +241,125 @@ async def run_sync(request: Request):
     return render(request, "admin/sync.html", sync=await outbox_status(),
                   message=(f"synced — {report['upserted']} upserted, "
                            f"{report['deleted']} deleted, {report['failed']} failed"))
+
+
+@router.get("/mail")
+async def mail_dashboard(request: Request, message: str = "", error: str = ""):
+    """What the mail system would do, and to whom.
+
+    Shows configuration state first because the single most common confusion is
+    "I pressed send and nothing arrived" — when in fact SMTP was unconfigured
+    and the message is sitting in data/outbox_mail/ exactly as designed.
+    """
+    from app.mail.digest import _today
+
+    async with async_session() as s:
+        users = (await s.execute(
+            select(User).where(User.is_active.is_(True)).order_by(User.email)
+        )).scalars().all()
+        sent_today = {row for row in (await s.execute(
+            select(DigestLog.user_id).where(DigestLog.sent_date == _today())
+        )).scalars().all()}
+
+    return render(request, "admin/mail.html",
+                  users=users, sent_today=sent_today, today=_today(),
+                  smtp_configured=settings.smtp_configured,
+                  smtp_host=settings.SMTP_HOST,
+                  smtp_user=settings.SMTP_USER,
+                  mail_from=settings.mail_from,
+                  digest_hour=settings.DIGEST_HOUR,
+                  base_url=settings.PUBLIC_BASE_URL,
+                  outbox_dir=str(MAIL_DIR),
+                  kinds=MAIL_KINDS,
+                  message=message, error=error)
+
+
+@router.post("/mail/send")
+async def send_one_mail(request: Request, kind: str = Form(...),
+                        user_id: int = Form(...)):
+    """Send one message of one kind to one user, now.
+
+    `force=True` throughout: an admin who picked a user and a template is
+    explicitly asking for that send, so the opt-out and the once-a-day digest
+    log are both bypassed. That is the point of the button — it exists to test
+    and demo the templates, and a preview that silently declines to send is
+    useless for both.
+    """
+    from app.mail.messages import send_ats_report, send_digest, send_reengage, send_welcome
+
+    senders = {
+        "digest": lambda uid: send_digest(uid, force=True),
+        "welcome": send_welcome,
+        "ats": lambda uid: send_ats_report(uid, force=True),
+        "reengage": lambda uid: send_reengage(uid, force=True),
+    }
+    if kind not in senders:
+        return await mail_dashboard(request, error=f"unknown mail kind {kind!r}")
+
+    try:
+        result = await senders[kind](user_id)
+    except Exception as exc:
+        return await mail_dashboard(
+            request, error=f"{kind}: {type(exc).__name__}: {exc}")
+
+    if not result.ok:
+        return await mail_dashboard(request, error=f"{kind}: {result.detail}")
+    if result.mode == "skipped":
+        return await mail_dashboard(
+            request, message=f"{kind}: nothing to send — {result.detail}")
+    if result.mode == "stored":
+        return await mail_dashboard(
+            request,
+            message=(f"{kind}: SMTP not configured, so the rendered message was "
+                     f"written to {result.detail}"))
+    return await mail_dashboard(request, message=f"{kind}: sent")
+
+
+@router.post("/mail/digest-run")
+async def trigger_digest(request: Request, force: str = Form("")):
+    """Run the whole digest fan-out now, as the 16:00 cron would.
+
+    Unforced, this is genuinely idempotent — press it twice and the second run
+    reports everyone as skipped, because DigestLog already holds today's rows.
+    """
+    from app.mail.digest import run_digest
+
+    try:
+        report = await run_digest(force=bool(force))
+    except Exception as exc:
+        return await mail_dashboard(request,
+                                    error=f"digest run: {type(exc).__name__}: {exc}")
+    summary = (f"digest run — {report['sent']} sent, {report['stored']} stored, "
+               f"{report['skipped']} skipped, {report['failed']} failed "
+               f"(of {report['considered']} considered)")
+    if report["errors"]:
+        return await mail_dashboard(request, message=summary,
+                                    error="; ".join(report["errors"][:5]))
+    return await mail_dashboard(request, message=summary)
+
+
+@router.get("/mail/preview/{kind}/{user_id}")
+async def preview_mail(request: Request, kind: str, user_id: int):
+    """Render a message to the browser without sending it.
+
+    Worth having separately from the send button: iterating on template markup
+    by mailing yourself and waiting for delivery is slow, and the HTML an email
+    client shows is the HTML this returns.
+    """
+    from fastapi.responses import HTMLResponse
+
+    from app.mail import preview
+
+    try:
+        html = await preview.render_preview(kind, user_id)
+    except Exception as exc:
+        return await mail_dashboard(request,
+                                    error=f"preview {kind}: {type(exc).__name__}: {exc}")
+    if html is None:
+        return await mail_dashboard(
+            request, message=f"{kind}: nothing to render for user {user_id} "
+                             f"(no recommendation, resume, or activity yet)")
+    return HTMLResponse(html)
 
 
 @router.get("/agent-runs")

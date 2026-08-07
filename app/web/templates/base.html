@@ -5,32 +5,159 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}SmartReco{% endblock %}</title>
   <link rel="stylesheet" href="/static/app.css">
+  {# Applied before first paint: reading the stored theme in <body> instead
+     would show a light flash on every navigation for dark-mode users. #}
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("sr-theme");
+        if (t) document.documentElement.setAttribute("data-theme", t);
+      } catch (e) { /* private mode: fall back to the media query */ }
+    })();
+  </script>
 </head>
 <body>
-<header class="nav">
-  <a class="brand" href="/">SmartReco</a>
-  <form class="search" action="/search" method="get">
-    <input type="search" name="q" value="{{ q or '' }}" placeholder="Search courses…" aria-label="Search courses">
-  </form>
-  <nav>
-    {% if user_id %}
-      <a href="/recommendations">For you</a>
-      <a href="/profile">Profile</a>
-      {% if role == 'admin' %}<a href="/admin">Admin</a>{% endif %}
-      <form class="inline" action="/auth/logout" method="post"><button type="submit">Log out</button></form>
-    {% else %}
-      <a href="/auth/login">Log in</a>
-      <a class="cta" href="/auth/register">Sign up</a>
-    {% endif %}
-  </nav>
-</header>
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="/">
+      <span class="brand-mark">SR</span>
+      <span>SmartReco<small>Career &amp; courses</small></span>
+    </a>
 
-<main>
-  {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
-  {% if message %}<p class="flash ok">{{ message }}</p>{% endif %}
-  {% block content %}{% endblock %}
-</main>
+    <span class="nav-label">Main</span>
+    <a class="nav-link {{ 'on' if nav == 'home' }}" href="/">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+        <path d="M3 10.5 12 3l9 7.5V21H3z" stroke-linejoin="round"/></svg>
+      Browse
+    </a>
+    {% if user_id %}
+      <a class="nav-link {{ 'on' if nav == 'recs' }}" href="/recommendations">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+          <path d="M4 19V9m5 10V5m5 14v-7m5 7V8" stroke-linecap="round"/></svg>
+        For you
+      </a>
+      <a class="nav-link {{ 'on' if nav == 'profile' }}" href="/profile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+          <path d="M4 21v-1a6 6 0 0 1 12 0v1" stroke-linecap="round"/>
+          <circle cx="10" cy="8" r="3.5"/></svg>
+        Profile &amp; resume
+      </a>
+    {% endif %}
+
+    {% if role == 'admin' %}
+      <span class="nav-label">Admin</span>
+      <a class="nav-link {{ 'on' if nav == 'admin' }}" href="/admin">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="6" rx="1.5"/>
+          <rect x="3" y="14" width="18" height="6" rx="1.5"/></svg>
+        Dashboard
+      </a>
+    {% endif %}
+
+    <div class="sidebar-foot">
+      {% if user_id %}
+        <div class="who">
+          <span class="avatar">{{ (email or 'U')[0] }}</span>
+          <span class="who-name muted">{{ email or 'Signed in' }}</span>
+        </div>
+        <form class="inline" action="/auth/logout" method="post">
+          <button type="submit" class="link">Log out</button>
+        </form>
+      {% else %}
+        <a class="cta" href="/auth/register">Create account</a>
+        <p class="small muted tight">
+          Already have one? <a href="/auth/login">Log in</a>
+        </p>
+      {% endif %}
+    </div>
+  </aside>
+
+  <div class="content">
+    <header class="topbar">
+      <button class="icon-btn menu-toggle" id="menu-toggle" type="button"
+              aria-label="Toggle navigation" aria-controls="sidebar" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"/></svg>
+      </button>
+
+      <form class="search" action="/search" method="get" role="search">
+        <input type="search" name="q" value="{{ q or '' }}"
+               placeholder="Search courses…" aria-label="Search courses">
+      </form>
+
+      <div class="topbar-actions">
+        <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
+      {% if message %}<p class="flash ok">{{ message }}</p>{% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+{% if user_id %}
+{# The advisor is only offered to signed-in users, because everything that
+   makes it worth asking — resume gaps, target role, browsing history — is
+   theirs. An anonymous version would be a generic chatbot over a course list. #}
+<button class="chat-fab" id="chat-open" type="button" aria-expanded="false" aria-controls="chat-panel">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+    <path d="M21 11.5a7.5 7.5 0 0 1-10.9 6.7L4 20l1.8-5.4A7.5 7.5 0 1 1 21 11.5z"
+          stroke-linejoin="round"/></svg>
+  Career advisor
+</button>
+
+<section class="chat-panel" id="chat-panel" hidden aria-label="Career advisor">
+  <header class="chat-head">
+    <span class="dot" aria-hidden="true"></span>
+    <div>
+      <h2>Career advisor</h2>
+      <div class="sub" id="chat-status">Grounded in your profile and our catalog</div>
+    </div>
+    <div class="chat-head-actions">
+      <button class="icon-btn" id="chat-reset" type="button" aria-label="Start a new conversation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+          <path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="icon-btn" id="chat-close" type="button" aria-label="Close advisor">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="chat-log" id="chat-log" role="log" aria-live="polite">
+    <div class="chat-intro" id="chat-intro">
+      <p>Ask about your next step, a skill gap, or which course fits — answers
+         use your profile and only name courses we actually run.</p>
+      <div class="chat-suggest">
+        <button type="button" data-ask="What should I learn next for my target role?">
+          What should I learn next?</button>
+        <button type="button" data-ask="What are the biggest gaps in my resume?">
+          My resume gaps</button>
+        <button type="button" data-ask="Which course gives me the best return on my time?">
+          Best use of my time</button>
+      </div>
+    </div>
+  </div>
+
+  <form class="chat-form" id="chat-form">
+    <label for="chat-input" class="sr-only">Message</label>
+    <textarea id="chat-input" rows="1" placeholder="Ask about your career…"
+              maxlength="2000" autocomplete="off"></textarea>
+    <button type="submit" class="cta" id="chat-send">Send</button>
+  </form>
+  <p class="chat-foot">Advice is generated. Check course details before enrolling.</p>
+</section>
+{% endif %}
 
 <script src="/static/tracker.js" defer></script>
+<script src="/static/ui.js" defer></script>
+{% if user_id %}<script src="/static/chat.js" defer></script>{% endif %}
 </body>
 </html>

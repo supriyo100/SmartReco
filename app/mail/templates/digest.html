@@ -1,0 +1,49 @@
+{% extends "_layout.html" %}
+
+{% block preheader %}
+{{ cards|length }} course{{ '' if cards|length == 1 else 's' }} picked for you{% if top_title %} — starting with {{ top_title }}{% endif %}
+{% endblock %}
+
+{% block content %}
+  <h1 style="margin:0 0 6px;font-size:21px;line-height:1.35;color:#12244a;font-weight:700;">
+    {% if greeting_name %}{{ greeting_name }}, here{% else %}Here{% endif %}'s what we'd look at next
+  </h1>
+  <p style="margin:0 0 20px;color:#7a8194;font-size:13px;">{{ sent_on }}</p>
+
+  {% if narrative %}
+    {# The agent's narrative, verbatim. It already explains the set as a whole,
+       so restating it here in different words would just contradict it. #}
+    <p style="margin:0 0 22px;padding:14px 16px;background:#f6f8fb;border-left:3px solid #2b5cd9;
+              border-radius:0 8px 8px 0;color:#2c3346;font-size:14px;line-height:1.6;">
+      {{ narrative }}
+    </p>
+  {% endif %}
+
+  {% for c in cards %}
+    {% with p = c.p, item = c.item %}{% include "_card.html" %}{% endwith %}
+  {% endfor %}
+
+  {% if missing_skills %}
+    {# The bridge between the two features: the ATS gap list is why these
+       specific courses are in this specific email. Saying so out loud is what
+       makes the digest feel reasoned rather than assembled. #}
+    <p style="margin:22px 0 0;color:#48506a;font-size:13px;line-height:1.6;">
+      Chosen partly against the gaps in your resume for
+      <strong>{{ target_role }}</strong>: {{ missing_skills|join(', ') }}.
+    </p>
+  {% endif %}
+
+  <p style="margin:26px 0 0;">
+    <a href="{{ '/recommendations'|url }}"
+       style="display:inline-block;padding:11px 20px;background:#12244a;color:#ffffff;
+              text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">
+      See all recommendations
+    </a>
+  </p>
+{% endblock %}
+
+{% block footer_note %}
+  <p style="margin:0;">
+    You're getting this daily digest because it's switched on for your account.
+  </p>
+{% endblock %}

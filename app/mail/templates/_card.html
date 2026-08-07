@@ -1,0 +1,50 @@
+{#
+  One course, as a row in an email. Included by digest and re-engagement.
+
+  Expects: `p` (Product), and optionally `item` (the recommendation entry with
+  hook/reason) and `note` (a plain string used where there is no rec item).
+
+  The hook and reason are the whole point of sending this rather than a bare
+  title: they are the per-user text the agent generated, and they are what make
+  a digest personalized rather than a catalog dump.
+#}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       style="margin:0 0 14px;border:1px solid #e2e5ea;border-radius:10px;">
+  <tr>
+    <td style="padding:16px 18px;">
+      <a href="{{ ('/course/' ~ p.slug)|url }}"
+         style="color:#12244a;text-decoration:none;font-size:16px;font-weight:600;">
+        {{ p.title }}
+      </a>
+
+      {% if item and item.hook %}
+        <p style="margin:8px 0 0;color:#1f2430;font-size:14px;line-height:1.55;">{{ item.hook }}</p>
+      {% elif note %}
+        <p style="margin:8px 0 0;color:#1f2430;font-size:14px;line-height:1.55;">{{ note }}</p>
+      {% endif %}
+
+      {% if item and item.reason %}
+        {# The reason is the grounded half — why this course, for this person.
+           Set apart visually so it reads as justification, not marketing. #}
+        <p style="margin:8px 0 0;padding:8px 10px;background:#f6f8fb;border-radius:6px;
+                  color:#48506a;font-size:13px;line-height:1.5;">{{ item.reason }}</p>
+      {% endif %}
+
+      <p style="margin:12px 0 0;font-size:12px;color:#7a8194;">
+        <span style="display:inline-block;padding:3px 8px;background:#eef1f6;border-radius:99px;
+                     color:#48506a;">{{ p.category }}</span>
+        <span style="display:inline-block;padding:3px 8px;background:#eef1f6;border-radius:99px;
+                     color:#48506a;">{{ p.level }}</span>
+        <span style="display:inline-block;padding:3px 8px;">{{ p.price|money }}</span>
+      </p>
+
+      <p style="margin:14px 0 0;">
+        <a href="{{ ('/course/' ~ p.slug)|url }}"
+           style="display:inline-block;padding:9px 16px;background:#2b5cd9;color:#ffffff;
+                  text-decoration:none;border-radius:7px;font-size:13px;font-weight:600;">
+          View course
+        </a>
+      </p>
+    </td>
+  </tr>
+</table>

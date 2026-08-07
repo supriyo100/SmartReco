@@ -1,0 +1,48 @@
+{% extends "_layout.html" %}
+
+{% block preheader %}
+{% if last_title %}You were looking at {{ last_title }}.{% else %}Picking up where you left off.{% endif %}
+{% endblock %}
+
+{% block content %}
+  <h1 style="margin:0 0 16px;font-size:21px;line-height:1.35;color:#12244a;font-weight:700;">
+    {% if greeting_name %}{{ greeting_name }}, still{% else %}Still{% endif %} thinking about it?
+  </h1>
+
+  {% if last_title %}
+    {# Personalization that earns the send: naming the actual course they last
+       opened. A "we miss you" email with no recall of what they were doing is
+       indistinguishable from spam, and gets treated as such. #}
+    <p style="margin:0 0 20px;">
+      The last thing you opened was <strong>{{ last_title }}</strong>{% if days_since %},
+      about {{ days_since }} day{{ '' if days_since == 1 else 's' }} ago{% endif %}. It's still there.
+    </p>
+  {% else %}
+    <p style="margin:0 0 20px;">
+      It's been a little while. Here's what's worth a look in the areas you were browsing.
+    </p>
+  {% endif %}
+
+  {% for c in cards %}
+    {% with p = c.p, item = c.item, note = c.note %}{% include "_card.html" %}{% endwith %}
+  {% endfor %}
+
+  <p style="margin:24px 0 0;">
+    <a href="{{ '/recommendations'|url }}"
+       style="display:inline-block;padding:11px 20px;background:#2b5cd9;color:#ffffff;
+              text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">
+      Pick up where you left off
+    </a>
+  </p>
+
+  <p style="margin:20px 0 0;color:#7a8194;font-size:12px;line-height:1.6;">
+    If this isn't useful, one click turns it off — we'd rather send nothing than noise.
+  </p>
+{% endblock %}
+
+{% block footer_note %}
+  <p style="margin:0;">
+    Sent because there's been no activity on your account for
+    {{ inactive_days }}+ days.
+  </p>
+{% endblock %}

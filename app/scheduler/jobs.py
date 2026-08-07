@@ -18,8 +18,18 @@ def build_scheduler() -> AsyncIOScheduler:
                   max_instances=1, coalesce=True)
     # 15m stale-rec refresh for active users — TODO
     sched.add_job(nightly_maintenance, "cron", hour=3, id="nightly")
-    # 16:00 digest — BONUS. Ship POST /admin/trigger-digest first; cron only
-    # if everything else is green by Aug 8 PM (arch v2 §8).
+    # DIGEST_HOUR digest (arch v2 §8). Idempotent through DigestLog's
+    # (user_id, sent_date) unique constraint, so a restart at 16:01 cannot
+    # double-send — which is what makes it safe to register unconditionally
+    # rather than keeping it behind the manual trigger.
+    sched.add_job(daily_digest, "cron", hour=settings.DIGEST_HOUR, minute=0,
+                  id="digest", max_instances=1, coalesce=True,
+                  misfire_grace_time=3600)
+    # Weekly idle sweep. Monday morning: a nudge landing on a weekend gets
+    # buried under the weekend's mail before anyone opens it.
+    sched.add_job(weekly_reengage, "cron", day_of_week="mon", hour=10, minute=0,
+                  id="reengage", max_instances=1, coalesce=True,
+                  misfire_grace_time=6 * 3600)
     return sched
 
 
@@ -47,3 +57,28 @@ async def nightly_maintenance():
     await wal_checkpoint()
     # TODO: DELETE events WHERE user_id IS NULL AND ts < now-90d
     # TODO: reconcile products.content_hash vs Chroma metadata
+
+
+async def daily_digest():
+    """Send the daily digest at DIGEST_HOUR (arch v2 §8).
+
+    Imported inside the function, like the other jobs here, so that a broken
+    mail template can never stop the app from booting — it fails at 16:00 with
+    a logged traceback instead of at startup.
+    """
+    from app.mail.digest import run_digest
+
+    try:
+        await run_digest()
+    except Exception:
+        log.exception("digest run failed")
+
+
+async def weekly_reengage():
+    """Nudge users idle for REENGAGE_AFTER_DAYS days."""
+    from app.mail.digest import run_reengage
+
+    try:
+        await run_reengage()
+    except Exception:
+        log.exception("reengage run failed")

@@ -518,6 +518,111 @@ what the first version did; it was caught by the end-to-end test and is now cove
 
 ---
 
+## 9a. Outbound email
+
+Four message kinds — daily digest, welcome, ATS report, re-engagement nudge — over one transport.
+`app/mail/`.
+
+### 9a.1 Why a separate Jinja environment
+
+`app/web/templating.py` renders pages for a browser; `app/mail/templating.py` renders messages for
+an inbox. Sharing one environment would force both to compromise on three points:
+
+- **Email clients are 2005 renderers.** Gmail strips `<style>` blocks, Outlook composes with Word's
+  engine. Flex, grid, and external CSS all fail, so every rule is an inline `style=` attribute on a
+  table. The email templates look dated because the target is.
+- **There is no request.** `web/templating.py`'s `render()` reads identity off `request.state`.
+  A scheduler job at 16:00 has no request to read.
+- **Links must be absolute.** `href="/course/x"` is dead in an inbox. A `url` filter built on
+  `PUBLIC_BASE_URL` makes absolute links the path of least resistance rather than a thing each
+  template must remember.
+
+Both an HTML and a plain-text part are rendered from separate hand-written templates, rather than
+deriving the text half by stripping tags. Auto-degraded plain text is reliably bad — hrefs vanish,
+tables collapse — and the text part is what screen readers and spam filters actually read.
+
+### 9a.2 Missing credentials are a mode, not a failure
+
+If `SMTP_HOST`/`USER`/`PASS` are unset, `send()` writes the rendered message to
+`data/outbox_mail/*.eml` and returns `mode="stored"` with `ok=True`.
+
+This is the design decision most worth stating, because it looks like a shortcut and is not. The
+digest runs unattended. A password that expires should degrade to "today's digest is on disk", not
+to a stack trace inside an APScheduler job that nobody reads until someone asks why the mail
+stopped. It also means the test suite, CI, and a laptop demo need no secret — `tests/conftest.py`
+blanks the SMTP vars precisely so no test run can reach a real server even with working credentials
+in a developer's `.env`.
+
+`ok` is true for both `sent` and `stored` because in both cases the caller's work is done.
+`SendResult.sent` is the narrower property, used wherever the UI would otherwise claim a delivery
+that did not happen — `/profile` says "saved to disk instead of sent", not "Report sent".
+
+Failures return rather than raise, for the same reason: the digest loops over users, and one bad
+address must not abort the other forty-nine. Every error is caught and returned as a value.
+
+### 9a.3 Idempotency — the one guarantee the digest must make
+
+`digest_log` has a unique constraint on `(user_id, sent_date)`. `run_digest` does a SELECT before
+sending **and** an INSERT after:
+
+- The SELECT alone races — two runs both read "not sent" before either writes.
+- The constraint alone would let a duplicate email go out before the INSERT failed. The mail is
+  already gone at that point; a rolled-back transaction does not un-send it.
+
+Together they mean a restart at 16:01, an admin pressing the manual trigger, and the cron itself all
+converge on exactly one email. A lost INSERT race is logged as a warning, because it means two
+schedulers are live — the single-worker trap (§7.3) showing up somewhere else.
+
+Sends are serialized with a 0.6 s gap rather than fired concurrently. Gmail's submission endpoint
+rate-limits under a burst, and a digest has no deadline: there is nothing to gain from parallelism
+and a working send to lose.
+
+### 9a.4 What is not sent
+
+Two rules keep this from becoming spam, which is a real risk for a feature whose failure mode is
+"technically working":
+
+- **No content, no send.** `build_digest` returns `None` — not an empty digest — when there is no
+  current recommendation, or when every product in the stored set has since been deactivated. An
+  "we have nothing for you today" mail trains people to ignore the sender, and §5.1's whole premise
+  is that a recommendation exists only when behavior justified generating one.
+- **A nudge must name something specific.** Re-engagement sends only when it can name the course the
+  user actually last opened. Without that anchor it is a "we miss you" mail, the genre people mark
+  as spam — and a spam complaint costs the sending domain far more than a skipped send.
+
+Deactivated products are dropped from every message, the same as `app/web/routes.py` does for the
+page. Email is the stricter case: a page re-renders on every visit, but a link mailed on Tuesday is
+still in the inbox on Friday, so a dead card is permanent.
+
+The ATS report is behind an explicit button rather than fired automatically after each analysis.
+`save_profile` re-scores on every save, so auto-sending would mail a report each time someone fixed
+a typo in their bio.
+
+### 9a.5 Consent
+
+`users.digest_opt_in` is checked inside each `send_*` function, once, rather than in every caller —
+a caller that forgets is a caller that mails someone who unsubscribed.
+
+Two categories are exempt, deliberately:
+
+- **Welcome** is transactional. It confirms an account the person just created, and it is where the
+  unsubscribe link is first offered.
+- **The ATS report** is sent only when the user presses a button asking for it. `digest_opt_in`
+  governs unsolicited mail, not a document requested by name.
+
+`force=True` overrides the check for the admin preview routes, so an admin can render and inspect
+the thing they are debugging. It is never set by a scheduled path.
+
+`/profile` carries the switch; every automated message footer links to it.
+
+### 9a.6 Injection surface
+
+Subjects are built from user- and operator-supplied data (names, course titles). `_clean_header`
+strips CR/LF before any header is set — otherwise a course titled `X\r\nBcc: ...` would add headers
+to the message. Bodies are autoescaped by Jinja; `test_mail.py` asserts both.
+
+---
+
 ## 10. Verification
 
 Layered, because different things need different proof:
@@ -611,8 +716,11 @@ table_info`) rather than on status codes.
 - **No embedding of profile text into the vector store.** The resume is stored and readable by the
   agent at generate time; making users semantically searchable is a different feature with different
   privacy implications.
-- **No password reset or email verification** — no mail infrastructure in scope for the auth layer,
-  and "keep auth simple" was explicit.
+- **No password reset or email verification.** Mail infrastructure now exists (§9a), so the reason
+  is no longer "we can't send" — it is that a reset flow needs single-use expiring tokens, a
+  consumption record, and a rate limit to not be an account-takeover vector, and "keep auth simple"
+  was explicit. The transport is the easy half; the token lifecycle is the half worth doing
+  properly or not at all.
 - **No CSRF tokens.** `SameSite=lax` blocks cross-site form POSTs, which is the realistic threat
   for a demo with no third-party embedding. A production build would add them.
 - **No rate limiting on login.** Worth adding before real users; not before Aug 9.

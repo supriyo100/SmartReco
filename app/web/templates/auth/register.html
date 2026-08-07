@@ -1,20 +1,64 @@
 {% extends "base.html" %}
 {% block title %}Sign up — SmartReco{% endblock %}
 {% block content %}
-<section class="narrow">
+<section class="narrow-form">
   <h1>Create an account</h1>
-  <p class="muted">What you have already browsed carries over — your first recommendations
-  will use it.</p>
+  <p class="lede">What you've already browsed carries over — your first
+  recommendations will use it.</p>
+
   <form method="post" action="/auth/register" class="stack">
     <label>Email
-      <input type="email" name="email" value="{{ email or '' }}" required autofocus autocomplete="email">
+      <input type="email" name="email" value="{{ email or '' }}" required autofocus
+             autocomplete="email">
     </label>
+
     <label>Password
-      <input type="password" name="password" required minlength="8" autocomplete="new-password">
+      <input type="password" name="password" required minlength="8"
+             autocomplete="new-password">
       <small class="muted">At least 8 characters.</small>
     </label>
-    <button type="submit">Sign up</button>
+
+    {# Optional on purpose. These are what a brand-new account's first
+       recommendation runs on — there is no behavior yet — but requiring them
+       would trade a signup for a slightly better cold start. #}
+    <fieldset class="stack">
+      <legend>Help us start you off</legend>
+      <p class="small muted flush">All optional, and editable later.</p>
+
+      <div class="field-row">
+        <label>Your name
+          <input type="text" name="full_name" value="{{ full_name or '' }}"
+                 maxlength="200" autocomplete="name">
+        </label>
+        <label>Years of experience
+          <input type="number" name="experience_years" min="0" max="60"
+                 value="{{ experience_years or '' }}">
+        </label>
+      </div>
+
+      <label>Role you're aiming for
+        <input type="text" name="target_role" list="signup-roles" maxlength="120"
+               value="{{ target_role or '' }}" placeholder="Generative AI Engineer">
+        <datalist id="signup-roles">
+          {% for r in roles or [] %}<option value="{{ r }}"></option>{% endfor %}
+        </datalist>
+        <small class="muted">We score your resume against this and tailor advice to it.</small>
+      </label>
+
+      <label>What you want next
+        <textarea name="goals" rows="2" maxlength="2000"
+                  placeholder="Move into ML engineering; ship an agent to production.">{{ goals or '' }}</textarea>
+      </label>
+
+      <label class="checkbox">
+        <input type="checkbox" name="digest_opt_in" value="1" checked>
+        Email me a weekly recommendation digest
+      </label>
+    </fieldset>
+
+    <button type="submit" class="cta">Create account</button>
   </form>
+
   <p class="muted">Already registered? <a href="/auth/login">Log in</a>.</p>
 </section>
 {% endblock %}

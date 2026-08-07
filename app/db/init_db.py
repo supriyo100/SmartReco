@@ -66,6 +66,21 @@ async def add_missing_columns(conn) -> list[str]:
     return added
 
 
+def _say(line: str) -> None:
+    """Print a status line without assuming the console can encode it.
+
+    A default Windows console is cp1252, which cannot encode U+2713 — so the
+    original `print("✓ ...")` raised UnicodeEncodeError *after* the schema work
+    had already committed. The command looked like it failed while the
+    migration had in fact succeeded, which is the worst way for a setup script
+    to behave. Falls back to ASCII rather than dropping the message.
+    """
+    try:
+        print(line)
+    except UnicodeEncodeError:
+        print(line.encode("ascii", "replace").decode("ascii"))
+
+
 async def main():
     pathlib.Path("data").mkdir(exist_ok=True)
     async with engine.begin() as conn:
@@ -73,11 +88,11 @@ async def main():
         added = await add_missing_columns(conn)
         for ddl in FTS_DDL:
             await conn.execute(text(ddl))
-    print("✓ schema + FTS5 + triggers + indexes created")
+    _say("✓ schema + FTS5 + triggers + indexes created")
     if added:
-        print(f"✓ added {len(added)} missing column(s) to existing tables:")
+        _say(f"✓ added {len(added)} missing column(s) to existing tables:")
         for name in added:
-            print(f"    + {name}")
+            _say(f"    + {name}")
 
 
 if __name__ == "__main__":

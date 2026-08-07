@@ -10,8 +10,7 @@ import uuid
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
 
-from app.auth.security import (COOKIE_NAME, SID_COOKIE, cookie_kwargs,
-                               read_session)
+from app.auth.security import COOKIE_NAME, SID_COOKIE, cookie_kwargs, read_session
 from app.db.models import User
 from app.db.session import async_session
 
@@ -29,16 +28,20 @@ async def identity_middleware(request: Request, call_next):
     # demotion carries the old role for up to MAX_AGE_S. One indexed PK lookup
     # per authenticated request is the right price for not serving a stale role.
     request.state.role = None
+    request.state.email = None
     if request.state.user_id is not None:
         async with async_session() as s:
+            # Both columns in the one lookup this already performed: the
+            # sidebar shows the signed-in address on every page, and a second
+            # query per request to fetch it would be pure waste.
             row = (await s.execute(
-                select(User.role).where(User.id == request.state.user_id)
-            )).scalar_one_or_none()
+                select(User.role, User.email).where(User.id == request.state.user_id)
+            )).first()
         if row is None:
             # User deleted since the cookie was signed — treat as anonymous.
             request.state.user_id = None
         else:
-            request.state.role = row
+            request.state.role, request.state.email = row
 
     sid = request.cookies.get(SID_COOKIE)
     new_sid = None

@@ -1,0 +1,49 @@
+YOUR RESUME, SCORED
+Against {{ target_role or 'no target role set' }} · {{ sent_on }}
+
+  {{ ats.ats_score }}/100 — {{ band_label }}
+
+{% for label, value in subscores %}
+  {{ '%-22s'|format(label) }} {{ value }}/100
+{% endfor %}
+
+{% if missing_skills %}
+WHAT'S MISSING
+These are the terms a screener for {{ target_role or 'this role' }} looks for and
+your resume doesn't contain:
+{{ missing_skills|join(', ') }}
+
+{% endif %}
+{% if matched_skills %}
+ALREADY THERE
+{{ matched_skills|join(', ') }}
+
+{% endif %}
+{% if suggestions %}
+FIX THESE FIRST
+{% for s in suggestions %}
+  -> {{ s }}
+{% endfor %}
+
+{% endif %}
+{% if cards %}
+COURSES THAT CLOSE THOSE GAPS
+Picked against your missing skills, not the catalog's bestsellers.
+{% for c in cards %}
+{{ loop.index }}. {{ c.p.title }}
+   {{ c.p.category }} · {{ c.p.level }} · {{ c.p.price|money }}
+{% if c.note %}
+   {{ c.note }}
+{% endif %}
+   {{ ('/course/' ~ c.p.slug)|url }}
+{% endfor %}
+
+{% endif %}
+Re-run after editing: {{ '/profile'|url }}
+
+The score is computed in plain Python, not by a language model — edit your
+resume, run it again, and any movement is real.
+
+--
+Sent because you ran a resume analysis.
+Manage preferences or unsubscribe: {{ '/profile'|url }}

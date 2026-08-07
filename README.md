@@ -11,10 +11,12 @@ has established that behavior materially changed.**
 
 > **Build status — 6 Aug 2026.** Built and verified: the platform foundation (web app, auth, roles,
 > schema, catalog browsing, admin CRUD), **user profiles** (bio, goals, skills, resume),
-> **product management with dual-write** to Chroma, and **behavioral event tracking** end to end
-> (browser → queue → SQLite). The retrieval, ranking and agent layers are designed and partially
-> implemented; sections marked _pending_ below will carry measured numbers once those land. No
-> number in this README is estimated — anything not yet measured says so.
+> **product management with dual-write** to Chroma, **behavioral event tracking** end to end
+> (browser → queue → SQLite), and the **email layer** (§7) — four personalized formats, an
+> idempotent daily digest on the scheduler, and a credential-less fallback so it runs without
+> secrets. The retrieval, ranking and agent layers are designed and partially implemented; sections
+> marked _pending_ below will carry measured numbers once those land. No number in this README is
+> estimated — anything not yet measured says so.
 
 - **Design of the foundation:** [`documentation/design.md`](documentation/design.md)
 - **Full system architecture:** [`SmartReco_Architecture_v2_FINAL.md`](SmartReco_Architecture_v2_FINAL.md)
@@ -169,23 +171,150 @@ _p95 latency: pending._
 
 ---
 
-## 6a. User profiles
+## 6a. Accounts and the declared profile
 
-**Built.** `/profile` collects what browsing history can't say: bio, goals, skills, years of
-experience, and a resume (uploaded or pasted). On a brand-new account there is no behavior at all,
-so this is the only signal available for a first recommendation.
+**Built.** Registration takes email and password plus four **optional** fields — name, target role,
+years of experience, and a one-line goal. A new account has no behavior, so what someone tells us is
+the only signal a first recommendation can use; asking while they are already filling in a form
+beats hoping they visit `/profile` later. They stay optional because a required six-field signup is
+an abandonment funnel, and everything is editable afterwards. A failed password rule re-renders
+every value already typed.
+
+`/profile` collects the rest: bio, skills, current role, education, links, and the constraints that
+actually gate a recommendation — **budget, hours per week, preferred format**. Profile completeness
+is shown as a weighted meter that **names the fields still missing**, because "62% complete" is a
+nag and "add your target role and goals" is a prompt.
 
 Declared fields are kept strictly separate from the behaviorally-derived ones in the same table —
 different trust, different lifetimes, and the profile router can never corrupt the interest model.
-`.txt`/`.md` are parsed natively; PDFs are stored but **loudly** report that text wasn't extracted
-rather than silently saving an empty profile. [design.md §9](documentation/design.md).
 
 ---
 
-## 7. Bonus features
+## 6b. Resume intake and ATS scoring
 
-_Pending — scheduler/digest, observability, evaluation harness, and the fourth are designed in
-[arch §8–§9](SmartReco_Architecture_v2_FINAL.md)._
+**Built.** Upload a resume (PDF, `.docx`, `.txt`, `.md`) or paste the text; saving runs an ATS
+check against your target role. PDF is parsed with `pypdf`, `.docx` by reading `word/document.xml`
+straight out of the zip with the stdlib — no `python-docx` dependency. Extraction failure is
+**loud**: a scanned PDF, a protected one, or a legacy `.doc` keeps the file, says exactly what
+happened, and points at the paste box rather than saving an empty profile.
+
+**The scorer is pure Python — no LLM call.** A model asked to rate a resume out of 100 returns a
+plausible number that moves between runs on identical input. A user who edits their resume and
+re-runs must be able to trust that 61 → 74 means the resume improved. Reproducibility is the
+feature, and it is testable in a way an LLM scorer is not:
+
+```
+ats_score = 0.45·keyword + 0.20·structure + 0.25·experience + 0.10·readability
+```
+
+Eight target roles, each with `must` skills weighted double `nice` ones. Two details that separate
+this from a keyword counter: **word-boundary matching** (substring matching makes `"R"` match every
+word containing it) and an **alias table**, so "torch" satisfies PyTorch and "k8s" satisfies
+Kubernetes. False gaps are worse than missed ones — they send someone to buy a course teaching what
+they already know — and a test asserts every reported gap really is absent from the text.
+
+**The output that matters is the gap list, not the score.** `missing_skills` becomes the retrieval
+query that drives both the advisor and the recommendations; a score with no gaps would be a vanity
+metric. Runs are stored with `is_current`, so re-scoring against a different role keeps the history
+that makes the number mean something. [arch §13.2](SmartReco_Architecture_v2_FINAL.md).
+
+---
+
+## 6c. The career advisor (chat)
+
+**Built.** A chat panel on every page for signed-in users, grounded in the same catalog as the
+recommendation cards.
+
+**It cannot invent a course.** Hybrid retrieval (Chroma + FTS5, fused by RRF) names the only courses
+the model may mention, and the answer is checked against that set afterwards — the chat equivalent
+of the validate node. A hallucinated id is stripped *along with the course title in front of it*,
+because removing only the marker leaves an invented name in the prose as plain text: the same false
+claim with the link taken off.
+
+It reasons over your ATS gaps first, then your declared profile, then your behavioral interest
+vector. A stated budget is applied as a **SQL filter**, not as a polite request in the prompt.
+Retrieval degrades in a stated order: no key or no Chroma drops it to FTS5-only and logs which path
+ran, rather than failing the turn.
+
+Cost is bounded by shape, not by luck: history is capped at 8 turns and retrieval at 6 courses, so
+**the cost of turn N does not depend on N**. [arch §13.3](SmartReco_Architecture_v2_FINAL.md).
+
+---
+
+## 7. Email — scheduler, digest, and the four formats
+
+Four message kinds share one transport, one Jinja environment, and one opt-out switch.
+[`app/mail/`](app/mail/). Design detail: [design.md §10](documentation/design.md).
+
+| Kind | Trigger | Won't send unless | Respects opt-out |
+| --- | --- | --- | --- |
+| **Daily digest** | Cron at `DIGEST_HOUR` (default 16:00) | there's a current recommendation set | yes |
+| **Welcome** | Registration, fire-and-forget | — always renders | no — transactional |
+| **ATS report** | User presses "Email me this report" | a resume analysis exists | no — explicitly requested |
+| **Re-engagement** | Cron, Mondays 10:00 | the user is idle `REENGAGE_AFTER_DAYS`+ and we can name a course they opened | yes |
+
+### When mail goes out
+
+The digest is the only one on a daily clock, and it is **idempotent per user per day** — the
+`digest_log` unique constraint on `(user_id, sent_date)` is what makes that true. A restart at
+16:01, an admin pressing the manual trigger, and the cron itself all converge on one email. Run
+the trigger twice and the second run reports everyone as `skipped`; that skip *is* the guarantee.
+
+Two rules keep the volume honest:
+
+- **No content, no send.** A user with no current recommendation gets nothing rather than an empty
+  "no picks today" mail. The whole planner design (§3) is that a recommendation exists only when
+  behavior justified generating one — so silence is the correct output, not a failure.
+- **A nudge must name something specific.** Re-engagement sends only when it can point at the
+  course the person actually last opened. Without that it's a "we miss you" mail, which is the
+  genre people mark as spam.
+
+The ATS report is behind a button rather than fired on every analysis: `save_profile` re-scores on
+every save, and mailing a report each time someone fixes a typo would get the sender filtered
+within a week.
+
+### How mail is sent
+
+`aiosmtplib` over STARTTLS (port 587) or implicit TLS (465), chosen by `SMTP_PORT`. Set the four
+`SMTP_*` vars in `.env` and mail is delivered for real.
+
+**With no credentials configured, sending still works** — the rendered message is written to
+`data/outbox_mail/*.eml` (openable in any mail client) and reported as `stored` instead of `sent`.
+This is a supported mode, not an error path: tests, CI, and a laptop demo all run with no secret,
+and an expired password degrades to "the digest is on disk" rather than a stack trace inside a
+scheduler job at 16:00. `SendResult.mode` distinguishes the two everywhere, so nothing in the UI
+ever claims a delivery that did not happen.
+
+Failures return, they never raise. The digest loops over users; one bad address must not abort the
+other forty-nine.
+
+### What "personalized" means here
+
+Every format is assembled per user from stored state — none of it is a mail-merge over a template
+with a name slotted in:
+
+- The digest carries the agent's own **narrative**, plus each item's **hook** and **reason** — the
+  per-user text that already justifies the card on `/recommendations`.
+- It closes by naming the **resume gaps** those courses were chosen against, which is the seam
+  between the ATS feature and the recommender: _"Chosen partly against the gaps in your resume for
+  Generative AI Engineer: langgraph, rag, evaluation."_
+- The welcome mail lists the **specific profile fields this account is missing**, weight-ordered by
+  `completeness()` — the same three the progress meter asks for.
+- Re-engagement names the **last course actually opened** and how long ago.
+- Missing a name degrades to no name, never to `Hi meetsupriyoc...` — a mangled email local-part
+  advertises that the sender knows nothing about you.
+
+Every message ships HTML **and** hand-written plain text. The text half is not a formality: it's
+what screen readers and spam filters read, and auto-degrading HTML loses every link.
+
+### Operating it
+
+`/admin/mail` shows transport state first — the most common confusion is "I pressed send and
+nothing arrived" when SMTP was unconfigured and the `.eml` is exactly where it should be. From
+there: send any kind to any user, preview any kind in the browser without sending, and run the
+digest fan-out on demand (forced or idempotent).
+
+`/profile` carries the single opt-out switch every automated email links to.
 
 ---
 
@@ -267,6 +396,9 @@ before the print.
 | `make ingest`    | `python -m app.catalog.ingest data/data_1 --allow-pending`    |
 | `make test`      | `python -m pytest tests/ -q`                                  |
 | `make lint`      | `ruff check app/ evals/ tests/`                               |
+| —                 | `python -m app.mail.cli send digest EMAIL` (one message, now)  |
+| —                 | `python -m app.mail.cli run-digest [--force]` (the 16:00 job)  |
+| —                 | `python -m app.mail.cli check` (SMTP reachability + auth)      |
 | —                 | `python -m app.catalog.sync_sql` (catalog → SQL, no API key) |
 | —                 | `python -m app.catalog.outbox` (drain pending → Chroma)       |
 | —                 | `python -m app.auth.cli create-admin EMAIL`                   |
@@ -313,21 +445,37 @@ app/
   auth/         security (bcrypt, signed cookies) · routes · deps · admin CLI
   admin/        product CRUD, ingest trigger, vector-sync page, agent-run observability
   profiles/     declared user info — routes · resume intake/extraction
+                ats.py      → deterministic ATS scoring + gap analysis
+  chat/         the career advisor
+                retrieval.py → hybrid Chroma+FTS5 retrieval, RRF-fused
+                agent.py     → context assembly, prompt, grounding enforcement
   catalog/      loader · chunker · freshness · ingest · sync_sql · browse routes
                 vectors.py  → the Chroma write path
                 outbox.py   → drains vector_outbox into Chroma (the dual-write)
   agent/        LangGraph nodes, Mesh client, scorer, triggers
+  mail/         outbound email
+                sender.py     → SMTP transport + store-to-disk fallback
+                messages.py   → the four kinds: digest · welcome · ATS · re-engage
+                digest.py     → the daily fan-out, idempotent via digest_log
+                templating.py → Jinja env for email (inline CSS, absolute URLs)
+                preview.py    → render without sending, for /admin/mail
+                templates/    → *.html + *.txt, one pair per kind
   tracking/     event ingest queue + routes
-  web/          templates, static (tracker.js), recommendations route
+  web/          templates, static (tracker.js · chat.js · ui.js), recommendations
   db/           models · session (WAL pragmas) · init_db · seed
-  scheduler/    APScheduler jobs — 30 s outbox drain, nightly maintenance
+  scheduler/    APScheduler jobs — 30 s outbox drain, nightly maintenance,
+                16:00 digest, Monday re-engagement sweep
 data/
   data_1/       hand-curated course catalog (12 courses, one JSON per course)
   resumes/      uploaded resumes, stored as user_{id}.{ext}  (gitignored)
+  outbox_mail/  rendered .eml files when SMTP is unconfigured  (gitignored)
   COURSE_SCHEMA.md
 tests/
-  test_profiles.py  test_outbox.py  test_freshness.py  test_smoke.py
+  test_ats.py       test_chat.py      test_profiles.py   test_mail.py
+  test_outbox.py    test_freshness.py test_smoke.py
   tracker/          test_tracker.js — runs tracker.js under Node
 documentation/
   design.md     auth · roles · schema · dual-write · tracking · profiles
 ```
+
+**Tests: 121 passing** (`python -m pytest tests/ -q`), plus 24 tracker assertions under Node.

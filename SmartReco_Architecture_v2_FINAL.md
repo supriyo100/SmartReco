@@ -92,9 +92,18 @@ GET  /search?q=            catalog search (FTS5 + filters)
 GET  /course/{slug}        course detail — the main tracked surface
 GET  /recommendations      the rec cards (§6)
 
-GET  POST /auth/register   email + password
+GET  POST /auth/register   email + password + optional profile fields (§13.1)
 GET  POST /auth/login
 POST /auth/logout
+
+GET  POST /profile         declared profile; saving runs the ATS check (§13.2)
+POST /profile/ats          re-score against a different target role
+GET  /profile/resume       download your own resume
+POST /profile/resume/delete
+
+POST /api/chat             one advisor turn → grounded answer + cards (§13.3)
+GET  /api/chat/history     replay the current thread
+POST /api/chat/reset       start a fresh thread
 
 POST /api/events           tracker ingest → 202 (§4)
 GET  /api/events/stats     queue depth, processed, dropped
@@ -118,11 +127,15 @@ readers — which is exactly this workload.
 The tables and how they relate:
 
 ```
-users ──1:1──► user_profiles          derived interest state, one row per user
+users ──1:1──► user_profiles          derived interest state + declared profile
   │
   ├──1:N──► events                    the raw behavioral log (user_id nullable)
   │
-  └──1:N──► recommendations           stored rec sets, one current per user
+  ├──1:N──► recommendations           stored rec sets, one current per user
+  │
+  ├──1:N──► resume_analyses           ATS runs, one current per user (§13.2)
+  │
+  └──1:N──► conversations ──1:N──► chat_messages    advisor threads (§13.3)
 
 products ──1:N──► vector_outbox       pending Chroma sync work
    │
@@ -133,7 +146,18 @@ embedding_cache   text_hash → vector, avoids re-embedding identical text
 digest_log        (user_id, sent_date) unique — digest idempotency
 ```
 
-**`users`** — `id`, `email` (unique), `password_hash`, `role`, `digest_opt_in`, `created_at`.
+**`users`** — `id`, `email` (unique), `password_hash`, `role`, `digest_opt_in`, `is_active`,
+`last_login_at`, `created_at`. Identity and access only: this row is read on every authenticated
+request by `identity_middleware`, so widening it makes every request more expensive to serve a
+field almost nothing reads. Everything a user *says about themselves* lives in `user_profiles`.
+
+**`resume_analyses`** — one ATS run over one resume against one target role (§13.2). `ats_score`
+plus the four sub-scores, `matched_skills` / `missing_skills`, the structured `parsed` block,
+`warnings`, `suggestions`, and `is_current`. Indexed `(user_id, is_current)`.
+
+**`conversations` / `chat_messages`** — advisor threads (§13.3). `chat_messages.cited_product_ids`
+records the ids an answer was allowed to name next to the text that named them, which is what makes
+a chat reply auditable the same way a rec card is.
 
 **`products`** — the course catalog. `id`, `slug` (unique, the stable identity), `title`,
 `description`, `category`, `level`, `price`, `tags`, `instructor`, `rating`, `is_active`,
@@ -524,14 +548,34 @@ APScheduler, single worker, behind `SCHEDULER_ENABLED`:
 | 30 s | Drain `vector_outbox` in chunks of 20; a transient failure retries per-item, a fatal one halts (§3.4). | **built** |
 | 15 min | Refresh stale recommendations for **active users only**. | pending |
 | 03:00 | Reconcile SQLite ↔ Chroma · `wal_checkpoint(TRUNCATE)` · delete orphaned anonymous events > 90 days. | partial — checkpoint only |
-| 16:00 | Digest email — **bonus tier, first to be cut.** | pending |
+| `DIGEST_HOUR` (16:00) | Digest email — fan out over opted-in users, idempotent per user per day. | **built** |
+| Mon 10:00 | Re-engagement nudge for users idle `REENGAGE_AFTER_DAYS`+. | **built** |
 
 The drain job is registered `max_instances=1, coalesce=True`: a drain slower than its 30 s interval
 must not overlap itself and embed the same product twice concurrently. It logs only when it did
 something, so an idle queue doesn't fill the log every half minute.
 
-`POST /admin/trigger-digest` renders the digest on demand and ships regardless of whether the cron
-survives; the manual trigger is all the demo needs.
+### 8.1 Mail
+
+Four kinds — digest, welcome, ATS report, re-engagement — in `app/mail/`. Full reasoning in
+[design.md §9a](documentation/design.md); the three decisions that shape the rest:
+
+**The digest is idempotent, which is what let it graduate from "bonus tier, first to be cut" to a
+registered cron job.** `digest_log`'s unique `(user_id, sent_date)` constraint, checked before the
+send and written after, means a restart at 16:01, the manual admin trigger, and the cron itself all
+converge on one email. Without that property a scheduled mailer is a liability; with it, the cron
+is no riskier than the manual button.
+
+**Missing SMTP credentials are a supported mode.** Messages render to `data/outbox_mail/*.eml`
+instead of sending, reported as `stored` rather than `sent`. An expired password degrades to "the
+digest is on disk" instead of a 16:00 stack trace, and the whole suite runs with no secret.
+
+**Nothing empty is ever sent.** No current recommendation → no digest; no nameable last-viewed
+course → no nudge. An "we have nothing for you today" mail contradicts §5.1's premise that a
+recommendation exists only when behavior justified one.
+
+Admin surface is `/admin/mail` — per-user send, in-browser preview without sending, and an on-demand
+fan-out (forced or idempotent). This replaces the originally-planned `POST /admin/trigger-digest`.
 
 ---
 
@@ -584,7 +628,7 @@ list.
 | **Learned ranker (LightGBM)** | Needs interaction data that does not exist. A ranker trained on synthetic personas would be theater; documented fusion weights are honest and explainable. |
 | **Kafka / Redis Streams / feature store** | The asyncio queue *is* the stream at this scale. One README sentence names the swap. |
 | **Collaborative filtering** | Cold-start platform, a handful of seeded personas — there are no similar users yet. |
-| **Conversation memory** | There is no conversation in this product. Users browse; they never chat with the agent. |
+| ~~**Conversation memory**~~ | ~~There is no conversation in this product. Users browse; they never chat with the agent.~~ **Superseded 7 Aug 2026 — now built (§13.3).** The premise stopped being true when the career advisor shipped: users do chat, and an advisor that forgets the previous turn is not an advisor. Kept visible rather than deleted, because a design doc that quietly erases its own rejected decisions cannot be trusted about the ones it kept. |
 | **A "tool layer" over price/inventory/reviews** | Those are columns, not tools. Wrapping `products.price` in a tool call adds latency and failure modes to fetch data retrieval already returned. |
 | **Separate `/explain` endpoint** | An extra LLM call per view for an explanation `generate` already produced and stored. |
 | **Docker, Alembic, pre-commit, mypy** | `init_db.py` is the migration story; the judge runs `setup.sh`. `ruff` alone carries 80% of the lint value. |
@@ -607,7 +651,9 @@ SECRET_KEY · DATABASE_URL · CHROMA_DIR · ENV
 RERANK_MODE=fusion · FINGERPRINT_COS_THRESHOLD=0.15 · TRIGGER_MIN_EVENTS=8
 TRIGGER_DEBOUNCE_S=90 · REC_STALE_HOURS=6 · COLD_START_MIN_EVENTS=3
 
-SCHEDULER_ENABLED · DIGEST_HOUR · SMTP_*
+SCHEDULER_ENABLED · DIGEST_HOUR=16 · REENGAGE_AFTER_DAYS=7
+SMTP_HOST · SMTP_PORT=587 · SMTP_USER · SMTP_PASS   (blank ⇒ render to data/outbox_mail/)
+MAIL_FROM · MAIL_FROM_NAME · PUBLIC_BASE_URL        (absolute links inside emails)
 LANGSMITH_TRACING · LANGSMITH_API_KEY · LANGSMITH_PROJECT
 ```
 
@@ -641,3 +687,140 @@ the README. Test dependencies are in the `dev` extra and are not installed by de
 report "all 4 configured models available" while every embedding attempt returns
 `402 spend_limit_exceeded`. When that happens the outbox drain halts by design and holds its rows;
 `/admin/sync` shows the queue depth and the reason. Nothing is lost and no attempts are burned.
+
+**Confirmed in practice (7 Aug 2026).** This is the live state of the configured key: all four
+models list as available, and every paid call returns 402. Both new subsystems degrade exactly as
+designed — hybrid retrieval drops to FTS5-only and logs which path ran, and the chat agent serves a
+deterministic catalog reply that is visibly labelled as such rather than pretending to be the model.
+The demo works with no key at all; it is better with one.
+
+---
+
+## 13. The user layer — accounts, ATS, and the career advisor
+
+Added 7 Aug 2026. Three subsystems that sit on top of §1 and feed §5–6 rather than replacing them.
+The order below is the order the data flows: a person signs up, their resume is scored, and the
+advisor reasons over both.
+
+### 13.1 Registration and the declared profile
+
+Registration now collects email, password, **and four optional fields** — name, target role, years
+of experience, and a one-line goal. This revises §1.1's "email + password, nothing else", and the
+reason is the same one §1.2 gives for the declared half of `user_profiles` existing at all: a new
+account has no behavior, so the first recommendation has nothing to run on except what the person
+told us. Asking at the one moment someone is already filling in a form is far cheaper than hoping
+they visit `/profile` later.
+
+They stay **optional**, and that is the load-bearing half of the decision. A required six-field
+signup is an abandonment funnel, every field is editable at `/profile` afterwards, and the cost of
+skipping them is zero. A failed password rule re-renders everything already typed, so one bad
+field never costs a user the four they got right.
+
+The `user_profiles` row is created **during registration** rather than lazily on first profile
+visit, so no downstream reader has to special-case its absence. Only declared columns are written;
+the derived half still belongs exclusively to the interest model.
+
+`users` gains `is_active` and `last_login_at`. Both stay on `users` rather than moving to the
+profile because `identity_middleware` reads that row on every authenticated request — and for the
+same reason nothing else was added to it. The middleware now reads `role` and `email` in the one
+query it was already making, so the sidebar can show the signed-in address at no extra cost.
+
+**Profile completeness** is a weighted percentage that names the fields still missing. Weighted by
+usefulness to the recommender rather than by effort: `goals` and the resume carry the most weight
+because they are what a cold-start recommendation actually runs on. Returning the missing list
+rather than only a number is the point — "62% complete" is a nag, "add your target role and goals"
+is a prompt.
+
+### 13.2 ATS analysis — deterministic, and scored against a role
+
+`app/profiles/ats.py`, stored in `resume_analyses`. **Pure Python, no model call**, for the reason
+§6 already gives about confidence: a model asked to score a resume out of 100 returns a plausible
+number that moves between runs on identical input. A user who edits their resume and re-runs must be
+able to trust that 61 → 74 moved because the resume improved. Reproducibility is the whole feature,
+and it is what makes the scorer testable in the strongest sense — `test_identical_input_scores_identically`
+is an assertion no LLM scorer can pass.
+
+The composite is four weighted sub-scores, each answering a question a real ATS pipeline asks:
+
+```
+ats_score = 0.45·keyword      does it contain the skills the role screens for?
+          + 0.20·structure    can a parser find the sections and contact details?
+          + 0.25·experience   is there evidence — dated roles, metrics, strong verbs?
+          + 0.10·readability  is it the right length, free of parser hazards?
+```
+
+Weighted-additive rather than multiplicative, for the same reason as `confidence` (§6): multiplying
+four [0,1] terms collapses a good resume toward zero and lets one weak axis nuke the score.
+
+Eight target roles are defined, each with `must` skills weighted double `nice` ones — missing a core
+requirement is not the same size of gap as missing a bonus. Free-text target roles resolve to the
+nearest known role (exact → title alias → token overlap → default) so the score is always meaningful
+without the caller special-casing "unknown".
+
+Two details that separate this from a naive keyword counter:
+
+- **Word-boundary matching, not substring.** `"R"` otherwise matches every word containing it and
+  `"go"` matches `"going"`. One regex removes the whole class.
+- **An alias table.** A resume says "PyTorch", "torch" or "py-torch"; an ATS that only knows the
+  canonical spelling reports a gap the candidate does not have. **False gaps are worse than missed
+  ones** — they send someone to buy a course teaching what they already know — so
+  `test_missing_skills_are_actually_absent_from_the_text` asserts every reported gap really is
+  absent.
+
+**The output that matters is `missing_skills`, not the score.** That list is what connects this
+module to the rest of the system: gaps become retrieval queries, and the courses that come back are
+the ones that close them. A score with no gap list would be a vanity metric.
+
+The analysis is stored per run with `is_current`, the same pattern `recommendations` uses, because
+the (resume, role) pair is the real key — the same resume scores differently against different
+targets, which does not fit in a 1:1 column. History is what lets a user see the score move.
+Deleting a resume retires its score rather than leaving a result for a document that no longer
+exists.
+
+**Resume extraction is now real.** PDF via `pypdf`, `.docx` by reading `word/document.xml` out of
+the zip with the stdlib — no `python-docx` dependency. The earlier note that a PDF library "buys
+less than it costs" was correct when the resume was one more prompt fragment and wrong once it
+became the input to a score: an ATS result computed over text the user had to paste by hand is a
+demo, not a feature. Paragraph and break tags become newlines **before** tags are stripped, because
+the section detector reads line structure — strip first and a resume collapses into one line.
+Failure stays loud: a scanned PDF, a password-protected one, or a legacy `.doc` each keep the file,
+say exactly what happened, and point at the paste box.
+
+### 13.3 The career advisor — grounded chat
+
+`app/chat/`. A conversational surface over the same catalog, and the reason §11's "no conversation
+memory" entry is now struck through rather than deleted.
+
+**The grounding guarantee is the same one the cards carry.** Retrieval names the only courses the
+model may mention, and `_enforce_grounding` checks the answer against that set afterwards. This is
+the chat equivalent of the validate node: a rule stated in a prompt is a request, a rule enforced in
+code is a guarantee. A hallucinated id is stripped — **and so is the bolded course title in front of
+it**, because removing only the `[[id:N]]` marker leaves an invented course name sitting in the
+prose as plain text, which is the same false claim with the link taken off.
+
+Retrieval reuses the §3.1 design — Chroma + FTS5 fused by RRF, deduped to `parent_id` so one
+well-chunked course cannot fill the result set. Degradation is ordered and visible: vector search
+needs a key and a collection, FTS5 needs neither, so a 402 drops the system to keyword-only and logs
+which path ran rather than failing the request. A stated budget is applied as a **SQL filter**, not
+as a polite instruction in the prompt.
+
+What the advisor knows, in priority order: ATS gaps first (the most actionable thing we have),
+then the declared profile, then the behavioral interest vector, then the retrieved courses. Where
+claimed skills and browsing disagree, behavior wins — what someone reads all week is a better signal
+of intent than a list they wrote once.
+
+Cost follows §5.1's logic, adapted. A chat turn is user-initiated, so the question is not "should we
+run" but "how little context can we send": history is capped at 8 turns, retrieval at 6 courses, and
+the prompt is assembled from rows already read in one session. **The cost of turn N does not depend
+on N.**
+
+FTS5 input is sanitized by quoting every token individually and OR-ing them, so no user text can be
+read as query syntax — a question containing an apostrophe would otherwise raise. Conversation ids
+arrive from the client and are checked against `user_id`; an unchecked id would let anyone read
+anyone else's thread by guessing a number.
+
+**The panel** lives in `base.html` on every page for signed-in users, and is the one piece of
+client-side state in an otherwise server-rendered app. It earns the exception: a chat that reloads
+the page on every message is not a chat. It never auto-opens — an assistant that interrupts is a
+different product. Model output is rendered with `textContent` and a two-token formatter, never
+`innerHTML`.
