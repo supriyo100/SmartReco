@@ -41,6 +41,31 @@ async def writer_loop():
                 global DROPPED
                 DROPPED += len(rows)
                 log.exception("event batch insert failed (%d rows)", len(rows))
+                continue
+
+            # Behavior is the project's headline trigger (§5.2): what someone
+            # reads should change what they are shown. Consulted here, after
+            # the write, so the planner sees the events it is judging.
+            #
+            # `maybe_generate` is the planner, not the generator — it applies
+            # the debounce and thresholds, so calling it once per flush costs a
+            # few indexed counts, not an LLM call. Scheduled as a task so a
+            # generation never delays the writer draining its queue.
+            for user_id in {r.get("user_id") for r in rows if r.get("user_id")}:
+                asyncio.create_task(_consider(user_id))
+
+
+async def _consider(user_id: int) -> None:
+    """Ask the planner whether this user's behavior justifies a new set."""
+    from app.agent.graph import maybe_generate
+
+    try:
+        await maybe_generate(user_id, reason_hint="")
+    except Exception:
+        # Never let a recommendation failure affect event ingestion — tracking
+        # is the load-bearing path and must not depend on the agent.
+        log.exception("behavioral recommendation trigger failed (user_id=%s)",
+                      user_id)
 
 
 async def stats():

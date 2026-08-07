@@ -69,13 +69,19 @@ def collection(monkeypatch):
     coll = FakeCollection()
     monkeypatch.setattr(vectors_mod, "get_collection", lambda: coll)
 
-    async def fake_embed(texts):
+    # `is_query` is accepted because the real embed_batch takes it — nomic's
+    # asymmetric prefixes — and a stub with a narrower signature would pass
+    # here while the production call site raises TypeError.
+    async def fake_embed(texts, *, is_query=False):
         return fake_vectors(texts)
 
     monkeypatch.setattr("app.agent.mesh.embed_batch", fake_embed)
-    # settings.use_mesh is False under ENV=test, which would make drain a no-op.
+    # Both gates are False under ENV=test, which would make drain a no-op.
+    # `can_embed` is the one outbox reads now; `use_mesh` is kept patched for
+    # any path that still asks specifically about Mesh.
     monkeypatch.setattr(outbox_mod.settings, "MESH_API_KEY", "test-key")
     monkeypatch.setattr(type(outbox_mod.settings), "use_mesh", property(lambda self: True))
+    monkeypatch.setattr(type(outbox_mod.settings), "can_embed", property(lambda self: True))
     return coll
 
 

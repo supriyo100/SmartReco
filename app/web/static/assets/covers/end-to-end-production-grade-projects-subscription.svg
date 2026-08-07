@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300" role="img" aria-label="End To End Production Grade Industry Ready Projects(AI/ML/DS/Gen AI/Agentic AI/ DE)-Subscription">
+  <defs>
+    <linearGradient id="gendtoendproductiongradep" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f3b34"/>
+      <stop offset="100%" stop-color="#1c7d63"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="300" fill="url(#gendtoendproductiongradep)"/>
+  <g>
+    <rect x="496" y="51" width="22" height="22" rx="4" fill="#7fe3c4" opacity="0.15"/>
+    <circle cx="560" cy="67" r="12" fill="#7fe3c4" opacity="0.15"/>
+    <circle cx="478" cy="47" r="19" fill="#7fe3c4" opacity="0.11"/>
+    <rect x="466" y="111" width="32" height="32" rx="4" fill="#7fe3c4" opacity="0.07"/>
+    <circle cx="492" cy="275" r="15" fill="#7fe3c4" opacity="0.07"/>
+    <circle cx="464" cy="223" r="15" fill="#7fe3c4" opacity="0.13"/>
+    <rect x="584" y="167" width="40" height="40" rx="4" fill="#7fe3c4" opacity="0.15"/>
+  </g>
+  <rect x="44" y="42" width="46" height="4" rx="2" fill="#7fe3c4"/>
+  <text x="44" y="74" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="13"
+        font-weight="600" letter-spacing="2.4" fill="#7fe3c4">MLOPS / LLMOPS</text>
+  <g>
+    <text x="44" y="132" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="31" font-weight="700" fill="#ffffff">End To End Production Grade</text>
+    <text x="44" y="172" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="31" font-weight="700" fill="#ffffff">Industry Ready</text>
+    <text x="44" y="212" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="31" font-weight="700" fill="#ffffff">Projects(AI/ML/DS/Gen…</text>
+  </g>
+  <text x="44" y="264" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="14"
+        font-weight="600" letter-spacing="1.4" fill="#ffffff" opacity="0.82">INTERMEDIATE · ₹9,000</text>
+  
+</svg>

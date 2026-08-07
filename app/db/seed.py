@@ -35,7 +35,7 @@ async def main():
     products = json.loads(pathlib.Path("seed/products.json").read_text())
     validate_graph(products)
     texts = [embedding_text(p) for p in products]
-    vectors = await embed_batch(texts) if settings.use_mesh else None
+    vectors = await embed_batch(texts) if settings.can_embed else None
 
     client = chromadb.PersistentClient(path=settings.CHROMA_DIR)
     coll = client.get_or_create_collection("products")  # NEVER default embed fn (trap #1)

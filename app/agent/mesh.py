@@ -11,11 +11,8 @@ import json
 import logging
 
 from openai import AsyncOpenAI
-from sqlalchemy import select
 
 from app.config import settings
-from app.db.models import EmbeddingCache
-from app.db.session import async_session
 
 log = logging.getLogger("mesh")
 
@@ -39,64 +36,115 @@ def _parse_json(raw: str) -> dict:
     return json.loads(txt[start:end + 1])
 
 
-async def _chat(model: str, messages: list, **kw):
-    delay = 1.0
-    for attempt in range(4):
-        try:
-            return await client.chat.completions.create(model=model, messages=messages, **kw)
-        except Exception as e:  # backoff on transient errors
-            status = getattr(e, "status_code", None)
-            if attempt == 3 or (status is not None and status not in RETRY_STATUS):
-                raise
-            await asyncio.sleep(delay)
-            delay *= 2
+async def _chat(model: str, messages: list, kind: str = "fast", **kw):
+    """One chat call, Mesh first and Groq if Mesh cannot serve it.
+
+    `model` is kept for callers that name a model explicitly, but the provider
+    chain owns model selection: Mesh and Groq have different model names for
+    the same role, so a single hardcoded name cannot work on both. Pass `kind`
+    ("fast" | "fast_fallback" | "writer") and let `chain()` resolve it.
+
+    Two failure classes, handled differently — the distinction is the point:
+      * 429/5xx  → transient. Back off and retry the SAME provider.
+      * 401/402/403 → the provider is unusable. Stop retrying it, mark it
+        down so the next call skips it, and try the next provider.
+    """
+    from app.agent.providers import (
+        REASONING_MIN_TOKENS,
+        chain,
+        is_provider_down,
+        mark_down,
+        mark_up,
+        strip_reasoning,
+    )
+
+    providers = chain(kind)
+    if not providers:
+        raise RuntimeError("no LLM provider available (no key, or all in cooldown)")
+
+    last_error: Exception | None = None
+    for name, provider_client, provider_model in providers:
+        chosen = provider_model if kind else model
+        call_kw = dict(kw)
+        # Reasoning models (Groq's gpt-oss, Qwen3) spend completion tokens on
+        # hidden reasoning BEFORE producing any content. A max_tokens sized for
+        # the visible answer truncates them mid-thought and returns an empty
+        # string with finish_reason="length" — a silent empty reply, not an
+        # error. Raise the ceiling for those models rather than lowering it
+        # everywhere.
+        if "max_tokens" in call_kw and call_kw["max_tokens"] is not None:
+            call_kw["max_tokens"] = max(int(call_kw["max_tokens"]),
+                                        REASONING_MIN_TOKENS)
+        delay = 1.0
+        for attempt in range(3):
+            try:
+                resp = await provider_client.chat.completions.create(
+                    model=chosen, messages=messages, **call_kw)
+                mark_up(name)
+                strip_reasoning(resp)
+                return resp
+            except Exception as e:
+                last_error = e
+                if is_provider_down(e):
+                    mark_down(name, e)
+                    break                       # next provider, no retries
+                status = getattr(e, "status_code", None)
+                if attempt == 2 or (status is not None and status not in RETRY_STATUS):
+                    break                       # give this provider up
+                await asyncio.sleep(delay)
+                delay *= 2
+        log.warning("provider %s could not serve the call (%s)", name,
+                    type(last_error).__name__ if last_error else "?")
+
+    raise last_error or RuntimeError("all providers failed")
 
 
-async def structured_call(messages: list, schema: dict, schema_name: str = "out") -> tuple[dict, str, bool]:
+async def structured_call(messages: list, schema: dict,
+                          schema_name: str = "out") -> tuple[dict, str, bool]:
     """Returns (parsed, model_used, fallback_used)."""
     rf = {"type": "json_schema",
           "json_schema": {"name": schema_name, "schema": schema, "strict": True}}
     try:
-        resp = await _chat(settings.MODEL_FAST, messages, response_format=rf, temperature=0)
-        return _parse_json(resp.choices[0].message.content), settings.MODEL_FAST, False
+        resp = await _chat(settings.MODEL_FAST, messages, kind="fast",
+                           response_format=rf, temperature=0)
+        return _parse_json(resp.choices[0].message.content), resp.model, False
     except (json.JSONDecodeError, KeyError, AttributeError, TypeError) as e:
-        log.warning("structured parse failed on %s (%s) → fallback %s",
-                    settings.MODEL_FAST, e, settings.MODEL_FAST_FALLBACK)
-    resp = await _chat(settings.MODEL_FAST_FALLBACK, messages, response_format=rf, temperature=0)
-    return _parse_json(resp.choices[0].message.content), settings.MODEL_FAST_FALLBACK, True
+        # A PARSE failure, which is about the prompt and the model's habits —
+        # not about the provider. Retrying on a different model is the right
+        # response; provider-level errors never reach here, because _chat has
+        # already failed over and would have raised something else.
+        log.warning("structured parse failed (%s) → retrying on the fallback model", e)
+    resp = await _chat(settings.MODEL_FAST_FALLBACK, messages,
+                       kind="fast_fallback", response_format=rf, temperature=0)
+    return _parse_json(resp.choices[0].message.content), resp.model, True
 
 
 async def writer_call(messages: list, schema: dict) -> tuple[dict, str]:
     """Persuasive generation under a strict schema (arch v1 §5.4 generate)."""
     rf = {"type": "json_schema",
           "json_schema": {"name": "recommendation", "schema": schema, "strict": True}}
-    resp = await _chat(settings.MODEL_WRITER, messages, response_format=rf, temperature=0.7)
-    return _parse_json(resp.choices[0].message.content), settings.MODEL_WRITER
+    resp = await _chat(settings.MODEL_WRITER, messages, kind="writer",
+                       response_format=rf, temperature=0.7)
+    # The model that actually answered, which is not necessarily the one asked
+    # for — `agent_runs.model_used` must record what ran, not what we intended.
+    return _parse_json(resp.choices[0].message.content), resp.model
 
 
 def _h(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-async def embed_batch(texts: list[str]) -> list[list[float]]:
-    """▲A5: one API call for the whole batch, with read-through cache."""
-    hashes = [_h(t) for t in texts]
-    out: dict[str, list[float]] = {}
-    async with async_session() as s:
-        rows = (await s.execute(
-            select(EmbeddingCache).where(EmbeddingCache.text_hash.in_(hashes)))).scalars()
-        for r in rows:
-            out[r.text_hash] = r.vector
-    missing = [(h, t) for h, t in zip(hashes, texts) if h not in out]
-    if missing:
-        resp = await client.embeddings.create(model=settings.EMBED_MODEL,
-                                              input=[t for _, t in missing])
-        async with async_session() as s:
-            for (h, _), item in zip(missing, resp.data):
-                out[h] = item.embedding
-                s.add(EmbeddingCache(text_hash=h, vector=item.embedding))
-            await s.commit()
-    return [out[h] for h in hashes]
+async def embed_batch(texts: list[str], *,
+                      is_query: bool = False) -> list[list[float]]:
+    """▲A5: one call for the whole batch, with read-through cache.
+
+    Delegates to app/agent/embeddings.py, which owns backend selection and the
+    Mesh→local failover. Kept here as the import site every caller already
+    uses, so adding the fallback did not mean editing every call site.
+    """
+    from app.agent.embeddings import embed_batch as _embed
+
+    return await _embed(texts, is_query=is_query)
 
 
 async def check_models_at_startup():

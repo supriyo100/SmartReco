@@ -179,15 +179,41 @@ class Conversation(Base):
     built because 'users browse, they never chat with the agent' — that is no
     longer true of this product, so the table exists and the reason is stated
     rather than the old line being quietly deleted.
+
+    `session_id` ties a thread to the browser session that opened it, the same
+    id `events` carries. That is what lets a conversation be correlated with
+    what the person was *browsing* while they had it — the two strongest
+    signals about intent, currently living in separate tables with no join.
+
+    `tenant_id` is a partition key, defaulted rather than nullable. Retrofitting
+    multi-tenancy is a migration across every table that holds user data;
+    carrying the column from the start costs one indexed integer and means the
+    query patterns are already tenant-scoped when a second tenant appears.
+
+    `user_snapshot` freezes what was known about the person when the thread
+    started — target role, budget, ATS gaps. Advice is only judgeable against
+    the facts it was given, and those facts change: a reply that looks wrong
+    today may have been right for a profile that has since been edited.
     """
     __tablename__ = "conversations"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    tenant_id: Mapped[int] = mapped_column(Integer, default=1, index=True)
+    session_id: Mapped[str] = mapped_column(String, default="", index=True)
     title: Mapped[str] = mapped_column(String, default="")
+    # Facts mined from the thread itself (budget, target role, topics) — see
+    # app/chat/context.py. Written back each turn so they survive the thread.
+    derived_facts: Mapped[dict] = mapped_column(JSON, default=dict)
+    user_snapshot: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Highest buy-intent seen in this thread, so a warm lead stays visible
+    # after the turn that produced it scrolls away.
+    intent_level: Mapped[str] = mapped_column(String, default="cold")
+    intent_score: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow,
                                                  onupdate=datetime.utcnow)
-    __table_args__ = (Index("ix_conv_user_updated", "user_id", "updated_at"),)
+    __table_args__ = (Index("ix_conv_user_updated", "user_id", "updated_at"),
+                      Index("ix_conv_tenant_intent", "tenant_id", "intent_level"))
 
 
 class ChatMessage(Base):
@@ -203,6 +229,18 @@ class ChatMessage(Base):
     cited_product_ids: Mapped[dict] = mapped_column(JSON, default=list)
     model_used: Mapped[str] = mapped_column(String, default="")
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    # Which retrievers and which reranker produced this answer's candidates
+    # ("hybrid+cross_encoder", "fts", …). Stored per message because it varies
+    # per turn and is the first thing to look at when an answer cites the
+    # wrong course — §3.1's degradation must be visible after the fact.
+    retrieval_path: Mapped[str] = mapped_column(String, default="")
+    # The mermaid learning path shipped with this turn, built in Python from
+    # the cited courses (app/chat/pathway.py). Persisted so replaying a thread
+    # renders the same diagram rather than rebuilding it against a catalog
+    # that may have changed.
+    pathway: Mapped[dict] = mapped_column(JSON, default=dict)
+    intent_level: Mapped[str] = mapped_column(String, default="cold")
+    intent_score: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

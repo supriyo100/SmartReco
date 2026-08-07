@@ -14,6 +14,9 @@ htmlcov/
 data/*.db
 data/*.db-wal
 data/*.db-shm
+# The test suite runs against its own file (tests/conftest.py overrides
+# DATABASE_URL) so a test run can never write into the dev catalog.
+data/test_smartreco.db*
 data/catalog.index.json
 
 # Uploaded resumes are personal data supplied by users. They are runtime

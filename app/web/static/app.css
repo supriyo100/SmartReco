@@ -303,6 +303,16 @@ legend { font: 600 .8rem/1 var(--sans); padding: 0 .4rem; color: var(--muted);
 }
 .card h3 { color: var(--fg); }
 .card .excerpt, .reason { color: var(--muted); font-size: .875rem; }
+
+/* Generated cover art. Negative margins pull it out to the card's edges,
+   since .card carries its own padding. The 2:1 box is fixed so a grid of
+   cards keeps its rhythm whether or not an image has loaded yet. */
+.card-cover {
+  display: block; margin: -1.1rem -1.1rem .85rem; aspect-ratio: 2 / 1;
+  overflow: hidden; border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--accent-soft);
+}
+.card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .hook { font-weight: 600; margin: .2rem 0 .35rem; }
 .price { font-weight: 600; }
 .panel { background: var(--surface); border: 1px solid var(--line);
@@ -468,18 +478,48 @@ hr { border: none; border-top: 1px solid var(--line); margin: 2rem 0; }
 .chat-fab svg { width: 18px; height: 18px; stroke-width: 1.8; }
 .chat-fab[hidden] { display: none; }
 
+/* Docked to the right half rather than floating in the corner.
+   The advisor is a working surface, not a notification: a conversation about
+   a course you are reading wants the course still visible beside it, and a
+   flowchart at 380px is a diagram you have to scroll to read.
+
+   `--chat-w` is the single source of truth for the width — the panel claims
+   it and the shell gives up exactly that much (below), so the page reflows
+   instead of being covered. Half the viewport, floored so it stays usable on
+   a laptop and capped so it doesn't become a 900px column of chat bubbles on
+   an ultrawide. */
+:root { --chat-w: clamp(380px, 50vw, 640px); }
+
 .chat-panel {
-  position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 61;
-  width: min(400px, calc(100vw - 2.5rem));
-  height: min(620px, calc(100vh - 2.5rem));
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 61;
+  width: var(--chat-w);
   display: flex; flex-direction: column;
   background: var(--surface);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
+  border-left: 1px solid var(--line-strong);
   box-shadow: var(--shadow-lift);
   overflow: hidden;
 }
 .chat-panel[hidden] { display: none; }
+
+/* The reflow. Margin, not padding: `main` is already max-width constrained,
+   and margin moves the whole column — topbar included — so the search field
+   and theme toggle stay reachable while the advisor is open.
+
+   Transition on margin only. Animating the panel's own width would reflow
+   and re-measure the mermaid SVG on every frame. */
+.shell { transition: margin-right .18s ease; }
+body.chat-docked .shell { margin-right: var(--chat-w); }
+
+/* Full screen. For the long sessions — reading a five-step path, comparing
+   courses — where the page behind has stopped being the thing you are looking
+   at. The shell keeps its margin at 0 because there is nothing to reflow
+   around; the panel simply covers it.
+
+   The layout half of full screen lives AFTER the base .chat-log rules below,
+   because it competes with them at equal specificity and the later rule wins.
+   Putting it here silently did nothing. */
+.chat-panel.full { width: 100vw; border-left: none; }
+body.chat-full .shell { margin-right: 0; }
 
 .chat-head {
   display: flex; align-items: center; gap: .6rem;
@@ -490,13 +530,23 @@ hr { border: none; border-top: 1px solid var(--line); margin: 2rem 0; }
 .chat-head h2 { font-size: .95rem; margin: 0; }
 .chat-head .sub { font-size: .72rem; color: var(--faint); }
 .chat-head-actions { margin-left: auto; display: flex; gap: .15rem; }
+/* One icon at a time, chosen by the panel's state rather than by swapping
+   markup — an innerHTML swap in the header would fight the aria-pressed
+   attribute the button carries. */
+#chat-expand .i-collapse { display: none; }
+.chat-panel.full #chat-expand .i-expand { display: none; }
+.chat-panel.full #chat-expand .i-collapse { display: block; }
 
 .chat-log { flex: 1; overflow-y: auto; padding: 1rem .9rem; display: flex;
             flex-direction: column; gap: .85rem; scroll-behavior: smooth; }
 .chat-intro { color: var(--muted); font-size: .87rem; }
 .chat-intro p { margin: 0 0 .7rem; }
 
-.msg { max-width: 92%; font-size: .88rem; line-height: 1.55; }
+/* The ch cap is what keeps the wider panel readable: 92% of 640px is a
+   ~90-character line, well past the point where the eye loses its place
+   returning to the next one. Cards and diagrams below still use the full
+   width — this bounds prose only. */
+.msg { max-width: min(92%, 68ch); font-size: .95rem; line-height: 1.6; }
 .msg.user {
   align-self: flex-end; background: var(--accent); color: var(--accent-fg);
   padding: .55rem .8rem; border-radius: var(--radius) var(--radius) 3px var(--radius);
@@ -514,7 +564,13 @@ hr { border: none; border-top: 1px solid var(--line); margin: 2rem 0; }
 
 /* A cited course renders as a real card with a real link — the citation is a
    promise that the course exists, and a card that navigates is how it keeps it. */
-.chat-cards { display: flex; flex-direction: column; gap: .45rem; margin-top: .55rem; }
+/* Two-up once the panel is wide enough to hold two readable cards, one-up
+   below that. auto-fit + minmax does this without a second media query and
+   without knowing the panel width, which is a clamp() the CSS above owns. */
+.chat-cards {
+  display: grid; gap: .45rem; margin-top: .55rem;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
 .chat-card {
   display: block; border: 1px solid var(--accent-line); background: var(--accent-soft);
   border-radius: var(--radius-sm); padding: .55rem .7rem; color: var(--fg);
@@ -522,6 +578,60 @@ hr { border: none; border-top: 1px solid var(--line); margin: 2rem 0; }
 .chat-card:hover { text-decoration: none; border-color: var(--accent); }
 .chat-card b { display: block; font-size: .85rem; font-weight: 600; line-height: 1.35; }
 .chat-card span { font-size: .74rem; color: var(--muted); }
+
+/* Learning path: the mermaid diagram plus its text fallback. The ordered list
+   is always rendered — if the diagram fails to load, the steps still read as
+   a usable answer rather than an empty frame. */
+.chat-pathway {
+  margin-top: .6rem; padding: .6rem .7rem; border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm); background: var(--accent-soft);
+}
+.chat-pathway > b { display: block; font-size: .78rem; font-weight: 600;
+                    color: var(--accent); margin-bottom: .45rem; }
+/* A long path can still outgrow the docked panel, so the diagram scrolls
+   inside its own box rather than forcing the panel to scroll sideways. */
+.mermaid-target { overflow-x: auto; }
+.mermaid-target svg { max-width: none; height: auto; }
+.mermaid-target:empty { display: none; }
+.pathway-sub { display: block; font-size: .8rem; color: var(--muted);
+               margin: -.25rem 0 .6rem; }
+.pathway-steps { margin: .5rem 0 0; padding-left: 1.2rem; font-size: .88rem;
+                 line-height: 1.6; }
+.pathway-steps li { margin-bottom: .55rem; }
+.pathway-steps a { font-weight: 600; }
+.pathway-steps span { color: var(--muted); }
+/* The payoff line. Block-level and unitalicised weight so it reads as a
+   promise about the reader rather than as a footnote about the course. */
+.pathway-gain {
+  display: block; font-style: normal; font-size: .83rem;
+  color: var(--accent); margin-top: .15rem;
+}
+/* An unfamiliar skill is a question waiting to be asked. Styled as text with
+   a dotted underline rather than as a button: it should read as part of the
+   sentence, and only reveal itself as clickable on approach. */
+.skill-ask {
+  font: inherit; color: var(--accent); background: none; border: none;
+  padding: 0; border-bottom: 1px dotted currentColor; border-radius: 0;
+  cursor: help;
+}
+.skill-ask:hover { background: var(--accent-soft); border-bottom-style: solid; }
+
+/* The offer. Only rendered when buy-intent scored warm or hot — see
+   app/chat/intent.py for why the bar is deliberately high. */
+.chat-offer {
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  margin-top: .55rem; padding: .5rem .7rem; border-radius: var(--radius-sm);
+  font-size: .8rem; border: 1px solid var(--accent-line);
+}
+.chat-offer.warm { background: var(--accent-soft); }
+.chat-offer.hot { background: var(--accent); border-color: var(--accent); }
+.chat-offer.hot span { color: #fff; font-weight: 600; }
+.chat-offer-cta {
+  flex: none; padding: .34rem .7rem; border-radius: var(--radius-sm);
+  font-weight: 600; font-size: .76rem; background: var(--accent); color: #fff;
+}
+.chat-offer.hot .chat-offer-cta { background: #fff; color: var(--accent); }
+.chat-offer-cta:hover { text-decoration: none; opacity: .9; }
 
 .chat-typing { display: flex; gap: .25rem; align-items: center; padding: .5rem .2rem; }
 .chat-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--faint);
@@ -546,6 +656,63 @@ hr { border: none; border-top: 1px solid var(--line); margin: 2rem 0; }
 .chat-form button { flex: none; align-self: flex-end; }
 .chat-foot { padding: 0 .9rem .6rem; font-size: .7rem; color: var(--faint); background: var(--surface); }
 
+/* ---- chat: full-screen layout ------------------------------------------- */
+/* Must sit after the base .chat-log / .msg rules — same specificity, so source
+   order decides. The goal is to show MORE of the answer, not the same answer
+   stretched across 1900px: a reading column, centred, with the conversation
+   kept together rather than thrown to opposite edges of the screen. */
+.chat-panel.full .chat-log {
+  align-items: center;
+  padding: 1.5rem 1.25rem;
+  gap: 1.15rem;
+}
+/* One column that every turn shares. Without this the user bubble sits on the
+   far right and the reply on the far left, and a wide screen turns a
+   conversation into two unrelated columns. */
+.chat-panel.full .chat-log > * { width: 100%; max-width: 780px; }
+.chat-panel.full .msg { max-width: 100%; }
+/* The user's own turn stays right-aligned, but only within the reading column
+   — that is what keeps it legible as a reply to the message above it, instead
+   of being flung to the far edge of a 1900px screen.
+
+   The bubble is the inner span (`.msg.user > span`), so the outer .msg can
+   stretch to the column width while the coloured bubble shrink-wraps its text
+   and sits at the column's right edge. Doing this with align-self alone is not
+   possible: a fit-content item under `align-items: center` centres, and
+   margin-auto has no free space to consume. */
+.chat-panel.full .msg.user {
+  align-self: stretch;
+  display: flex;
+  justify-content: flex-end;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+.chat-panel.full .msg.user > span {
+  max-width: 70%;
+  background: var(--accent);
+  color: var(--accent-fg);
+  padding: .55rem .8rem;
+  border-radius: var(--radius) var(--radius) 3px var(--radius);
+}
+.chat-panel.full .msg.bot .bubble { max-width: 74ch; }
+
+/* The composer gets the same column, so the caret lines up with the text it
+   will produce instead of starting under the far-left edge. */
+.chat-panel.full .chat-form,
+.chat-panel.full .chat-foot {
+  width: 100%; max-width: 812px; margin-inline: auto;
+}
+.chat-panel.full .chat-form { padding-inline: 1.25rem; }
+
+/* Room to actually use: cards go three-up and the diagram gets the width that
+   was the reason to go full screen in the first place. */
+.chat-panel.full .chat-cards {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.chat-panel.full .chat-pathway { padding: .85rem 1rem; }
+.chat-panel.full .pathway-steps { font-size: .82rem; }
+
 /* ---- responsive --------------------------------------------------------- */
 @media (max-width: 860px) {
   .sidebar {
@@ -557,7 +724,10 @@ hr { border: none; border-top: 1px solid var(--line); margin: 2rem 0; }
   .menu-toggle { display: grid; }
   main { padding: 1.25rem 1rem 5rem; }
   .topbar { padding: .6rem 1rem; }
-  .chat-panel { right: .5rem; bottom: .5rem; width: calc(100vw - 1rem);
-                height: min(78vh, calc(100vh - 1rem)); }
+  /* No room to sit beside the page here, so the panel takes the screen and
+     the shell keeps its full width — reflowing to a 0px column would be
+     worse than being covered. */
+  .chat-panel { width: 100vw; border-left: none; }
+  body.chat-docked .shell { margin-right: 0; }
   .chat-fab { right: .9rem; bottom: .9rem; }
 }

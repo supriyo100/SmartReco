@@ -1,5 +1,12 @@
 {# Shared course card. data-product-id is what tracker.js reads. #}
 <article class="card" data-product-id="{{ p.id }}" data-slug="{{ p.slug }}">
+  <a href="/course/{{ p.slug }}" class="card-cover">
+    {# Generated per course from its own metadata (app/catalog/covers.py).
+       loading=lazy because a browse page renders twelve of these and none of
+       them are above the fold after the first row. #}
+    <img src="/static/assets/covers/{{ p.slug }}.svg" alt="" loading="lazy" width="600"
+         height="300">
+  </a>
   <a href="/course/{{ p.slug }}">
     <h3>{{ p.title }}</h3>
   </a>

@@ -115,8 +115,8 @@ async def main(dirpath: str = COURSE_DIR, dry_run: bool = False,
     if dry_run:
         print("✓ dry run — no embeddings requested, Chroma untouched")
         return
-    if not settings.use_mesh:
-        print("✓ no MESH_API_KEY (or ENV=test) — index written, Chroma skipped")
+    if not settings.can_embed:
+        print("✓ embeddings disabled (ENV=test) — index written, Chroma skipped")
         return
 
     # Imported here, not at module scope: mesh.py builds its OpenAI client on

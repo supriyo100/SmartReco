@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300" role="img" aria-label="Complete Agentic AI Bootcamp With LangGraph and Langchain">
+  <defs>
+    <linearGradient id="gcompleteagenticaibootcam" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2b1259"/>
+      <stop offset="100%" stop-color="#6b35c9"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="300" fill="url(#gcompleteagenticaibootcam)"/>
+  <g>
+    <rect x="599" y="178" width="15" height="15" rx="4" fill="#c9a6ff" opacity="0.12"/>
+    <circle cx="549" cy="66" r="10" fill="#c9a6ff" opacity="0.16"/>
+    <circle cx="589" cy="250" r="10" fill="#c9a6ff" opacity="0.18"/>
+    <rect x="593" y="162" width="31" height="31" rx="4" fill="#c9a6ff" opacity="0.12"/>
+    <circle cx="545" cy="38" r="10" fill="#c9a6ff" opacity="0.14"/>
+    <circle cx="501" cy="242" r="13" fill="#c9a6ff" opacity="0.18"/>
+    <rect x="593" y="166" width="33" height="33" rx="4" fill="#c9a6ff" opacity="0.14"/>
+  </g>
+  <rect x="44" y="42" width="46" height="4" rx="2" fill="#c9a6ff"/>
+  <text x="44" y="74" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="13"
+        font-weight="600" letter-spacing="2.4" fill="#c9a6ff">AGENTIC AI</text>
+  <g>
+    <text x="44" y="132" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="31" font-weight="700" fill="#ffffff">Complete Agentic AI Bootcamp</text>
+    <text x="44" y="172" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="31" font-weight="700" fill="#ffffff">With LangGraph and Langchain</text>
+  </g>
+  <text x="44" y="264" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="14"
+        font-weight="600" letter-spacing="1.4" fill="#ffffff" opacity="0.82">INTERMEDIATE · FREE</text>
+  
+</svg>

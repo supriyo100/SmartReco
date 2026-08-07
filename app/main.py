@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
         from app.scheduler.jobs import build_scheduler  # noqa: WPS433
         scheduler = build_scheduler()
         scheduler.start()
-    if settings.use_mesh:
+    if settings.MESH_API_KEY or settings.GROQ_API_KEY:
         asyncio.create_task(check_models_at_startup())
     yield
     if scheduler:

@@ -33,6 +33,8 @@ import time
 
 from sqlalchemy import select
 
+from app.agent.providers import any_chat_provider
+from app.chat.context import compact, extract_facts, retrieval_query, split_horizons
 from app.chat.retrieval import fallback_catalog, retrieve
 from app.config import settings
 from app.db.models import (
@@ -47,10 +49,10 @@ from app.db.session import async_session
 
 log = logging.getLogger("chat.agent")
 
-# Turns of history sent back to the model. Enough to hold a thread ("what about
-# the cheaper one?"), bounded so a long conversation cannot grow the prompt
-# without limit — the cost of turn N must not depend on N.
-HISTORY_TURNS = 8
+# How far back the DB read goes. Larger than the verbatim window because the
+# older half is still mined for durable facts (budget, target role, topics)
+# before being dropped — see app/chat/context.py.
+HISTORY_READ = 60
 MAX_MESSAGE_CHARS = 2000
 RETRIEVE_K = 6
 
@@ -79,7 +81,15 @@ to do none of them.
 6. Money and time are real constraints. Respect a stated budget and a stated \
 weekly-hours limit rather than talking around them.
 7. You are not the only source of truth about their career. If they ask \
-something outside learning and careers, answer briefly and steer back."""
+something outside learning and careers, answer briefly and steer back.
+8. EXPLAIN THE PICK. When a course appears under ALREADY RECOMMENDED you are \
+told why the ranker chose it — a resume gap it closes, a category they read, a \
+prerequisite they already viewed. If they ask "why this one?", answer with \
+that real reason, not a guess. Never claim a reason you were not given.
+9. Say what it CHANGES for them, not what it contains. "Adds the LangGraph \
+and agent-orchestration your resume is missing for Agentic AI Engineer roles" \
+beats "covers 17 modules on agents". Tie it to the role they are targeting, \
+the gap they have, or the money and time they said they had."""
 
 
 def _fmt_course(p: Product) -> str:
@@ -170,6 +180,27 @@ async def build_user_context(user_id: int) -> tuple[str, dict]:
 
     if rec and rec.narrative:
         lines.append(f"Their current recommendation summary: {rec.narrative[:300]}")
+    if rec and rec.items:
+        # The stored per-card reasoning, so the advisor can EXPLAIN a pick
+        # rather than re-deriving one. `terms` are the actual scoring inputs
+        # from fusion_rank, which is what lets the chat answer "why is this
+        # first?" with the real reason instead of a plausible-sounding one.
+        for item in sorted(rec.items, key=lambda i: i.get("rank", 0))[:4]:
+            terms = item.get("terms") or {}
+            why = []
+            if terms.get("gap_match", 0) > 0:
+                why.append("closes resume gaps")
+            if terms.get("interest_match", 0) > 0.15:
+                why.append("matches what they browse")
+            if terms.get("graph_adjacency", 0) >= 1.0:
+                why.append("next step after a course they viewed")
+            if terms.get("level_fit", 0) >= 1.0:
+                why.append("right level for their experience")
+            lines.append(
+                f"ALREADY RECOMMENDED id:{item.get('product_id')} "
+                f"(rank {item.get('rank')}, confidence "
+                f"{item.get('confidence')}): {item.get('hook', '')} "
+                + (f"[scored because: {', '.join(why)}]" if why else ""))
 
     facts["has_profile"] = bool(lines)
     return ("\n".join(f"- {line}" for line in lines)
@@ -179,13 +210,19 @@ async def build_user_context(user_id: int) -> tuple[str, dict]:
 
 
 async def _history(conversation_id: int) -> list[dict]:
-    """Last N turns, oldest first."""
+    """Conversation turns, oldest first.
+
+    Reads more than goes into the prompt. The recent window is sent verbatim
+    and everything older is compacted into durable facts (app/chat/context.py),
+    so the read has to cover both — a LIMIT sized to the verbatim window would
+    silently throw away the budget the user stated in turn three.
+    """
     async with async_session() as s:
         rows = (await s.execute(
             select(ChatMessage)
             .where(ChatMessage.conversation_id == conversation_id)
             .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
-            .limit(HISTORY_TURNS * 2)
+            .limit(HISTORY_READ)
         )).scalars().all()
     return [{"role": m.role, "content": m.content} for m in reversed(rows)]
 
@@ -267,19 +304,35 @@ async def answer(user_id: int, conversation_id: int, message: str) -> dict:
     context, facts = await build_user_context(user_id)
     history = await _history(conversation_id)
 
-    # Retrieval query: the message plus the target role, so "what should I
-    # learn next?" — which contains no retrievable nouns at all — still pulls
-    # courses relevant to where they are going.
-    query = message
-    role_hint = ""
-    for line in context.split("\n"):
-        if "TARGET ROLE:" in line:
-            role_hint = line.split("TARGET ROLE:", 1)[1].strip()
-    if role_hint:
-        query = f"{message} {role_hint}"
+    # Two horizons. `recent` goes to the model verbatim so follow-ups resolve;
+    # everything older is compacted to durable facts so the prompt stays flat
+    # as the thread grows (§5.1: the cost of turn N must not depend on N).
+    older, recent = split_horizons(history)
+    compacted = compact(older)
 
-    courses, path = await retrieve(query, top_k=RETRIEVE_K,
-                                   max_price=facts.get("budget_max"))
+    # Facts stated in conversation override the stored profile. Someone who
+    # says "actually my budget is 5000" in turn four means it now, and a
+    # profile field they filled in weeks ago should not silently win.
+    said = extract_facts(history + [{"role": "user", "content": message}])
+    role_hint = said.get("target_role") or ""
+    if not role_hint:
+        for line in context.split("\n"):
+            if "TARGET ROLE:" in line:
+                role_hint = line.split("TARGET ROLE:", 1)[1].strip()
+    budget = said.get("budget_max") or facts.get("budget_max")
+
+    # Retrieval searches a widened string; the reranker scores against what
+    # they actually asked. See retrieval_query() and retrieve() for why.
+    query = retrieval_query(message, recent, role_hint, said.get("topics"))
+    profile_terms = set(said.get("topics") or [])
+    if role_hint:
+        profile_terms |= {t for t in role_hint.lower().split() if len(t) > 3}
+
+    courses, path = await retrieve(
+        query, top_k=RETRIEVE_K, max_price=budget,
+        rerank_query=message or query, profile_terms=profile_terms,
+        level=_level_hint(context),
+    )
     used_fallback = False
     if not courses:
         courses = await fallback_catalog(top_k=4)
@@ -293,26 +346,28 @@ async def answer(user_id: int, conversation_id: int, message: str) -> dict:
 
     allowed = {p.id for p in courses}
 
-    if not settings.use_mesh:
+    if not any_chat_provider():
         reply = _offline_reply(message, courses, context)
         reply, cited = _enforce_grounding(reply, allowed)
-        return {"answer": reply, "cited": cited, "model": "offline",
-                "latency_ms": int((time.perf_counter() - started) * 1000),
-                "retrieval_path": path, "courses": courses}
+        return await _payload(reply, cited, "offline", started, path, courses,
+                              message, role_hint, said, history)
+
+    knowledge = f"WHAT YOU KNOW ABOUT THIS USER:\n{context}"
+    if compacted:
+        knowledge += f"\n\n{compacted}"
+    knowledge += f"\n\nCATALOG (the ONLY courses you may name):\n{catalog_block}"
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "system",
-         "content": f"WHAT YOU KNOW ABOUT THIS USER:\n{context}\n\n"
-                    f"CATALOG (the ONLY courses you may name):\n{catalog_block}"},
-        *history,
+        {"role": "system", "content": knowledge},
+        *recent,
         {"role": "user", "content": message},
     ]
 
     try:
         from app.agent.mesh import _chat
         resp = await _chat(settings.MODEL_WRITER, messages, temperature=0.6,
-                           max_tokens=700)
+                           max_tokens=900)
         raw = (resp.choices[0].message.content or "").strip()
         model_used = settings.MODEL_WRITER
     except Exception as exc:
@@ -325,18 +380,66 @@ async def answer(user_id: int, conversation_id: int, message: str) -> dict:
         reply = ("I couldn't put together a useful answer for that. Try asking "
                  "about a specific skill or role.")
 
-    return {"answer": reply, "cited": cited, "model": model_used,
+    return await _payload(reply, cited, model_used, started, path, courses,
+                          message, role_hint, said, history)
+
+
+def _level_hint(context: str) -> str | None:
+    """Map stated experience to a catalog level, for the reranker's mild nudge."""
+    match = re.search(r"Experience: (\d+) years", context)
+    if not match:
+        return None
+    years = int(match.group(1))
+    return "beginner" if years < 2 else "intermediate" if years < 6 else "advanced"
+
+
+async def _payload(reply: str, cited: list[int], model: str, started: float,
+                   path: str, courses: list[Product], message: str,
+                   role_hint: str, said: dict, history: list[dict]) -> dict:
+    """Assemble the response: prose, flowchart, and buy-intent signal.
+
+    The flowchart is built from the courses the answer actually cited — not
+    from what the model drew — so it carries the same grounding guarantee as
+    the prose. See app/chat/pathway.py.
+    """
+    from app.chat.intent import score_intent
+    from app.chat.pathway import build_pathway_async
+
+    by_id = {p.id: p for p in courses}
+    cited_courses = [by_id[pid] for pid in cited if pid in by_id]
+    # Both ends of the diagram, not just the destination. Drawing the goal on
+    # the left as well made the path read as a loop back to where it started;
+    # naming today's role turns it into a before-and-after.
+    pathway = await build_pathway_async(cited_courses or courses[:3],
+                                        goal=role_hint,
+                                        start_from=said.get("current_role") or "")
+
+    intent = score_intent(message, history, cited_courses or courses[:1], said)
+
+    return {"answer": reply, "cited": cited, "model": model,
             "latency_ms": int((time.perf_counter() - started) * 1000),
-            "retrieval_path": path, "courses": courses}
+            "retrieval_path": path, "courses": courses,
+            "pathway": pathway, "intent": intent,
+            # Facts mined from the thread, persisted on the conversation so the
+            # next turn does not re-derive them and lead-reading tools can see
+            # what the user actually said they wanted.
+            "facts": {k: v for k, v in (said or {}).items() if v}}
 
 
 async def get_or_create_conversation(user_id: int,
-                                     conversation_id: int | None) -> Conversation:
+                                     conversation_id: int | None,
+                                     session_id: str = "",
+                                     tenant_id: int = 1) -> Conversation:
     """Resolve a conversation, verifying ownership.
 
     The id arrives from the client, so it is checked against `user_id` — an
     unchecked id would let anyone read anyone else's thread by guessing a
     number. Falls back to the user's most recent thread, then to a new one.
+
+    A new thread captures a snapshot of what was known about the person at the
+    time. Advice can only be judged against the facts it was given, and those
+    facts change — a reply that reads as wrong today may have been right for a
+    profile that has since been edited.
     """
     async with async_session() as s:
         if conversation_id:
@@ -345,9 +448,41 @@ async def get_or_create_conversation(user_id: int,
                                            Conversation.user_id == user_id)
             )).scalar_one_or_none()
             if conv is not None:
+                # A returning browser gets its session stamped on the existing
+                # thread: threads outlive sessions, and the latest one is what
+                # correlates with current browsing.
+                if session_id and conv.session_id != session_id:
+                    conv.session_id = session_id
+                    await s.commit()
                 return conv
-        conv = Conversation(user_id=user_id, title="")
+
+        snapshot = await _user_snapshot(s, user_id)
+        conv = Conversation(user_id=user_id, title="", session_id=session_id,
+                            tenant_id=tenant_id, user_snapshot=snapshot)
         s.add(conv)
         await s.commit()
         await s.refresh(conv)
         return conv
+
+
+async def _user_snapshot(session, user_id: int) -> dict:
+    """Small, stable record of who this person was when the thread opened."""
+    profile = (await session.execute(
+        select(UserProfile).where(UserProfile.user_id == user_id)
+    )).scalar_one_or_none()
+    ats = (await session.execute(
+        select(ResumeAnalysis)
+        .where(ResumeAnalysis.user_id == user_id, ResumeAnalysis.is_current.is_(True))
+        .order_by(ResumeAnalysis.created_at.desc())
+    )).scalars().first()
+
+    return {
+        "target_role": getattr(profile, "target_role", "") or "",
+        "current_role": getattr(profile, "current_role", "") or "",
+        "experience_years": getattr(profile, "experience_years", None),
+        "budget_max": getattr(profile, "budget_max", None),
+        "weekly_hours": getattr(profile, "weekly_hours", None),
+        "skills": list(getattr(profile, "skills", []) or [])[:20],
+        "ats_score": getattr(ats, "ats_score", None),
+        "missing_skills": list(getattr(ats, "missing_skills", []) or [])[:10],
+    }

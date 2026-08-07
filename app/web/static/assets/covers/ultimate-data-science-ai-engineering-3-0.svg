@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300" role="img" aria-label="3.0 Ultimate Data Science &amp; AI Engineering">
+  <defs>
+    <linearGradient id="gultimatedatascienceaieng" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5c2110"/>
+      <stop offset="100%" stop-color="#c05a25"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="300" fill="url(#gultimatedatascienceaieng)"/>
+  <g>
+    <rect x="433" y="210" width="35" height="35" rx="4" fill="#ffc48f" opacity="0.14"/>
+    <circle cx="527" cy="34" r="14" fill="#ffc48f" opacity="0.10"/>
+    <circle cx="527" cy="142" r="18" fill="#ffc48f" opacity="0.08"/>
+    <rect x="543" y="150" width="47" height="47" rx="4" fill="#ffc48f" opacity="0.18"/>
+    <circle cx="443" cy="110" r="13" fill="#ffc48f" opacity="0.08"/>
+    <circle cx="499" cy="178" r="21" fill="#ffc48f" opacity="0.06"/>
+    <rect x="481" y="274" width="33" height="33" rx="4" fill="#ffc48f" opacity="0.16"/>
+  </g>
+  <rect x="44" y="42" width="46" height="4" rx="2" fill="#ffc48f"/>
+  <text x="44" y="74" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="13"
+        font-weight="600" letter-spacing="2.4" fill="#ffc48f">DATA SCIENCE</text>
+  <g>
+    <text x="44" y="132" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="31" font-weight="700" fill="#ffffff">3.0 Ultimate Data Science &amp; AI</text>
+    <text x="44" y="172" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="31" font-weight="700" fill="#ffffff">Engineering</text>
+  </g>
+  <text x="44" y="264" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="14"
+        font-weight="600" letter-spacing="1.4" fill="#ffffff" opacity="0.82">BEGINNER · ₹12,000</text>
+  <text x="556" y="264" text-anchor="end" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="13" fill="#ffffff" opacity="0.6">Monal Singh</text>
+</svg>

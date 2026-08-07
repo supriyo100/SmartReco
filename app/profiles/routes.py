@@ -11,6 +11,7 @@ interest model; this router touches only the declared columns.
 """
 from __future__ import annotations
 
+import logging
 import pathlib
 from datetime import datetime
 
@@ -31,6 +32,7 @@ from app.profiles.resume import (
 )
 from app.web.templating import render
 
+log = logging.getLogger("profiles")
 router = APIRouter(prefix="/profile", tags=["profile"])
 
 RESUME_DIR = pathlib.Path("data/resumes")
@@ -256,8 +258,34 @@ async def save_profile(
 
         await s.commit()
 
+    # Someone who just stated a target role or uploaded a resume has given us
+    # the strongest signal we will ever get, and the recommendations page was
+    # showing them nothing. Fired and not awaited: generation takes seconds and
+    # must not sit on a form POST.
+    _kick_recommendations(user.id, "profile_change")
+
     message = "" if warning else "Profile saved."
     return await _render_profile(request, user, message=message, error=warning)
+
+
+def _kick_recommendations(user_id: int, reason: str) -> None:
+    """Ask the planner to consider a run, in the background.
+
+    `maybe_generate` consults the trigger policy first, so this is safe to call
+    on every save — a user editing five fields in a row produces one run, not
+    five, because of the debounce in app/agent/triggers.py.
+    """
+    import asyncio
+
+    async def _run() -> None:
+        from app.agent.graph import maybe_generate
+
+        try:
+            await maybe_generate(user_id, reason_hint=reason)
+        except Exception:
+            log.exception("recommendation trigger failed for user_id=%s", user_id)
+
+    asyncio.create_task(_run())
 
 
 async def _store_analysis(session, user_id: int, resume_text: str,
@@ -302,6 +330,8 @@ async def run_ats(request: Request, user: User = Depends(require_user),
                 error="No resume text yet — upload a file or paste the text first.")
         await _store_analysis(s, user.id, text, profile.target_role or "")
         await s.commit()
+    # A new gap list is a new basis for recommending — see §5.2 `ats_run`.
+    _kick_recommendations(user.id, "ats_run")
     return await _render_profile(request, user, message="Resume re-analyzed.")
 
 

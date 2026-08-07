@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300" role="img" aria-label="Generative AI for EveryOne-Professionals and Leaders">
+  <defs>
+    <linearGradient id="ggenerativeaiforeveryonep" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a2f6b"/>
+      <stop offset="100%" stop-color="#3f5fd6"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="300" fill="url(#ggenerativeaiforeveryonep)"/>
+  <g>
+    <rect x="597" y="116" width="55" height="55" rx="4" fill="#8fd0ff" opacity="0.06"/>
+    <circle cx="579" cy="144" r="17" fill="#8fd0ff" opacity="0.14"/>
+    <circle cx="449" cy="108" r="17" fill="#8fd0ff" opacity="0.18"/>
+    <rect x="583" y="92" width="55" height="55" rx="4" fill="#8fd0ff" opacity="0.16"/>
+    <circle cx="503" cy="112" r="22" fill="#8fd0ff" opacity="0.08"/>
+    <circle cx="557" cy="164" r="24" fill="#8fd0ff" opacity="0.16"/>
+    <rect x="449" y="216" width="19" height="19" rx="4" fill="#8fd0ff" opacity="0.10"/>
+  </g>
+  <rect x="44" y="42" width="46" height="4" rx="2" fill="#8fd0ff"/>
+  <text x="44" y="74" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="13"
+        font-weight="600" letter-spacing="2.4" fill="#8fd0ff">GENAI / LLM ENGINEERING</text>
+  <g>
+    <text x="44" y="132" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="31" font-weight="700" fill="#ffffff">Generative AI for</text>
+    <text x="44" y="172" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="31" font-weight="700" fill="#ffffff">EveryOne-Professionals and</text>
+    <text x="44" y="212" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="31" font-weight="700" fill="#ffffff">Leaders…</text>
+  </g>
+  <text x="44" y="264" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="14"
+        font-weight="600" letter-spacing="1.4" fill="#ffffff" opacity="0.82">BEGINNER · ₹6,500</text>
+  <text x="556" y="264" text-anchor="end" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="13" fill="#ffffff" opacity="0.6">Krish Naik</text>
+</svg>

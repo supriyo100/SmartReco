@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300" role="img" aria-label="Modern No-Code AI Route : AI Generalist to AI Builder">
+  <defs>
+    <linearGradient id="gmodernnocodeairouteaigen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a2f6b"/>
+      <stop offset="100%" stop-color="#3f5fd6"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="300" fill="url(#gmodernnocodeairouteaigen)"/>
+  <g>
+    <rect x="509" y="164" width="51" height="51" rx="4" fill="#8fd0ff" opacity="0.06"/>
+    <circle cx="595" cy="184" r="11" fill="#8fd0ff" opacity="0.14"/>
+    <circle cx="453" cy="112" r="24" fill="#8fd0ff" opacity="0.18"/>
+    <rect x="515" y="128" width="27" height="27" rx="4" fill="#8fd0ff" opacity="0.14"/>
+    <circle cx="455" cy="40" r="5" fill="#8fd0ff" opacity="0.12"/>
+    <circle cx="431" cy="132" r="14" fill="#8fd0ff" opacity="0.14"/>
+    <rect x="543" y="40" width="27" height="27" rx="4" fill="#8fd0ff" opacity="0.12"/>
+  </g>
+  <rect x="44" y="42" width="46" height="4" rx="2" fill="#8fd0ff"/>
+  <text x="44" y="74" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="13"
+        font-weight="600" letter-spacing="2.4" fill="#8fd0ff">GENAI / LLM ENGINEERING</text>
+  <g>
+    <text x="44" y="132" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="31" font-weight="700" fill="#ffffff">Modern No-Code AI Route : AI</text>
+    <text x="44" y="172" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="31" font-weight="700" fill="#ffffff">Generalist to AI Builder</text>
+  </g>
+  <text x="44" y="264" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="14"
+        font-weight="600" letter-spacing="1.4" fill="#ffffff" opacity="0.82">BEGINNER · ₹7,500</text>
+  <text x="556" y="264" text-anchor="end" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="13" fill="#ffffff" opacity="0.6">Krish Naik</text>
+</svg>

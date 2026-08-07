@@ -11,6 +11,40 @@ class Settings(BaseSettings):
     MODEL_WRITER: str = "openai/gpt-4o"
     EMBED_MODEL: str = "openai/text-embedding-3-small"
 
+    # --- Groq: the chat fallback when Mesh is down --------------------------
+    # Mesh is the primary by architecture (§7, "ALL LLM calls go through
+    # Mesh"), but "mandatory" cannot mean "the app stops when the account runs
+    # out of balance". Groq is OpenAI-wire-compatible, so the fallback is a
+    # different client and model name, not a different code path.
+    GROQ_API_KEY: str = ""
+    GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
+    GROQ_MODEL_FAST: str = "openai/gpt-oss-120b"
+    GROQ_MODEL_FAST_FALLBACK: str = "openai/gpt-oss-20b"
+    # Must support strict json_schema — qwen3.6 on Groq is json_mode only.
+    GROQ_MODEL_WRITER: str = "openai/gpt-oss-120b"
+
+    # --- Embeddings ---------------------------------------------------------
+    # Groq serves no embedding models, so the embedding fallback has to be
+    # local. nomic-embed-text-v1 runs on CPU via sentence-transformers: 768
+    # dims, no API key, no per-call cost, and it cannot run out of balance.
+    #
+    # A dimension change invalidates the Chroma collection — vectors from two
+    # different models are not comparable — so switching providers means
+    # re-ingesting. `EMBED_BACKEND` makes that an explicit choice rather than a
+    # silent consequence of a key expiring mid-run.
+    #   auto   → Mesh when its key works, else local
+    #   mesh   → Mesh only (fail loudly)
+    #   local  → local only (no network)
+    EMBED_BACKEND: str = "auto"
+    LOCAL_EMBED_MODEL: str = "nomic-ai/nomic-embed-text-v1"
+    LOCAL_EMBED_DIM: int = 768
+    # Public model, so this is optional — it only raises HF Hub rate limits.
+    HUGGINGFACE_API_KEY: str = ""
+
+    @property
+    def use_groq(self) -> bool:
+        return self.ENV != "test" and bool(self.GROQ_API_KEY)
+
     SECRET_KEY: str = "dev"
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/smartreco.db"
     CHROMA_DIR: str = "./chroma_data"
@@ -63,6 +97,22 @@ class Settings(BaseSettings):
     @property
     def use_mesh(self) -> bool:  # DeepSeek 4.3: tests run without a key
         return self.ENV != "test" and bool(self.MESH_API_KEY)
+
+    @property
+    def can_embed(self) -> bool:
+        """Whether embeddings are possible at all.
+
+        Distinct from `use_mesh`, which several call sites were using to ask
+        this question. It is now almost always true: the local backend needs
+        no key and no network, so only ENV=test (where model downloads are not
+        wanted) and EMBED_BACKEND=mesh-without-a-key say otherwise.
+        """
+        if self.ENV == "test":
+            return False
+        mode = (self.EMBED_BACKEND or "auto").lower()
+        if mode == "mesh":
+            return bool(self.MESH_API_KEY)
+        return True     # "local" and "auto" both have a keyless path
 
 
 settings = Settings()

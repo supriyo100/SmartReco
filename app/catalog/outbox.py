@@ -67,8 +67,8 @@ async def drain_once(limit: int = BATCH) -> dict:
     Safe to call when Mesh is unconfigured: it reports skipped rather than
     burning attempts on work that cannot succeed without a key.
     """
-    if not settings.use_mesh:
-        return {"skipped": "no MESH_API_KEY (or ENV=test) — Chroma sync deferred",
+    if not settings.can_embed:
+        return {"skipped": "embeddings disabled (ENV=test) — Chroma sync deferred",
                 "upserted": 0, "deleted": 0, "failed": 0}
 
     async with async_session() as s:

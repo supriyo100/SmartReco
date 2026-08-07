@@ -33,6 +33,11 @@ log = logging.getLogger("chat.retrieval")
 RRF_K = 60          # standard RRF damping; rank 1 → 1/61, rank 10 → 1/70
 CANDIDATES = 24     # per retriever, before fusion
 DEFAULT_TOP_K = 6
+# Candidates carried from fusion into reranking. A reranker given exactly as
+# many candidates as it returns cannot change anything, so the pool has to be
+# wider than top_k — 16 is roughly the whole catalog today and still bounded
+# for when it isn't.
+RERANK_POOL = 16
 
 # FTS5 treats these as query syntax. A user asking "what's the difference
 # between RAG and fine-tuning?" would otherwise raise a parse error on the
@@ -88,13 +93,17 @@ async def _vector_search(query: str, limit: int = CANDIDATES) -> list[int]:
     several of the top hits. Deduping to `parent_id` while preserving order is
     what stops a single well-chunked course from filling the whole result set.
     """
-    if not settings.use_mesh:
+    if not settings.can_embed:
         return []
     try:
         from app.agent.mesh import embed_batch
         from app.catalog.vectors import get_collection
 
-        vector = (await embed_batch([query]))[0]
+        # is_query=True matters for the local backend: nomic-embed is
+        # asymmetric and expects "search_query:" here against the
+        # "search_document:" prefix used at ingest. Getting this wrong is a
+        # silent relevance loss, not an error.
+        vector = (await embed_batch([query], is_query=True))[0]
         result = get_collection().query(
             query_embeddings=[vector],
             n_results=limit,
@@ -122,12 +131,28 @@ def _rrf(ranked_lists: list[list[int]]) -> list[int]:
 
 
 async def retrieve(query: str, top_k: int = DEFAULT_TOP_K,
-                   max_price: float | None = None) -> tuple[list[Product], str]:
-    """Hybrid retrieve. Returns (products, path) where path names what ran.
+                   max_price: float | None = None,
+                   *, rerank_query: str | None = None,
+                   profile_terms: set[str] | None = None,
+                   level: str | None = None,
+                   rerank_mode: str | None = None) -> tuple[list[Product], str]:
+    """Hybrid retrieve, then rerank. Returns (products, path).
 
     `max_price` is a metadata filter applied in SQL rather than in the prompt:
     a budget the user stated is a fact about what they can buy, and asking a
     model to respect it politely is not the same as not returning it.
+
+    Two stages, because they answer different questions. RRF fuses two
+    *rankings* and never sees the query and the document together — good for
+    pulling plausible candidates, not good enough for choosing the three a
+    career advisor will name. The reranker scores (query, course) jointly over
+    a widened candidate pool. See `app/chat/rerank.py`.
+
+    `rerank_query` exists because the two stages want different text. Recall
+    benefits from the expanded query (message + target role + recent turns);
+    precision suffers from it, since every extra term dilutes the overlap
+    signal. So retrieval widens and reranking scores against the user's actual
+    question.
     """
     query = (query or "").strip()
     if not query:
@@ -143,18 +168,27 @@ async def retrieve(query: str, top_k: int = DEFAULT_TOP_K,
     if not lists:
         return [], path
 
-    ordered = _rrf(lists)[: top_k * 3]
+    # Widened pool: reranking only helps if it is given more than it returns.
+    # RERANK_POOL rather than top_k*3 so the pool does not shrink when a caller
+    # asks for a small top_k — the reranker's job is to find the good ones.
+    ordered = _rrf(lists)[:RERANK_POOL]
     async with async_session() as s:
         stmt = select(Product).where(Product.id.in_(ordered),
                                      Product.is_active.is_(True))
         if max_price is not None:
             stmt = stmt.where(Product.price <= max_price)
-        found = (await s.execute(stmt)).scalars().all()
+        found = list((await s.execute(stmt)).scalars().all())
 
     # Restore fusion order, which the IN() query does not preserve.
     position = {pid: i for i, pid in enumerate(ordered)}
     found.sort(key=lambda p: position.get(p.id, 1 << 30))
-    return found[:top_k], path
+
+    from app.chat.rerank import rerank
+
+    ranked, used = await rerank(rerank_query or query, found, top_k,
+                                profile_terms=profile_terms, level=level,
+                                mode=rerank_mode)
+    return ranked, f"{path}+{used}" if used != "fusion" else path
 
 
 async def fallback_catalog(top_k: int = DEFAULT_TOP_K) -> list[Product]:

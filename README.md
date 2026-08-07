@@ -113,11 +113,130 @@ Full reasoning in [design.md §7](documentation/design.md). Hybrid retrieval ove
 fused by RRF) and the validate node are still _pending_ — see
 [arch §3](SmartReco_Architecture_v2_FINAL.md).
 
+### Course artwork
+
+`python -m app.catalog.covers` generates one SVG cover per course into
+`app/web/static/assets/covers/`, drawn from the course's own metadata — hue by category, glyph
+scatter seeded by slug, level and price rendered as text.
+
+Generated rather than image-searched, deliberately. A DuckDuckGo image search for "LLMOps bootcamp"
+returns other people's copyrighted stock photos, redistributed from this repo, that mostly show
+laptops — neither the licensing nor the relevance survives scrutiny. A generated cover is legally
+clean, always on-topic, works offline in CI, and is byte-identical on every machine.
+
+SVG rather than PNG: no dependency (no Pillow to install and pin), sharp at both card and hero size,
+and ~2 KB per file instead of ~40 KB.
+
 ---
 
 ## 5. Agent workflow
 
-_Pending — two-LLM-call happy path, node graph, and LangSmith trace._
+**Built.** `analyze → retrieve → fusion_rank → grade → generate → validate → store`, in
+[app/agent/](app/agent/). **One LLM call on the happy path**, and zero when no provider is
+reachable — the pipeline still produces a full set from templates.
+
+```
+trigger (§5.2 planner, no LLM)
+   │
+   ├─ analyze      dual-horizon interest decay        deterministic
+   ├─ retrieve     multi-query hybrid + RRF           embeddings
+   ├─ fusion_rank  6-term weighted score              deterministic
+   ├─ grade        enough evidence? one retry max     deterministic
+   ├─ generate     narrative + hooks + reasons        ← THE LLM CALL
+   ├─ validate     drop anything ungrounded           deterministic
+   └─ store        demote old set, insert new one
+```
+
+**Multi-query, not one blended query.** A user interested in both RAG and MLOps has an average
+vector pointing at neither, so a single query returns whatever sits nearest that meaningless
+midpoint. One query per signal — each ATS gap pair, the target role, stated goals, top interest
+categories — fused with RRF keeps both interests represented.
+
+**Ranking is six deterministic terms**, summing to 1.0:
+
+| Weight | Term | What it measures |
+| --- | --- | --- |
+| 0.40 | `rrf` | how strongly retrieval surfaced it |
+| 0.22 | `gap_match` | does it close a gap the ATS actually found |
+| 0.16 | `interest_match` | does it match what they actually read |
+| 0.10 | `level_fit` | right difficulty for their experience |
+| 0.07 | `rating_prior` | catalog quality (unrated = average, not bad) |
+| 0.05 | `graph_adjacency` | prereq/related edges from courses they viewed |
+
+`gap_match` is the addition to the original spec, and it earns its 0.22: a resume gap is
+*evidence*, not inference — the most defensible reason to recommend anything. Its weight comes from
+the planned freshness term, which cannot be computed until the catalog carries live cohort dates.
+A term that is always 0.5 is not a term.
+
+**The model writes; it never decides.** Which courses, what order, and the confidence number are
+all computed before the call. A model asked to rank returns a plausible order that changes between
+runs on identical input, and a user whose recommendations reshuffle without them doing anything has
+learned the system is arbitrary.
+
+**validate is the grounding guarantee**, not a request in a prompt. It drops ids retrieval never
+produced, courses deactivated since retrieval, duplicates — and quoted course titles the model
+invented in prose, which is how a hallucination escapes without a citation to strip.
+
+### Why recommendations evolve
+
+Four triggers, all gated by the deterministic planner in
+[triggers.py](app/agent/triggers.py):
+
+| Trigger | Fires when |
+| --- | --- |
+| `profile_change` / `ats_run` | target role edited, resume uploaded, ATS re-run |
+| `fingerprint_move` | behavioral interest drifts past `FINGERPRINT_COS_THRESHOLD` |
+| `enough_events` | `TRIGGER_MIN_EVENTS` accumulate since the last set |
+| `chat_facts` | conversation reveals a budget or target role the set didn't know |
+| `stale` | older than `REC_STALE_HOURS` **and** the user is back |
+
+Suppressed by a 90 s debounce (editing five fields is one run, not five), a per-user lock, and a
+cold-start floor.
+
+**The cold-start floor is where the "no recommendations" bug lived.** It originally counted only
+browsing events, so someone who set a target role and uploaded a resume — the strongest signal the
+system will ever get — stayed below it forever and saw an empty page. A declared profile now counts
+as signal in its own right.
+
+
+### When a provider goes down
+
+The architecture said all LLM traffic goes through Mesh. That stays the intent — Mesh is tried
+first for every call — but "mandatory" cannot mean "the product stops when the account runs out of
+balance", which is exactly what happened during this build: `402 spend_limit_exceeded`, then
+`403 API key is suspended`, and every recommendation, chat turn and ingest stopped.
+
+So: **Mesh first, Groq on a provider-level failure, never on a prompt-level one.**
+
+That distinction is the design. A 401/402/403 means *this provider cannot serve any request* —
+retrying is pointless and switching is correct. A malformed-JSON response is about the prompt, and
+re-sending it elsewhere spends money to fail twice. 429 and 5xx are transient and retried against
+the *same* provider. A circuit breaker skips a dead provider for 5 minutes so every call does not
+pay a round trip to rediscover the same 402, and any success clears it — topping up an account
+takes effect without a restart.
+
+**Embeddings cannot fail over to Groq, because Groq serves no embedding models.** The fallback is
+local: `nomic-embed-text-v1` on CPU via sentence-transformers, 768-dim, no key, no per-call cost —
+the one component that cannot be disabled by a billing event.
+
+The dimension trap is handled explicitly: Mesh is 1536-dim and nomic is 768, and vectors from two
+models are *not comparable at all* — cosine between them is noise, not a weaker signal. So
+`EmbeddingCache` is keyed on `(backend, text)` rather than text alone, and `EMBED_BACKEND`
+(`auto` | `mesh` | `local`) makes a switch a deliberate choice. Changing it means re-ingesting
+Chroma.
+
+Two model quirks worth recording, both found by testing rather than assumed:
+
+- **Reasoning models emit hidden chain-of-thought before any visible content.** A `max_tokens`
+  sized for the answer truncates them to an empty string with `finish_reason="length"` — a silent
+  empty reply, not an error. Measured: `gpt-oss-120b` spends ~45 completion tokens reasoning about
+  "reply with: ok"; `qwen3.6-27b` spends ~170. There is a floor of 1200.
+- **Qwen3 returns its reasoning inside `content`, wrapped in `<think>` tags.** Rendering that in a
+  chat bubble shows the user the model talking to itself about them, so it is stripped centrally —
+  including the unterminated case, where truncation leaves an opening tag with no close.
+
+`GROQ_MODEL_WRITER` is `gpt-oss-120b`, not qwen: the writer needs strict `json_schema`, and qwen on
+Groq supports only `json_mode` and 400s on a schema. Verified against `GET /models`.
 
 ---
 
@@ -236,8 +355,71 @@ vector. A stated budget is applied as a **SQL filter**, not as a polite request 
 Retrieval degrades in a stated order: no key or no Chroma drops it to FTS5-only and logs which path
 ran, rather than failing the turn.
 
-Cost is bounded by shape, not by luck: history is capped at 8 turns and retrieval at 6 courses, so
-**the cost of turn N does not depend on N**. [arch §13.3](SmartReco_Architecture_v2_FINAL.md).
+### Two-stage retrieval
+
+RRF fuses two *rankings* and never sees the query and the document together — good enough to pull
+16 plausible candidates, not good enough to choose the three an advisor will name. So a second
+stage reranks, behind `RERANK_MODE`:
+
+| Mode | What it does | Cost |
+| --- | --- | --- |
+| `fusion` | RRF order, unchanged — the baseline | zero |
+| `cross_encoder` | scores (query, course) **pairs** on term overlap, title/tag hits, phrase match | ~1 ms, no network |
+| `llm` | one structured call scores the shortlist 0–10 | one extra LLM call |
+
+`cross_encoder` is a **feature-based pair scorer, not a transformer** — worth saying plainly. A real
+MiniLM cross-encoder means a torch dependency, a model download, and CPU inference on the critical
+path of a chat turn, for a 12-course catalog. What matters about a cross-encoder is the *shape* —
+scoring the query jointly with each document instead of comparing two independent rankings — and
+this does that deterministically. Semantic paraphrase, where a neural one would win, is already
+covered by the vector half of the hybrid.
+
+Retrieval and reranking deliberately search **different strings**: the widened query (message +
+target role + carried topics) finds candidates, and the user's actual question orders them.
+Widening helps recall and hurts precision, so each stage gets the text that suits it.
+
+### Short and long conversation horizons
+
+The same dual-horizon idea the interest model uses for behavior, applied to conversation:
+
+- **Short** — the last 8 messages, verbatim. This is what makes *"what about the cheaper one?"*
+  resolvable; paraphrasing loses the referent the follow-up depends on.
+- **Long** — everything older, compacted to durable facts: stated budget, target role, topics
+  raised, courses already discussed. Deterministic regex over the user's own turns, not a
+  summarization call — a summary call on every turn doubles the cost of chatting, and a model
+  rendering *"my budget is 5000"* as *"the user mentioned budget"* destroys the number that made
+  it useful.
+
+Only `role == "user"` turns are mined. The assistant quotes prices constantly, and treating that as
+a user statement would let our own suggestion become their stated budget. Facts stated in
+conversation **override** the stored profile — someone who says *"actually my budget is 5000"*
+means it now.
+
+So the cost of turn N does not depend on N: the verbatim window is fixed and the compacted block
+stays roughly one size whether the thread is 10 turns or 300.
+
+### The learning path
+
+Every reply can carry a **mermaid flowchart**, built in Python from the cited courses and the real
+`prereq_ids` ladder in the catalog — never drawn by the model. A model asked to draw a learning path
+will invent an edge to a course we do not sell, and a plausible-looking wrong diagram is harder to
+catch than a wrong sentence. The ordered steps also render as a text list, so a blocked mermaid
+bundle degrades to a usable answer rather than an empty frame.
+
+### Buy intent
+
+The chat grades purchase intent per turn (`cold` / `warm` / `hot`) and surfaces a CTA only above
+`warm`. Scored in Python from the user's own words, for the same reason as the ATS score:
+reproducibility, and no third LLM call.
+
+The judgement encoded here is mostly *when not to pitch*. An advisor that sells on every turn stops
+being an advisor, and once a user decides the chat is a funnel they stop volunteering the honest
+inputs — real budget, real gaps — that make the advice good. So objections zero the score, and
+**nothing is ever pitched that the user cannot afford**: if every retrieved course is over their
+stated budget, an enthusiastic *"how do I enrol?"* still resolves to cold.
+
+Intent is a high-water mark on the conversation, so a warm lead stays visible after the turn that
+produced it scrolls away. [arch §13.3](SmartReco_Architecture_v2_FINAL.md).
 
 ---
 
@@ -399,6 +581,7 @@ before the print.
 | —                 | `python -m app.mail.cli send digest EMAIL` (one message, now)  |
 | —                 | `python -m app.mail.cli run-digest [--force]` (the 16:00 job)  |
 | —                 | `python -m app.mail.cli check` (SMTP reachability + auth)      |
+| —                 | `python -m app.catalog.covers` (regenerate course cover art)   |
 | —                 | `python -m app.catalog.sync_sql` (catalog → SQL, no API key) |
 | —                 | `python -m app.catalog.outbox` (drain pending → Chroma)       |
 | —                 | `python -m app.auth.cli create-admin EMAIL`                   |
@@ -448,11 +631,22 @@ app/
                 ats.py      → deterministic ATS scoring + gap analysis
   chat/         the career advisor
                 retrieval.py → hybrid Chroma+FTS5 retrieval, RRF-fused
+                rerank.py    → 2nd stage: fusion | cross_encoder | llm
+                context.py   → short/long conversation horizons, fact mining
+                pathway.py   → mermaid learning path from the prereq ladder
+                intent.py    → buy-intent scoring (cold/warm/hot)
                 agent.py     → context assembly, prompt, grounding enforcement
   catalog/      loader · chunker · freshness · ingest · sync_sql · browse routes
+                covers.py   → generated SVG cover art, one per course
                 vectors.py  → the Chroma write path
                 outbox.py   → drains vector_outbox into Chroma (the dual-write)
-  agent/        LangGraph nodes, Mesh client, scorer, triggers
+  agent/        the recommendation pipeline
+                graph.py      → analyze→retrieve→rank→grade→generate→validate
+                triggers.py   → THE PLANNER: when an LLM call is justified
+                interests.py  → events → decayed interest vector
+                providers.py  → Mesh→Groq failover, circuit breaker
+                embeddings.py → Mesh→local (nomic) embedding failover
+                nodes/        → one file per pipeline stage
   mail/         outbound email
                 sender.py     → SMTP transport + store-to-disk fallback
                 messages.py   → the four kinds: digest · welcome · ATS · re-engage
@@ -462,6 +656,8 @@ app/
                 templates/    → *.html + *.txt, one pair per kind
   tracking/     event ingest queue + routes
   web/          templates, static (tracker.js · chat.js · ui.js), recommendations
+                static/assets/covers/ → generated course art (SVG)
+                static/vendor/        → mermaid, vendored not CDN-loaded
   db/           models · session (WAL pragmas) · init_db · seed
   scheduler/    APScheduler jobs — 30 s outbox drain, nightly maintenance,
                 16:00 digest, Monday re-engagement sweep
@@ -472,10 +668,11 @@ data/
   COURSE_SCHEMA.md
 tests/
   test_ats.py       test_chat.py      test_profiles.py   test_mail.py
-  test_outbox.py    test_freshness.py test_smoke.py
+  test_outbox.py    test_freshness.py test_smoke.py      test_rerank.py
+  test_providers.py test_recommendations.py
   tracker/          test_tracker.js — runs tracker.js under Node
 documentation/
   design.md     auth · roles · schema · dual-write · tracking · profiles
 ```
 
-**Tests: 121 passing** (`python -m pytest tests/ -q`), plus 24 tracker assertions under Node.
+**Tests: 212 passing** (`python -m pytest tests/ -q`), plus 24 tracker assertions under Node.
