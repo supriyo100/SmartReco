@@ -1,5 +1,9 @@
 .PHONY: dev seed test lint init validate catalogue ingest
 
+# Override to point every target at your own course files, e.g.:
+#   make ingest DATA_DIR=data/my_courses
+DATA_DIR ?= data/data_1
+
 init:
 	python -m app.db.init_db
 
@@ -9,7 +13,7 @@ seed:
 # Run after EVERY curated course — structure (course.schema.json) + curation
 # rules. Errors block ingest; warnings are prompts to confirm, not to silence.
 validate:
-	python data/data_1/validate_seed.py data/data_1
+	python data/data_1/validate_seed.py $(DATA_DIR)
 
 # One summary row per course -> data/courses_catalogue.json. The curation
 # TRACKER (what is in the catalog, what is still wrong with it) — not to be
@@ -17,12 +21,12 @@ validate:
 # ingest writes. `--check` fails when the tracker is stale, e.g. after a cohort
 # date silently passes into history.
 catalogue:
-	python -m app.catalog.catalogue data/data_1
+	python -m app.catalog.catalogue $(DATA_DIR)
 
 # Chunk -> embed (batched) -> Chroma, plus data/catalog.index.json for Tier-3
 # generate-time injection. --dry-run needs no Mesh key.
 ingest: validate catalogue
-	python -m app.catalog.ingest data/data_1 --allow-pending
+	python -m app.catalog.ingest $(DATA_DIR) --allow-pending
 
 dev:
 	uvicorn app.main:app --reload --workers 1

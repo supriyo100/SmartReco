@@ -9,6 +9,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import time
 
 from openai import AsyncOpenAI
 
@@ -16,9 +17,7 @@ from app.config import settings
 
 log = logging.getLogger("mesh")
 
-client = AsyncOpenAI(base_url=settings.MESH_BASE_URL, api_key=settings.MESH_API_KEY)
-
-RETRY_STATUS = {429, 500, 502, 503}
+client = AsyncOpenAI(base_url=settings.MESH_BASE_URL, api_key=settings.MESH_API_KEY or "none")
 
 
 def _parse_json(raw: str) -> dict:
@@ -36,7 +35,8 @@ def _parse_json(raw: str) -> dict:
     return json.loads(txt[start:end + 1])
 
 
-async def _chat(model: str, messages: list, kind: str = "fast", **kw):
+async def _chat(model: str, messages: list, kind: str = "fast",
+                user_id: int | None = None, **kw):
     """One chat call, Mesh first and Groq if Mesh cannot serve it.
 
     `model` is kept for callers that name a model explicitly, but the provider
@@ -48,6 +48,10 @@ async def _chat(model: str, messages: list, kind: str = "fast", **kw):
       * 429/5xx  → transient. Back off and retry the SAME provider.
       * 401/402/403 → the provider is unusable. Stop retrying it, mark it
         down so the next call skips it, and try the next provider.
+
+    Every attempt — success or failure — is logged to `llm_call_log`
+    (app/agent/telemetry.py) with token usage where the provider returned it,
+    so a token/cost dashboard sees the same fallback path this function took.
     """
     from app.agent.providers import (
         REASONING_MIN_TOKENS,
@@ -57,6 +61,8 @@ async def _chat(model: str, messages: list, kind: str = "fast", **kw):
         mark_up,
         strip_reasoning,
     )
+    from app.agent.retry import MAX_ATTEMPTS, RETRY_STATUS, next_delay
+    from app.agent.telemetry import record_llm_call
 
     providers = chain(kind)
     if not providers:
@@ -76,22 +82,36 @@ async def _chat(model: str, messages: list, kind: str = "fast", **kw):
             call_kw["max_tokens"] = max(int(call_kw["max_tokens"]),
                                         REASONING_MIN_TOKENS)
         delay = 1.0
-        for attempt in range(3):
+        for attempt in range(MAX_ATTEMPTS):
+            t0 = time.perf_counter()
             try:
                 resp = await provider_client.chat.completions.create(
                     model=chosen, messages=messages, **call_kw)
                 mark_up(name)
                 strip_reasoning(resp)
+                usage = getattr(resp, "usage", None)
+                await record_llm_call(
+                    kind=kind, provider=name, model=resp.model, user_id=user_id,
+                    attempt=attempt + 1, is_fallback=(name != providers[0][0]),
+                    prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
+                    completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
+                    total_tokens=getattr(usage, "total_tokens", 0) or 0,
+                    latency_ms=int((time.perf_counter() - t0) * 1000))
                 return resp
             except Exception as e:
                 last_error = e
+                await record_llm_call(
+                    kind=kind, provider=name, model=chosen, user_id=user_id,
+                    attempt=attempt + 1, is_fallback=(name != providers[0][0]),
+                    latency_ms=int((time.perf_counter() - t0) * 1000),
+                    status="error", error=f"{type(e).__name__}: {e}")
                 if is_provider_down(e):
                     mark_down(name, e)
                     break                       # next provider, no retries
                 status = getattr(e, "status_code", None)
-                if attempt == 2 or (status is not None and status not in RETRY_STATUS):
+                if attempt == MAX_ATTEMPTS - 1 or (status is not None and status not in RETRY_STATUS):
                     break                       # give this provider up
-                await asyncio.sleep(delay)
+                await asyncio.sleep(next_delay(delay, e))
                 delay *= 2
         log.warning("provider %s could not serve the call (%s)", name,
                     type(last_error).__name__ if last_error else "?")

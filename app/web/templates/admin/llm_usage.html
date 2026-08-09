@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}LLM usage — Admin{% endblock %}
+{% block content %}
+<h1>LLM usage</h1>
+<p class="lede">
+  Every provider attempt from the chat agent and the recommendation pipeline,
+  from <code>llm_call_log</code> — rolling last 24 hours.
+</p>
+
+<div class="stats">
+  <div class="stat"><b>{{ calls_24h }}</b><span>calls (24h)</span></div>
+  <div class="stat"><b>{{ '{:,}'.format(tokens_24h) }}</b><span>tokens (24h)</span></div>
+  <div class="stat"><b>{{ avg_latency_24h | round | int }} ms</b><span>avg latency</span></div>
+  <div class="stat"><b>{{ errors_24h }}</b><span>failed attempts</span></div>
+  <div class="stat"><b>{{ blocked_24h }}</b><span>turns blocked by budget</span></div>
+</div>
+
+<h2>Tokens by provider</h2>
+{% if by_provider %}
+<div class="bar-rows">
+  {% for provider, calls, tokens, avg_ms in by_provider %}
+  <div class="bar-row">
+    <span class="bar-label">
+      <span class="dot" style="background: var(--series-{{ provider }}, var(--muted))"></span>{{ provider }}
+    </span>
+    <div class="bar-track">
+      <div class="bar-fill" style="width: {{ (tokens / max_provider_tokens * 100) | round(1) }}%;
+                                    background: var(--series-{{ provider }}, var(--muted))"></div>
+    </div>
+    <span class="bar-value">{{ '{:,}'.format(tokens) }} tok &middot; {{ calls }} calls &middot; {{ avg_ms | round | int }} ms avg</span>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted">No calls recorded in the last 24 hours.</p>
+{% endif %}
+
+<h2>By kind</h2>
+<table class="grid-table">
+  <thead><tr><th>Kind</th><th>Calls</th><th>Tokens</th></tr></thead>
+  <tbody>
+  {% for kind, calls, tokens in by_kind %}
+    <tr><td>{{ kind }}</td><td>{{ calls }}</td><td>{{ '{:,}'.format(tokens) }}</td></tr>
+  {% else %}
+    <tr><td colspan="3" class="muted">No calls recorded in the last 24 hours.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Usage guardrails</h2>
+<p class="muted">
+  Enforced in <code>app/chat/guardrails.py</code> before a turn touches
+  retrieval or the model — a blocked turn costs nothing.
+  Session cap <b>{{ '{:,}'.format(session_limit) }}</b> tokens &middot;
+  per-user daily cap <b>{{ '{:,}'.format(user_daily_limit) }}</b> tokens &middot;
+  platform daily cap <b>{{ '{:,}'.format(global_daily_limit) }}</b> tokens.
+</p>
+
+<h2 class="section-gap">Recent calls</h2>
+<table class="grid-table">
+  <thead>
+    <tr><th>When</th><th>Kind</th><th>Provider</th><th>Model</th><th>User</th>
+        <th>Attempt</th><th>Fallback</th><th>Tokens (p/c/t)</th><th>Latency</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+  {% for r in recent %}
+    <tr class="{% if r.status != 'ok' %}inactive{% endif %}">
+      <td>{{ r.created_at.strftime('%d %b %H:%M:%S') }}</td>
+      <td>{{ r.kind }}</td>
+      <td><span class="dot" style="background: var(--series-{{ r.provider }}, var(--muted))"></span>{{ r.provider }}</td>
+      <td>{{ r.model }}</td>
+      <td>{{ r.user_id or '—' }}</td>
+      <td>{{ r.attempt }}</td>
+      <td>{{ 'yes' if r.is_fallback else '—' }}</td>
+      <td>{{ r.prompt_tokens }} / {{ r.completion_tokens }} / {{ r.total_tokens }}</td>
+      <td>{{ r.latency_ms }} ms</td>
+      <td>{{ r.status }}{% if r.error %} <span class="muted small">({{ r.error[:60] }})</span>{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="10" class="muted">No calls recorded yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

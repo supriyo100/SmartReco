@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 
+from app.config import settings
 from app.db.models import Product
 
 log = logging.getLogger("agent.generate")
@@ -114,7 +115,7 @@ def _fmt(p: Product, terms: dict, facts: dict) -> str:
     if terms.get("graph_adjacency", 0) >= 1.0:
         bits.append("they already viewed its prerequisite")
     if p.description:
-        bits.append(f"about: {p.description[:200]}")
+        bits.append(f"about: {p.description[:settings.PROMPT_DESCRIPTION_CHARS]}")
     return " | ".join(bits)
 
 
@@ -220,7 +221,12 @@ async def run(user_id: int, ranked: list[dict], facts: dict) -> dict:
     if facts.get("interests"):
         profile_lines.append("Reads about: " + ", ".join(list(facts["interests"])[:4]))
     if facts.get("goals"):
-        profile_lines.append(f"Their stated goal: {facts['goals'][:200]}")
+        # `goals` is free text the user typed — the one field here at risk of
+        # carrying an email, phone number or address. Everything else in
+        # `facts` is a structured value the app derived itself.
+        from app.agent.pii import redact_pii
+
+        profile_lines.append(f"Their stated goal: {redact_pii(facts['goals'])[:200]}")
     if facts.get("budget_max"):
         profile_lines.append(f"Budget: at most ₹{int(facts['budget_max']):,}")
 

@@ -53,6 +53,7 @@ OUTAGE_COOLDOWN_S = 300
 
 _mesh_client: AsyncOpenAI | None = None
 _groq_client: AsyncOpenAI | None = None
+_ollama_client: AsyncOpenAI | None = None
 # provider name → unix time when it may be tried again
 _down_until: dict[str, float] = {}
 
@@ -71,6 +72,15 @@ def groq_client() -> AsyncOpenAI:
         _groq_client = AsyncOpenAI(base_url=settings.GROQ_BASE_URL,
                                    api_key=settings.GROQ_API_KEY or "none")
     return _groq_client
+
+
+def ollama_client() -> AsyncOpenAI:
+    """Local daemon, OpenAI-wire-compatible. No key — Ollama does not ask for one."""
+    global _ollama_client
+    if _ollama_client is None:
+        _ollama_client = AsyncOpenAI(base_url=settings.OLLAMA_BASE_URL,
+                                     api_key="ollama")
+    return _ollama_client
 
 
 def is_provider_down(error: Exception) -> bool:
@@ -115,20 +125,29 @@ def chain(kind: str) -> list[tuple[str, AsyncOpenAI, str]]:
     `kind` is "fast" | "fast_fallback" | "writer". Providers whose key is
     missing, or which are inside a cooldown, are left out entirely — so an
     empty list means there is nothing to try and the caller must degrade.
+
+    Ollama is the third tier, after Mesh and Groq: opt-in via
+    `OLLAMA_ENABLED` (no key needed — a local daemon either answers or it
+    doesn't), so it costs nothing to leave configured but disabled.
     """
     models = {
-        "fast": (settings.MODEL_FAST, settings.GROQ_MODEL_FAST),
+        "fast": (settings.MODEL_FAST, settings.GROQ_MODEL_FAST,
+                 settings.OLLAMA_MODEL_FAST),
         "fast_fallback": (settings.MODEL_FAST_FALLBACK,
-                          settings.GROQ_MODEL_FAST_FALLBACK),
-        "writer": (settings.MODEL_WRITER, settings.GROQ_MODEL_WRITER),
+                          settings.GROQ_MODEL_FAST_FALLBACK,
+                          settings.OLLAMA_MODEL_FAST_FALLBACK),
+        "writer": (settings.MODEL_WRITER, settings.GROQ_MODEL_WRITER,
+                  settings.OLLAMA_MODEL_WRITER),
     }
-    mesh_model, groq_model = models.get(kind, models["fast"])
+    mesh_model, groq_model, ollama_model = models.get(kind, models["fast"])
 
     out: list[tuple[str, AsyncOpenAI, str]] = []
     if settings.MESH_API_KEY and settings.ENV != "test" and available("mesh"):
         out.append(("mesh", mesh_client(), mesh_model))
     if settings.GROQ_API_KEY and settings.ENV != "test" and available("groq"):
         out.append(("groq", groq_client(), groq_model))
+    if settings.OLLAMA_ENABLED and settings.ENV != "test" and available("ollama"):
+        out.append(("ollama", ollama_client(), ollama_model))
     return out
 
 
@@ -151,34 +170,43 @@ _THINK_RE = re.compile(r"<think>.*?</think>\s*", re.S | re.I)
 _THINK_OPEN_RE = re.compile(r"<think.*", re.S | re.I)
 
 
+def strip_think_text(content: str, *, model: str = "?") -> str:
+    """Remove <think> blocks from a raw content string. The text-level half of
+    `strip_reasoning()`, split out so a non-OpenAI-SDK response shape (a
+    LangChain `AIMessage`, for the chat agent's model-fallback middleware —
+    see app/agent/langchain_bridge.py) can reuse the same rule instead of a
+    second regex living in a second file.
+
+    A response that is only reasoning (truncated mid-thought, nothing visible
+    ever produced) cleans to empty — there is no answer to keep, so callers
+    see the same empty content the raw response effectively had.
+    """
+    if not content or "<think" not in content.lower():
+        return content
+
+    # Closed blocks first, then any unterminated tag left over. Both passes
+    # always run: a response can contain a complete <think>…</think> AND a
+    # second one truncated by max_tokens, and stopping after the first pass
+    # would ship that remainder to the user.
+    cleaned = _THINK_OPEN_RE.sub("", _THINK_RE.sub("", content)).strip()
+    if not cleaned:
+        log.warning("model %s returned only reasoning, no answer", model)
+    return cleaned
+
+
 def strip_reasoning(response) -> None:
     """Remove <think> blocks from a chat completion, in place.
 
     Done here rather than at each call site because every consumer — chat,
     structured_call, writer_call, the reranker — has the same requirement, and
     one that forgets ships raw chain-of-thought to a user.
-
-    Stripping never empties a response that had visible content. An
-    unterminated <think> means the answer was truncated mid-thought and there
-    is no answer to keep; but if removing it would leave nothing while the
-    original had text, the original is kept — a leaked reasoning block is bad,
-    and a blank chat bubble is worse.
     """
     for choice in getattr(response, "choices", []) or []:
         message = getattr(choice, "message", None)
         content = getattr(message, "content", None)
-        if not content or "<think" not in content.lower():
+        if not content:
             continue
-
-        # Closed blocks first, then any unterminated tag left over. Both passes
-        # always run: a response can contain a complete <think>…</think> AND a
-        # second one truncated by max_tokens, and stopping after the first pass
-        # would ship that remainder to the user.
-        cleaned = _THINK_OPEN_RE.sub("", _THINK_RE.sub("", content)).strip()
-        if not cleaned:
-            log.warning("model %s returned only reasoning, no answer",
-                        getattr(response, "model", "?"))
-        message.content = cleaned
+        message.content = strip_think_text(content, model=getattr(response, "model", "?"))
 
 
 def any_chat_provider() -> bool:

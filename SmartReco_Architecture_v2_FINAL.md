@@ -824,3 +824,41 @@ client-side state in an otherwise server-rendered app. It earns the exception: a
 the page on every message is not a chat. It never auto-opens — an assistant that interrupts is a
 different product. Model output is rendered with `textContent` and a two-token formatter, never
 `innerHTML`.
+
+**The chat agent is a LangChain `create_agent` with tool-calling**, unlike §6's recommendation
+pipeline (see that section's note on why it deliberately stayed a plain function). The two calls
+differ in kind, not just in code style: chat is genuinely agentic — the model decides whether to
+search again, ask a clarifying question, or write a profile field, and a human may need to weigh in
+mid-turn — while recommendation generation is a fixed, non-branching sequence with no user in the
+loop while it runs. LangChain's middleware buys real things here that a hand-rolled loop would have
+to reinvent per concern:
+
+- **Tools** (`app/chat/tools.py`) — `search_catalog`, `get_course_details`,
+  `update_learner_profile`, `refresh_recommendations` — replace the old single retrieve-then-generate
+  call. Identity is threaded through as `ToolRuntime` context (`ChatContext(user_id, knowledge)`),
+  not a closure, because the agent graph is built once at import time and reused across requests.
+- **PII** (`app/agent/pii.py`, wired via `PIIMiddleware` in `app/chat/agent.py:_build_agent()`) —
+  email, phone, address and card numbers are redacted out of the live user message before it reaches
+  Mesh/Groq/Ollama. The profile/resume-derived system prompt block is redacted separately
+  (`redact_pii()` called directly in `answer()`), since `PIIMiddleware` only scans the live
+  `HumanMessage` and this content arrives as injected system text instead.
+- **Provider fallback** stays the hand-rolled `app/agent/providers.py` chain — now Mesh → Groq →
+  Ollama (opt-in, `OLLAMA_ENABLED`, for a fully offline fallback) — reused rather than replaced by
+  LangChain's generic `ModelFallbackMiddleware`, because the existing 401/402/403-vs-429/5xx
+  distinction and circuit breaker were already correct for this problem. `app/agent/langchain_bridge.py`
+  is the adapter: a `@wrap_model_call` middleware that walks `providers.chain()` and delegates the
+  actual call to `handler(request.override(model=...))`, so `ChatOpenAI` still owns
+  message/tool-call translation.
+- **Grounding** (`app/chat/agent_middleware.py:enforce_grounding`) reuses `_enforce_grounding()`
+  unchanged, now checked against every course id any tool call surfaced this turn rather than one
+  retrieval before one prompt.
+- **Human-in-the-loop** — only `update_learner_profile` pauses for confirmation
+  (`HumanInTheLoopMiddleware`), not search or recommendation refresh. Pausing requires a
+  checkpointer (`AsyncSqliteSaver`, `data/chat_checkpoints.sqlite`); each turn gets a fresh
+  `thread_id` rather than a per-conversation one, so the checkpointer's own message history never
+  duplicates what `ChatMessage` already stores — its only job is keeping a *paused* run resumable
+  across the `POST /api/chat/resume` request boundary.
+- **Call limits** (`ModelCallLimitMiddleware`, `ToolCallLimitMiddleware`) cap runaway
+  cost per turn; `search_catalog` gets its own tighter cap, which doubles as the backstop for rule
+  11 in `SYSTEM_PROMPT` — ask a clarifying question instead of re-searching indefinitely when a
+  suggestion doesn't fit.

@@ -1,4 +1,6 @@
-"""python -m app.catalog.sync_sql — load data/data_1/*.json into the products table.
+"""python -m app.catalog.sync_sql [dir] — load <dir>/*.json into the products table.
+Defaults to data/data_1; pass any directory of course files that conform to
+data/course.schema.json.
 
 The `products` row is the T1 filter surface (schema §0): what SQL filtering, FTS5
 search and card rendering need. Chunking and embedding are ingest.py's job and
@@ -13,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import sys
 
 from sqlalchemy import select
 
@@ -72,7 +75,8 @@ async def sync(dirpath: str = "data/data_1", allow_pending: bool = True) -> dict
 
 
 if __name__ == "__main__":
-    result = asyncio.run(sync())
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    result = asyncio.run(sync(args[0] if args else "data/data_1"))
     print(f"created {result['created']}, updated {result['updated']}, "
           f"unchanged {result['unchanged']} "
           f"({result['courses']} courses, {result['pruned_edges']} pending edges pruned)")

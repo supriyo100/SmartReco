@@ -33,6 +33,7 @@ import hashlib
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app.config import settings
 from app.db.models import EmbeddingCache
@@ -190,7 +191,17 @@ async def embed_batch(texts: list[str], *,
         async with async_session() as s:
             for (key, _), vector in zip(missing, vectors):
                 out[key] = vector
-                s.add(EmbeddingCache(text_hash=key, vector=vector))
+                # ON CONFLICT DO NOTHING: two calls embedding the same text
+                # within one turn (e.g. the first-pass retrieval and a
+                # search_catalog tool call both hashing the same query) can
+                # both see the key as missing before either commits — a
+                # plain INSERT then 500s on the UNIQUE constraint. Whichever
+                # commits first wins; the loser's `vector` is identical
+                # anyway since it's a pure function of (backend, text).
+                stmt = sqlite_insert(EmbeddingCache).values(
+                    text_hash=key, vector=vector
+                ).on_conflict_do_nothing(index_elements=["text_hash"])
+                await s.execute(stmt)
             await s.commit()
 
     return [out[k] for k in keys]

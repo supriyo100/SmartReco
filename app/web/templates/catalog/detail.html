@@ -15,7 +15,9 @@
   <p class="price">{% if p.price %}₹{{ '{:,.0f}'.format(p.price) }}{% else %}Free{% endif %}</p>
   <button type="button" class="cta" data-cta="enroll" data-product-id="{{ p.id }}">Enroll</button>
 
-  <div class="prose">{{ p.description }}</div>
+  {# Anchor target for the chat panel's "syllabus" links — there is no
+     separate curriculum page, so this is what a syllabus link points at. #}
+  <div class="prose" id="curriculum">{{ p.description }}</div>
 
   {% if p.tags %}
     <p class="tags">{% for t in p.tags %}<span class="tag">{{ t }}</span>{% endfor %}</p>

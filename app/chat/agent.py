@@ -27,9 +27,11 @@ from rows already in memory rather than from extra round trips.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
+import uuid
 
 from sqlalchemy import select
 
@@ -56,6 +58,20 @@ HISTORY_READ = 60
 MAX_MESSAGE_CHARS = 2000
 RETRIEVE_K = 6
 
+# LangGraph counts each model-node/tool-node hop as a step, and the 8-layer
+# middleware stack (PII, call limits, retry, HITL, fallback, grounding) adds
+# its own hops on top of that. The real cost caps are
+# CHAT_MODEL_CALL_LIMIT_PER_TURN and CHAT_TOOL_CALL_LIMIT_PER_TURN
+# (settings.py, tightened to 3/4) — this is a hard safety net above them, not
+# the primary limiter, and must stay clear of it: at the old fixed 25, a
+# normal multi-tool-call turn's ~20 steps left almost no margin, so the
+# model's more exploratory runs crashed to the offline fallback mid-turn —
+# wasting a completed model call — instead of the graceful "end" the call-
+# limit middleware is supposed to produce. Deriving it from the same knobs
+# means tightening the caps for cost also tightens this net, in step.
+RECURSION_LIMIT = 3 * (settings.CHAT_MODEL_CALL_LIMIT_PER_TURN
+                       + settings.CHAT_TOOL_CALL_LIMIT_PER_TURN) + 10
+
 SYSTEM_PROMPT = """You are the career advisor for SmartReco, a course platform.
 
 You help people decide what to learn next for the career they actually want. \
@@ -63,14 +79,21 @@ You are direct, specific and warm — a good mentor, not a brochure.
 
 RULES, in order of importance:
 
-1. GROUNDING. You may only mention courses that appear in CATALOG below. Never \
-invent a course, a price, a date or an instructor. If nothing in CATALOG fits \
-what they asked, say so plainly and give the career advice anyway — honest \
-"we don't have that yet" beats a bad match.
+1. GROUNDING. You may only mention a course you actually retrieved this turn \
+— from the FIRST-PASS SEARCH below, or from calling search_catalog / \
+get_course_details yourself. Never invent a course, a price, a date or an \
+instructor. If nothing fits what they asked, say so plainly and give the \
+career advice anyway — honest "we don't have that yet" beats a bad match.
 2. Refer to a course by its exact title, and put [[id:N]] immediately after it \
-using its id from CATALOG. The interface turns that into a card. Never show \
-the [[id:N]] marker in a sentence you would want read aloud — it is a tag, so \
-keep it tight against the title.
+using its id. The interface turns that into a card with a link to the course \
+and its syllabus. Never show the [[id:N]] marker in a sentence you would want \
+read aloud — it is a tag, so keep it tight against the title. This applies to \
+EVERY course you discuss, including a second or third one in the same reply — \
+never write a reason, a "Why:" line, or a bullet about a course without first \
+naming it this way. A reason with no named, cited course in front of it is \
+useless to the reader: they cannot tell what it is a reason FOR. Formatting: \
+**bold** only — never wrap a word in single asterisks, that renders as a \
+literal asterisk in the interface, not emphasis.
 3. Use their profile. If you know their target role, their resume gaps or \
 their budget, the answer should be visibly different from generic advice. \
 Name a specific gap when you have one.
@@ -84,12 +107,30 @@ weekly-hours limit rather than talking around them.
 something outside learning and careers, answer briefly and steer back.
 8. EXPLAIN THE PICK. When a course appears under ALREADY RECOMMENDED you are \
 told why the ranker chose it — a resume gap it closes, a category they read, a \
-prerequisite they already viewed. If they ask "why this one?", answer with \
-that real reason, not a guess. Never claim a reason you were not given.
+prerequisite they already viewed. If they ask "why this one?", or ask about a \
+topic that several ALREADY RECOMMENDED courses cover, answer with that real \
+reason, not a guess — but rule 2 still applies to each one: name it first. \
+Right: "**Ultimate RAG Bootcamp** [[id:13]] — closes your vector-database gap." \
+Wrong: "Why: closes your vector-database gap." (no course named — the reader \
+has nothing to click and no idea which course you mean). Never claim a reason \
+you were not given.
 9. Say what it CHANGES for them, not what it contains. "Adds the LangGraph \
 and agent-orchestration your resume is missing for Agentic AI Engineer roles" \
 beats "covers 17 modules on agents". Tie it to the role they are targeting, \
-the gap they have, or the money and time they said they had."""
+the gap they have, or the money and time they said they had.
+10. TOOLS. Use search_catalog when the FIRST-PASS SEARCH does not fit what \
+they asked, and get_course_details when they ask what a course actually \
+covers before you recommend it. If they state a durable new fact — a \
+different target role, a budget, weekly hours — use update_learner_profile; \
+that pauses for their confirmation, so tell them what you are about to save \
+in the same reply. If a new fact changes what they should be learning, use \
+refresh_recommendations afterward.
+11. IF A SUGGESTION DOESN'T FIT. When they say a course is wrong — wrong \
+depth, missing a topic, wrong format — do not immediately search again. Ask \
+one short, specific question about what they actually need (a skill, a \
+level, a format, a timeline), then search once with the answer. This applies \
+even if search_catalog would technically let you try again; guessing twice \
+in a row reads as not listening the first time."""
 
 
 def _fmt_course(p: Product) -> str:
@@ -103,17 +144,26 @@ def _fmt_course(p: Product) -> str:
         bits.append(f"instructor: {p.instructor}")
     desc = (p.description or "").strip().replace("\n", " ")
     if desc:
-        bits.append(f"about: {desc[:280]}")
+        bits.append(f"about: {desc[:settings.PROMPT_DESCRIPTION_CHARS]}")
     return " | ".join(bits)
 
 
 async def build_user_context(user_id: int) -> tuple[str, dict]:
-    """Assemble what we know about this person into prompt text.
+    """What we know about this person, as prompt text.
 
-    One session, three reads, no LLM call. Returns the text plus the raw facts,
-    because the caller uses `budget_max` as a retrieval filter and not only as
-    prompt content.
+    Reads the brief `app/chat/brief.py` renders and stores at write-time
+    (profile save, ATS run, recommendation refresh) rather than re-deriving
+    it from three tables on every chat turn — plan.md §1-5. A stale or
+    never-populated brief (existing users, first deploy) is a cache miss,
+    not an error: it falls back to rendering fresh and stores the result so
+    the next turn is a hit.
+
+    Returns the text plus the raw facts, because the caller uses
+    `budget_max` and `weekly_hours` as retrieval/prompt inputs and not only
+    as prompt content.
     """
+    from app.chat.brief import _fingerprint, render_background_brief
+
     async with async_session() as s:
         profile = (await s.execute(
             select(UserProfile).where(UserProfile.user_id == user_id)
@@ -131,82 +181,24 @@ async def build_user_context(user_id: int) -> tuple[str, dict]:
             .order_by(Recommendation.created_at.desc())
         )).scalars().first()
 
-    lines: list[str] = []
-    facts: dict = {"budget_max": None}
+        fp = _fingerprint(profile, ats, rec)
+        if profile is not None and profile.background_brief \
+                and profile.brief_fingerprint == fp:
+            text = profile.background_brief
+        else:
+            text = render_background_brief(profile, ats, rec)
+            if profile is not None:
+                profile.background_brief = text
+                profile.brief_fingerprint = fp
+                await s.commit()
 
-    if profile:
-        if profile.full_name:
-            lines.append(f"Name: {profile.full_name}")
-        if profile.headline:
-            lines.append(f"Headline: {profile.headline}")
-        if profile.current_role:
-            lines.append(f"Current role: {profile.current_role}")
-        if profile.target_role:
-            lines.append(f"TARGET ROLE: {profile.target_role}")
-        if profile.experience_years is not None:
-            lines.append(f"Experience: {profile.experience_years} years")
-        if profile.goals:
-            lines.append(f"Stated goal: {profile.goals[:400]}")
-        if profile.skills:
-            lines.append(f"Skills they claim: {', '.join(list(profile.skills)[:25])}")
-        if profile.budget_max is not None:
-            lines.append(f"BUDGET: at most ₹{int(profile.budget_max):,}")
-            facts["budget_max"] = profile.budget_max
-        if profile.weekly_hours:
-            lines.append(f"Time available: ~{profile.weekly_hours} h/week")
-        if profile.preferred_mode:
-            lines.append(f"Prefers: {profile.preferred_mode} courses")
-        # The interest vector is behavioral truth and outranks claimed skills
-        # when they disagree — what someone reads all week is a better signal
-        # of intent than a list they wrote once.
-        if profile.interests:
-            top = sorted(profile.interests.items(), key=lambda kv: -float(kv[1] or 0))[:5]
-            if top:
-                lines.append("Browsing shows interest in: " +
-                             ", ".join(f"{k}" for k, _ in top))
-
-    if ats:
-        lines.append(f"RESUME ATS SCORE: {ats.ats_score}/100 against "
-                     f"'{ats.target_role}'")
-        if ats.missing_skills:
-            lines.append("RESUME GAPS (missing for that role): " +
-                         ", ".join(list(ats.missing_skills)[:10]))
-        if ats.matched_skills:
-            lines.append("Already evidenced on resume: " +
-                         ", ".join(list(ats.matched_skills)[:12]))
-    elif profile and not (profile.resume_text or ""):
-        lines.append("No resume uploaded yet — suggest it once if relevant, "
-                     "then drop it.")
-
-    if rec and rec.narrative:
-        lines.append(f"Their current recommendation summary: {rec.narrative[:300]}")
-    if rec and rec.items:
-        # The stored per-card reasoning, so the advisor can EXPLAIN a pick
-        # rather than re-deriving one. `terms` are the actual scoring inputs
-        # from fusion_rank, which is what lets the chat answer "why is this
-        # first?" with the real reason instead of a plausible-sounding one.
-        for item in sorted(rec.items, key=lambda i: i.get("rank", 0))[:4]:
-            terms = item.get("terms") or {}
-            why = []
-            if terms.get("gap_match", 0) > 0:
-                why.append("closes resume gaps")
-            if terms.get("interest_match", 0) > 0.15:
-                why.append("matches what they browse")
-            if terms.get("graph_adjacency", 0) >= 1.0:
-                why.append("next step after a course they viewed")
-            if terms.get("level_fit", 0) >= 1.0:
-                why.append("right level for their experience")
-            lines.append(
-                f"ALREADY RECOMMENDED id:{item.get('product_id')} "
-                f"(rank {item.get('rank')}, confidence "
-                f"{item.get('confidence')}): {item.get('hook', '')} "
-                + (f"[scored because: {', '.join(why)}]" if why else ""))
-
-    facts["has_profile"] = bool(lines)
-    return ("\n".join(f"- {line}" for line in lines)
-            or "- Nothing known about this user yet (new account, no resume, "
-               "no browsing history). Ask one short question to orient.",
-            facts)
+    facts: dict = {
+        "budget_max": profile.budget_max if profile else None,
+        "weekly_hours": profile.weekly_hours if profile else None,
+        "has_profile": bool(profile and (profile.full_name or profile.target_role
+                                         or profile.goals or profile.skills)) or bool(ats) or bool(rec),
+    }
+    return text, facts
 
 
 async def _history(conversation_id: int) -> list[dict]:
@@ -296,10 +288,135 @@ def _offline_reply(message: str, courses: list[Product], context: str) -> str:
     return "\n".join(lines)
 
 
+_agent = None
+_agent_lock: asyncio.Lock | None = None
+_checkpointer_cm = None   # kept alive for the process's life — see _build_agent
+
+
+async def _get_agent():
+    """Build the tool-calling chat agent once, lazily.
+
+    Reached only from the branch of `answer()` guarded by
+    `any_chat_provider()` — the offline path returns before this is ever
+    called, so the LangChain import graph and the checkpointer's sqlite file
+    stay untouched by the (offline-by-design) test suite, same as `chain()`
+    never touching the network under `ENV=test` today.
+    """
+    global _agent, _agent_lock
+    if _agent is not None:
+        return _agent
+    if _agent_lock is None:
+        _agent_lock = asyncio.Lock()
+    async with _agent_lock:
+        if _agent is None:
+            _agent = await _build_agent()
+    return _agent
+
+
+async def _build_agent():
+    import pathlib
+
+    from langchain.agents import create_agent
+    from langchain.agents.middleware import (
+        HumanInTheLoopMiddleware,
+        ModelCallLimitMiddleware,
+        PIIMiddleware,
+        ToolCallLimitMiddleware,
+        ToolRetryMiddleware,
+    )
+    from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
+    from app.agent.langchain_bridge import build_chat_models, mesh_fallback_middleware
+    from app.agent.pii import ADDRESS_PATTERN, PHONE_PATTERN
+    from app.chat.agent_middleware import chat_system_prompt, enforce_grounding, offline_reply
+    from app.chat.tools import CHAT_TOOLS, ChatContext
+
+    global _checkpointer_cm
+    pathlib.Path("data").mkdir(exist_ok=True)
+    _checkpointer_cm = AsyncSqliteSaver.from_conn_string("data/chat_checkpoints.sqlite")
+    checkpointer = await _checkpointer_cm.__aenter__()
+
+    # `model=` is what create_agent needs a BaseChatModel instance for up
+    # front; mesh_fallback_middleware does the actual per-call provider
+    # selection through providers.chain(), so which one this is barely
+    # matters — see langchain_bridge.py.
+    primary_model = build_chat_models()["mesh"]
+
+    middleware = [
+        # PII: redact identity-leaking data out of the live user message
+        # before it reaches Mesh/Groq/Ollama. Built-in types cover email and
+        # card numbers; phone/address are this product's own detectors
+        # (app/agent/pii.py) since resumes are the actual risk surface here.
+        PIIMiddleware("email", strategy="redact", apply_to_input=True),
+        PIIMiddleware("credit_card", strategy="redact", apply_to_input=True),
+        PIIMiddleware("phone", detector=PHONE_PATTERN, strategy="redact",
+                      apply_to_input=True),
+        PIIMiddleware("address", detector=ADDRESS_PATTERN, strategy="redact",
+                      apply_to_input=True),
+        # Cost/loop guards. search_catalog gets its own tighter cap so a
+        # rejected suggestion pushes the model toward asking a clarifying
+        # question (see SYSTEM_PROMPT) instead of re-searching indefinitely.
+        ModelCallLimitMiddleware(run_limit=settings.CHAT_MODEL_CALL_LIMIT_PER_TURN,
+                                 exit_behavior="end"),
+        ToolCallLimitMiddleware(run_limit=settings.CHAT_TOOL_CALL_LIMIT_PER_TURN),
+        ToolCallLimitMiddleware(tool_name="search_catalog",
+                                run_limit=settings.CHAT_SEARCH_CALL_LIMIT_PER_TURN),
+        ToolRetryMiddleware(max_retries=2, backoff_factor=2.0),
+        # Human-in-the-loop: only a profile write inferred from conversation
+        # pauses for confirmation. Search and recommendation refresh do not —
+        # decided with the user rather than assumed.
+        HumanInTheLoopMiddleware(interrupt_on={"update_learner_profile": True}),
+        # wrap_model_call stack — first listed is outermost. offline_reply
+        # must wrap mesh_fallback_middleware to catch total provider
+        # exhaustion; grounding must be innermost so it sees the actual
+        # model response before anything else touches it.
+        offline_reply,
+        mesh_fallback_middleware,
+        chat_system_prompt,
+        enforce_grounding,
+    ]
+
+    return create_agent(
+        model=primary_model,
+        tools=CHAT_TOOLS,
+        middleware=middleware,
+        context_schema=ChatContext,
+        checkpointer=checkpointer,
+    )
+
+
+async def _products_for_cards(cited_ids: set[int], seed: list[Product]) -> list[Product]:
+    """Product rows for every id the agent's tool calls could have cited.
+
+    `seed` (the pre-agent retrieval) covers the common case; ids the agent
+    reached through its own `search_catalog`/`get_course_details` calls with
+    a refined query need one extra fetch so `_payload()`'s card-building
+    never drops a citation just because it wasn't in the first-pass search.
+    """
+    have = {p.id for p in seed}
+    missing = cited_ids - have
+    if not missing:
+        return seed
+    async with async_session() as s:
+        extra = (await s.execute(
+            select(Product).where(Product.id.in_(missing), Product.is_active.is_(True))
+        )).scalars().all()
+    return [*seed, *extra]
+
+
 async def answer(user_id: int, conversation_id: int, message: str) -> dict:
     """Produce one grounded reply. Returns the payload the route persists."""
     started = time.perf_counter()
     message = (message or "").strip()[:MAX_MESSAGE_CHARS]
+
+    from app.chat.guardrails import check_budget
+
+    budget = await check_budget(user_id, conversation_id)
+    if not budget.allowed:
+        return {"answer": budget.reason, "cited": [], "model": "budget-exceeded",
+               "latency_ms": int((time.perf_counter() - started) * 1000),
+               "retrieval_path": "blocked", "courses": [], "pathway": None,
+               "intent": {}, "facts": {}}
 
     context, facts = await build_user_context(user_id)
     history = await _history(conversation_id)
@@ -352,36 +469,122 @@ async def answer(user_id: int, conversation_id: int, message: str) -> dict:
         return await _payload(reply, cited, "offline", started, path, courses,
                               message, role_hint, said, history)
 
-    knowledge = f"WHAT YOU KNOW ABOUT THIS USER:\n{context}"
-    if compacted:
-        knowledge += f"\n\n{compacted}"
-    knowledge += f"\n\nCATALOG (the ONLY courses you may name):\n{catalog_block}"
+    # PII is scrubbed here, not left to PIIMiddleware — that middleware only
+    # scans the live HumanMessage, and this knowledge block is injected as
+    # system content (via the dynamic-prompt middleware) built from resume
+    # and profile text, which is exactly the surface that needs it.
+    from app.agent.pii import redact_pii
 
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "system", "content": knowledge},
-        *recent,
-        {"role": "user", "content": message},
-    ]
+    knowledge = f"WHAT YOU KNOW ABOUT THIS USER:\n{redact_pii(context)}"
+    if compacted:
+        knowledge += f"\n\n{redact_pii(compacted)}"
+    # plan.md §10: a course and a 15-minute primer are different answers to
+    # the same question depending on how much time someone actually has.
+    # Nothing else asks for it, so nudge for it once, on the opening turn —
+    # not every turn, which would read as nagging.
+    if not history and not facts.get("weekly_hours") and not said.get("weekly_hours"):
+        knowledge += ("\n\nTIME COMMITMENT: not stated yet. Ask directly in this "
+                     "reply — how many hours a week, or a target timeline — "
+                     "before assuming they want a multi-week course over a "
+                     "quick primer.")
+    if courses:
+        knowledge += (f"\n\nA FIRST-PASS SEARCH ALREADY FOUND (call search_catalog "
+                     f"again with a narrower query if none of these fit):\n{catalog_block}")
+
+    from app.chat.tools import ChatContext
+
+    thread_id = f"chat-{conversation_id}-{uuid.uuid4().hex[:10]}"
+    lc_messages = [*recent, {"role": "user", "content": message}]
 
     try:
-        from app.agent.mesh import _chat
-        resp = await _chat(settings.MODEL_WRITER, messages, temperature=0.6,
-                           max_tokens=900)
-        raw = (resp.choices[0].message.content or "").strip()
-        model_used = settings.MODEL_WRITER
+        agent = await _get_agent()
+        result = await agent.ainvoke(
+            {"messages": lc_messages},
+            config={"configurable": {"thread_id": thread_id}, "recursion_limit": RECURSION_LIMIT},
+            context=ChatContext(user_id=user_id, knowledge=knowledge,
+                               conversation_id=conversation_id),
+        )
     except Exception as exc:
-        log.warning("chat model call failed (%s); serving offline reply", exc)
+        log.warning("chat agent invocation failed (%s); serving offline reply", exc)
         raw = _offline_reply(message, courses, context)
-        model_used = "offline-error"
+        reply, cited = _enforce_grounding(raw, allowed)
+        return await _payload(reply, cited, "offline-error", started, path, courses,
+                              message, role_hint, said, history)
 
-    reply, cited = _enforce_grounding(raw, allowed)
+    return await _finish_turn(result, thread_id, started, path, courses,
+                              message, role_hint, said, history)
+
+
+async def _finish_turn(result: dict, thread_id: str, started: float, path: str,
+                       courses: list[Product], message: str, role_hint: str,
+                       said: dict, history: list[dict]) -> dict:
+    """Turn a graph result (from `answer()` or `resume()`) into the payload
+    the route persists — or, if the run paused again, another interrupt."""
+    if result.get("__interrupt__"):
+        # HumanInTheLoopMiddleware paused the run (a profile write it wants
+        # to confirm first). The route persists `thread_id` + the request so
+        # POST /api/chat/resume can continue this exact paused run.
+        hitl = result["__interrupt__"][0].value
+        return {"interrupt": hitl, "thread_id": thread_id,
+               "latency_ms": int((time.perf_counter() - started) * 1000)}
+
+    final = result["messages"][-1]
+    raw = str(final.content or "")
+    meta = getattr(final, "response_metadata", None) or {}
+    model_used = meta.get("model_name") or meta.get("model") or "chat-agent"
+
+    # Grounding was already enforced inside the graph (enforce_grounding
+    # middleware, app/chat/agent_middleware.py) against every id the agent's
+    # own tool calls actually retrieved — re-checking here against a
+    # narrower pre-agent `allowed` set would wrongly strip a citation the
+    # agent legitimately grounded via a follow-up search_catalog call. Just
+    # extract what survived.
+    cited: list[int] = []
+    for m in CITE_RE.findall(raw):
+        pid = int(m)
+        if pid not in cited:
+            cited.append(pid)
+    reply = raw
     if not reply:
         reply = ("I couldn't put together a useful answer for that. Try asking "
                  "about a specific skill or role.")
 
+    courses = await _products_for_cards(set(cited), courses)
     return await _payload(reply, cited, model_used, started, path, courses,
                           message, role_hint, said, history)
+
+
+async def resume(conversation_id: int, thread_id: str, decision: str,
+                 message: str = "") -> dict:
+    """Continue a HITL-paused chat turn with the learner's decision.
+
+    `thread_id` is the exact paused run persisted alongside the interrupt
+    (`Conversation.pending_interrupt`) — resume targets that specific run,
+    not just "the latest turn for this conversation".
+    """
+    from langgraph.types import Command
+
+    started = time.perf_counter()
+    decisions = ([{"type": "approve"}] if decision == "approve"
+                else [{"type": "reject", "message": message}] if message
+                else [{"type": "reject"}])
+
+    agent = await _get_agent()
+    try:
+        result = await agent.ainvoke(
+            Command(resume={"decisions": decisions}),
+            config={"configurable": {"thread_id": thread_id}, "recursion_limit": RECURSION_LIMIT},
+        )
+    except Exception as exc:
+        log.warning("chat agent resume failed (%s)", exc)
+        return {"answer": "Sorry, I couldn't finish that — try asking again.",
+               "cited": [], "model": "offline-error",
+               "latency_ms": int((time.perf_counter() - started) * 1000),
+               "retrieval_path": "none", "courses": [], "pathway": None,
+               "intent": {}, "facts": {}}
+
+    history = await _history(conversation_id)
+    return await _finish_turn(result, thread_id, started, "none", [], "", "", {}, history)
 
 
 def _level_hint(context: str) -> str | None:

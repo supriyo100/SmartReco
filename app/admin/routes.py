@@ -5,13 +5,24 @@ dependency below.
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 
 from app.auth.deps import require_admin
 from app.config import settings
-from app.db.models import AgentRun, DigestLog, Event, Product, User, VectorOutbox
+from app.db.models import (
+    AgentRun,
+    ChatMessage,
+    DigestLog,
+    Event,
+    LLMCallLog,
+    Product,
+    User,
+    VectorOutbox,
+)
 from app.db.session import async_session
 from app.mail.sender import MAIL_DIR
 from app.web.templating import render
@@ -370,3 +381,61 @@ async def agent_runs(request: Request, limit: int = 100):
         )).scalars().all()
         avg_calls = (await s.execute(select(func.avg(AgentRun.llm_calls)))).scalar()
     return render(request, "admin/agent_runs.html", runs=runs, avg_calls=avg_calls)
+
+
+@router.get("/llm-usage")
+async def llm_usage(request: Request, limit: int = 100):
+    """Token/latency/cost telemetry from `llm_call_log` (app/agent/telemetry.py)
+    — every provider attempt from both the chat agent and the recommendation
+    pipeline, plus how many turns the usage guardrails (app/chat/guardrails.py)
+    have actually blocked. Rolling 24h window: a same-day view of "what is
+    this costing right now", not a historical archive.
+    """
+    since_day = datetime.utcnow() - timedelta(days=1)
+    async with async_session() as s:
+        calls_24h, tokens_24h, avg_latency_24h, errors_24h = (await s.execute(
+            select(func.count(LLMCallLog.id),
+                  func.coalesce(func.sum(LLMCallLog.total_tokens), 0),
+                  func.coalesce(func.avg(LLMCallLog.latency_ms), 0),
+                  func.coalesce(func.sum(case((LLMCallLog.status == "error", 1), else_=0)), 0))
+            .where(LLMCallLog.created_at >= since_day)
+        )).one()
+
+        by_provider = (await s.execute(
+            select(LLMCallLog.provider, func.count(LLMCallLog.id),
+                  func.coalesce(func.sum(LLMCallLog.total_tokens), 0),
+                  func.coalesce(func.avg(LLMCallLog.latency_ms), 0))
+            .where(LLMCallLog.created_at >= since_day)
+            .group_by(LLMCallLog.provider)
+            .order_by(func.sum(LLMCallLog.total_tokens).desc())
+        )).all()
+
+        by_kind = (await s.execute(
+            select(LLMCallLog.kind, func.count(LLMCallLog.id),
+                  func.coalesce(func.sum(LLMCallLog.total_tokens), 0))
+            .where(LLMCallLog.created_at >= since_day)
+            .group_by(LLMCallLog.kind)
+            .order_by(func.sum(LLMCallLog.total_tokens).desc())
+        )).all()
+
+        recent = (await s.execute(
+            select(LLMCallLog).order_by(LLMCallLog.created_at.desc()).limit(limit)
+        )).scalars().all()
+
+        blocked_24h = (await s.execute(
+            select(func.count(ChatMessage.id))
+            .where(ChatMessage.model_used == "budget-exceeded",
+                  ChatMessage.created_at >= since_day)
+        )).scalar()
+
+    max_provider_tokens = max((row[2] for row in by_provider), default=0) or 1
+
+    return render(request, "admin/llm_usage.html",
+                 calls_24h=calls_24h, tokens_24h=tokens_24h,
+                 avg_latency_24h=avg_latency_24h, errors_24h=errors_24h,
+                 blocked_24h=blocked_24h or 0, by_provider=by_provider,
+                 by_kind=by_kind, max_provider_tokens=max_provider_tokens,
+                 recent=recent,
+                 session_limit=settings.CHAT_SESSION_TOKEN_LIMIT,
+                 user_daily_limit=settings.CHAT_USER_DAILY_TOKEN_LIMIT,
+                 global_daily_limit=settings.CHAT_GLOBAL_DAILY_TOKEN_LIMIT)

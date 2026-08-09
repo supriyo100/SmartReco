@@ -59,6 +59,155 @@ LangSmith (optional).
 Server-rendered, no SPA, no Node build step — a deliberate choice, reasoned through in
 [design.md §2](documentation/design.md).
 
+### System overview
+
+```mermaid
+flowchart TB
+    subgraph Client["Browser"]
+        UI["Jinja2 pages — catalog · profile · chat · recommendations"]
+        TRK["tracker.js — batch(10) / interval(5s) / sendBeacon on unload"]
+    end
+
+    subgraph Web["FastAPI (app/*/routes.py)"]
+        AUTH["auth"]
+        ADMIN["admin CRUD"]
+        EVT["POST /api/events → 202"]
+        CHATR["chat"]
+        RECR["/recommendations"]
+    end
+
+    subgraph Data["SQLite — WAL + FTS5"]
+        PROD[("products")]
+        EV[("events")]
+        OUTBOX[("vector_outbox")]
+        RUNS[("agent_runs")]
+        DIGL[("digest_log")]
+    end
+
+    subgraph Vec["Chroma"]
+        COLL[("course_chunks")]
+    end
+
+    subgraph Intel["Deterministic planner + LLM"]
+        INTEREST["interests.py — dual-horizon decay"]
+        PLANNER["triggers.py — THE PLANNER"]
+        GRAPH["graph.py — analyze → retrieve → rank → grade → generate → validate → store"]
+        CHATAGENT["chat/agent.py"]
+    end
+
+    subgraph Sched["APScheduler (app/scheduler/jobs.py)"]
+        DRAIN["drain_outbox — 30s"]
+        DIGEST["daily_digest — 16:00"]
+        REENG["weekly_reengage — Mon 10:00"]
+    end
+
+    subgraph MailG["app/mail"]
+        MSG["messages.py — digest · welcome · ats · reengage"]
+        SEND["sender.send — SMTP or .eml fallback"]
+    end
+
+    UI --> Web
+    TRK -. fire and forget .-> EVT
+    EVT --> EV
+    EV --> INTEREST --> PLANNER --> GRAPH
+    GRAPH --> RUNS
+    GRAPH --> RECR
+
+    ADMIN -- one transaction --> PROD
+    ADMIN -- one transaction --> OUTBOX
+    DRAIN --> OUTBOX
+    DRAIN -- embed batched --> COLL
+
+    CHATR --> CHATAGENT --> COLL
+    CHATAGENT --> PROD
+
+    DIGEST --> MSG --> SEND
+    DIGEST --> DIGL
+    REENG --> MSG
+```
+
+### Component & function map
+
+The same system, broken into the six subsystems this README documents section by section, each
+labeled with the functions that actually do the work — for when "what calls what" is the question.
+
+```mermaid
+flowchart TB
+    subgraph ing["§4 Catalog ingestion — app/catalog/"]
+        direction TB
+        ing1["loader.load_all — read *.json, enforce slug == filename"]
+        ing2["loader.validate_graph — every prereq/related slug must resolve"]
+        ing3["chunker.build_chunks — 6-12 thematic chunks, T1/T2/T3 split"]
+        ing4["freshness.score_freshness — live-vs-recorded + recency"]
+        ing5["ingest.main — embed_batch → Chroma upsert → catalog.index.json"]
+        ing6["sync_sql.sync — course JSON → products table, idempotent"]
+        ing7["outbox.drain_once — replay vector_outbox → Chroma"]
+        ing1 --> ing2 --> ing3 --> ing4 --> ing5
+        ing6 -.-> ing7
+    end
+
+    subgraph trk["§6 Event tracking — app/tracking/ + tracker.js"]
+        direction TB
+        trk1["tracker.js — batch(10) / interval(5s) / sendBeacon on unload"]
+        trk2["routes.ingest — POST /api/events, returns 202"]
+        trk3["queue.writer_loop — batched SQLite write, ON CONFLICT DO NOTHING"]
+        trk4["queue._consider — hands off to the planner"]
+        trk1 --> trk2 --> trk3 --> trk4
+    end
+
+    subgraph rec["§5 Recommendation agent — app/agent/"]
+        direction TB
+        rec1["triggers.should_run — THE PLANNER: fingerprint_move / enough_events / stale / profile_change / chat_facts"]
+        rec2["interests.refresh_interests — dual-horizon λ decay"]
+        rec3["nodes/retrieve.run — multi-query hybrid + RRF"]
+        rec4["nodes/fusion_rank.run — 6-term weighted score"]
+        rec5["nodes/grade.run — evidence check, one retry max"]
+        rec6["nodes/generate.run — the one LLM call"]
+        rec7["nodes/validate.run — drop ungrounded ids"]
+        rec8["graph.generate_recommendations — orchestrates, writes agent_runs"]
+        rec9["providers.chain / mark_down / mark_up — Mesh→Groq failover, circuit breaker"]
+        rec1 --> rec2 --> rec3 --> rec4 --> rec5 --> rec6 --> rec7 --> rec8
+        rec6 -.-> rec9
+    end
+
+    subgraph cht["§6c Chat advisor — app/chat/"]
+        direction TB
+        cht1["retrieval.retrieve — Chroma + FTS5, RRF-fused"]
+        cht2["rerank.rerank — fusion / cross_encoder / llm"]
+        cht3["context.extract_facts / compact — short + long horizons"]
+        cht4["intent.score_intent — cold / warm / hot"]
+        cht5["pathway.build_pathway_async — mermaid path from prereq_ids"]
+        cht6["agent.answer — grounding enforcement"]
+        cht1 --> cht2 --> cht6
+        cht3 --> cht6
+        cht4 --> cht6
+        cht6 --> cht5
+    end
+
+    subgraph mail["§7 Email — app/mail/"]
+        direction TB
+        mail1["messages.build_digest / send_welcome / send_ats_report / send_reengage"]
+        mail2["templating.render_pair — HTML + plain text"]
+        mail3["sender.send — SMTP, or store-to-disk fallback"]
+        mail4["digest.run_digest — idempotent via digest_log"]
+        mail1 --> mail2 --> mail3
+        mail4 --> mail1
+    end
+
+    subgraph sch["Scheduler — app/scheduler/jobs.py"]
+        direction TB
+        sch1["drain_outbox — every 30s"]
+        sch2["daily_digest — 16:00"]
+        sch3["weekly_reengage — Mon 10:00"]
+        sch4["nightly_maintenance"]
+    end
+
+    sch1 -.-> ing7
+    sch2 -.-> mail4
+    sch3 -.-> mail4
+    trk4 -.-> rec1
+```
+
 ---
 
 ## 3. How we avoid wasteful LLM calls
@@ -237,6 +386,56 @@ Two model quirks worth recording, both found by testing rather than assumed:
 
 `GROQ_MODEL_WRITER` is `gpt-oss-120b`, not qwen: the writer needs strict `json_schema`, and qwen on
 Groq supports only `json_mode` and 400s on a schema. Verified against `GET /models`.
+
+**Local Ollama is not viable for interactive chat on consumer hardware.** Tested with
+`qwen3.5:9b` / `qwen3.6:27b` on a GTX 1650 (4GB VRAM): `ollama ps` showed 76-92% CPU / 8-24% GPU —
+the model barely fits and mostly runs on CPU. Measured: a single writer-model call took
+**380s+** for `qwen3.6:27b`. Groq, by contrast, measured **1.4-2.7s** per call on the same query.
+Ollama stays wired as the third provider tier (`OLLAMA_ENABLED`, opt-in) for testing the
+provider-fallback code path itself, never for a live demo.
+
+**Every provider attempt is now logged**, not just the ones that succeed. `llm_call_log`
+(app/db/models.py, written from both `mesh.py:_chat()` and
+`langchain_bridge.py:mesh_fallback_middleware`) records provider, model, tokens, latency and
+attempt number per call — `/admin/llm-usage` reads it. This is what made the two findings above
+measurable rather than asserted, and it is what `app/chat/guardrails.py`'s token budgets check
+against.
+
+**Usage guardrails, not just cost-aware code.** Mesh ran out of balance mid-build (`402
+spend_limit_exceeded`) with no warning — the first symptom was every chat turn failing silently.
+Three budgets now sit in front of `answer()` (checked before retrieval or any model call, so a
+blocked turn costs nothing): a per-conversation token cap, a per-user daily cap, and a
+platform-wide daily cap (`CHAT_SESSION_TOKEN_LIMIT` / `CHAT_USER_DAILY_TOKEN_LIMIT` /
+`CHAT_GLOBAL_DAILY_TOKEN_LIMIT`, app/config.py). The per-turn call caps that bound cost within a
+single turn were also tightened (`CHAT_MODEL_CALL_LIMIT_PER_TURN` 4→3,
+`CHAT_TOOL_CALL_LIMIT_PER_TURN` 6→4, `CHAT_SEARCH_CALL_LIMIT_PER_TURN` 3→2) — a normal turn needs
+at most one search-then-answer round plus one clarify-then-retry (SYSTEM_PROMPT rule 11 already
+tells the model not to blind-retry a rejected search).
+
+**`recursion_limit` is a crash-net, not a cost control — the two must not collide.** It had been a
+fixed 25, and LangGraph counts every model-node/tool-node hop plus the 8-layer middleware stack's
+own hops as steps: with the old 4/6 call caps, a normal multi-tool-call turn already reached ~20
+steps, leaving almost no margin. The model's more exploratory runs hit the recursion limit,
+**crashing** into the offline fallback mid-turn — after already paying for the completed model
+calls — instead of the graceful "end with whatever answer exists" that `ModelCallLimitMiddleware`
+is supposed to produce. Reproduced live: one Groq-backed turn burned 2 successful calls, then hit
+`GRAPH_RECURSION_LIMIT` and returned nothing. Fixed by deriving the limit from the same knobs
+(`RECURSION_LIMIT = 3 * (CHAT_MODEL_CALL_LIMIT_PER_TURN + CHAT_TOOL_CALL_LIMIT_PER_TURN) + 10`,
+app/chat/agent.py) so tightening the caps for cost also tightens the safety net, in step, without
+ever letting the net fire first.
+
+**LangSmith tracing was configured but never active.** `pydantic-settings` reads `.env` into the
+`Settings` object only — it never touches `os.environ`, which is what LangChain's tracer actually
+reads at call time. `LANGSMITH_TRACING=true` had sat in `.env` doing nothing since it was added.
+Fixed in `app/config.py`: both the current (`LANGSMITH_*`) and legacy (`LANGCHAIN_*`) env var
+names are now set from `settings` at import time. (Separately, the configured
+`LANGSMITH_API_KEY` itself currently 401s — "Invalid token" — a credential problem the wiring fix
+cannot solve; a fresh key needs generating from the LangSmith account.)
+
+See [`plan.md`](plan.md) for the next lever on the same problem: the per-turn knowledge block
+(profile + resume + recommendation context) is currently rebuilt and resent in full on **every**
+chat turn rather than compressed once — a measured 2,150 prompt tokens on a turn with a
+near-empty profile, paid again on every turn of the same conversation.
 
 ---
 
@@ -558,6 +757,55 @@ they simply wait in `vector_outbox` until a key exists, which `/admin/sync` show
 > Embeddings are a paid call (listing models is not, so startup still reports all models available).
 > Nothing is lost: the queue holds, and `/admin/sync` → *Sync now* completes the work after a top-up.
 
+### Bring your own course catalog
+
+Nothing here is hard-coded to the 12 sample courses in `data/data_1/`. The catalog is just files on
+disk — swap them for your own and the same commands ingest them.
+
+**Input: one JSON file per course**, named `<slug>.json`, conforming to
+[`data/course.schema.json`](data/course.schema.json). The curation rules a JSON Schema can't express
+— paraphrase-only overviews, the objective/module corroboration rule, how to record a coupon-driven
+price, live-vs-recorded date handling — are in [`data/COURSE_SCHEMA.md`](data/COURSE_SCHEMA.md).
+Read it before writing your first file; most of it is about what silently breaks retrieval or
+generation if you skip it, not boilerplate.
+
+Nine fields are required: `slug title overview category level is_free skills objectives source_url`.
+Everything else (pricing, `format`, `module_groups`, `prereq_ids`/`related_ids`, …) is optional and
+documented in the schema's field descriptions.
+
+Put your files anywhere — a fresh `data/<your-name>/` directory is cleanest — and point the pipeline
+at it. Every stage takes the directory as its one positional argument (or `DATA_DIR=` for `make`):
+
+```bash
+python data/data_1/validate_seed.py data/<your-name>          # structure + curation rules — run this first
+python -m app.catalog.catalogue data/<your-name>               # curation tracker → data/courses_catalogue.json
+python -m app.catalog.sync_sql data/<your-name>                 # → products table (no API key needed)
+python -m app.catalog.ingest data/<your-name> --allow-pending  # chunk → embed → Chroma; writes data/catalog.index.json
+
+# or, with make:
+make validate DATA_DIR=data/<your-name>
+make ingest   DATA_DIR=data/<your-name>       # runs validate + catalogue + ingest
+```
+
+`--allow-pending` matters most here: with a brand-new catalog every `prereq_ids`/`related_ids` edge
+you write before curating the target course would otherwise fail ingest outright. It drops
+unresolved edges _in memory only_ — your files are untouched, and the edges reconnect on the next
+ingest once that course exists.
+
+**Two files are generated output, not input — never hand-edit them:**
+
+- **`data/catalog.index.json`** — written by `ingest.py`. The full course documents plus computed
+  freshness, keyed by slug, for the `generate` node's Tier-3 persuasion facts at answer time.
+  Regenerate it by re-running ingest; don't edit it directly, your changes will be overwritten on
+  the next run.
+- **`data/courses_catalogue.json`** — written by `catalogue.py`. A curation tracker (one row per
+  course, every open issue the tools can detect) for confirming your catalog is ready, not a runtime
+  artifact the app reads.
+
+If you skip `--allow-pending`-worthy edges and everything resolves clean, `python -m app.catalog.catalogue --check`
+in CI will catch a course silently going stale (a cohort date passing into the past) the day after it
+happens.
+
 ### Windows notes
 
 `make` is not available on a default Windows install. Every target has a direct equivalent — the
@@ -573,16 +821,16 @@ before the print.
 | ------------------ | --------------------------------------------------------------- |
 | `make dev`       | `uvicorn app.main:app --reload --workers 1`                   |
 | `make init`      | `python -m app.db.init_db`                                    |
-| `make validate`  | `python data/data_1/validate_seed.py data/data_1`             |
-| `make catalogue` | `python -m app.catalog.catalogue data/data_1`                 |
-| `make ingest`    | `python -m app.catalog.ingest data/data_1 --allow-pending`    |
+| `make validate DATA_DIR=…`  | `python data/data_1/validate_seed.py [dir]` (default `data/data_1`)     |
+| `make catalogue DATA_DIR=…` | `python -m app.catalog.catalogue [dir]` (default `data/data_1`)         |
+| `make ingest DATA_DIR=…`    | `python -m app.catalog.ingest [dir] --allow-pending` (default `data/data_1`) |
 | `make test`      | `python -m pytest tests/ -q`                                  |
 | `make lint`      | `ruff check app/ evals/ tests/`                               |
 | —                 | `python -m app.mail.cli send digest EMAIL` (one message, now)  |
 | —                 | `python -m app.mail.cli run-digest [--force]` (the 16:00 job)  |
 | —                 | `python -m app.mail.cli check` (SMTP reachability + auth)      |
 | —                 | `python -m app.catalog.covers` (regenerate course cover art)   |
-| —                 | `python -m app.catalog.sync_sql` (catalog → SQL, no API key) |
+| —                 | `python -m app.catalog.sync_sql [dir]` (catalog → SQL, no API key; default `data/data_1`) |
 | —                 | `python -m app.catalog.outbox` (drain pending → Chroma)       |
 | —                 | `python -m app.auth.cli create-admin EMAIL`                   |
 | —                 | `python -m app.auth.cli make-admin EMAIL`                     |
@@ -662,10 +910,14 @@ app/
   scheduler/    APScheduler jobs — 30 s outbox drain, nightly maintenance,
                 16:00 digest, Monday re-engagement sweep
 data/
-  data_1/       hand-curated course catalog (12 courses, one JSON per course)
+  data_1/                 hand-curated course catalog (12 courses, one JSON per course)
+                          — replace/add your own here, or point the pipeline at another dir
+  course.schema.json      INPUT contract — structure every course file must satisfy
+  COURSE_SCHEMA.md        INPUT — curation rules the schema can't express; read before writing courses
+  catalog.index.json      GENERATED by ingest — full course docs + freshness, keyed by slug
+  courses_catalogue.json  GENERATED by catalogue.py — curation tracker, not runtime state
   resumes/      uploaded resumes, stored as user_{id}.{ext}  (gitignored)
   outbox_mail/  rendered .eml files when SMTP is unconfigured  (gitignored)
-  COURSE_SCHEMA.md
 tests/
   test_ats.py       test_chat.py      test_profiles.py   test_mail.py
   test_outbox.py    test_freshness.py test_smoke.py      test_rerank.py

@@ -16,6 +16,15 @@ What LangGraph would have given us that matters — a record of which nodes ran
 and what they cost — is written to `agent_runs` directly, which is the thing
 `/admin/agent-runs` reads anyway.
 
+This reasoning is scoped to *this* pipeline, not to LangGraph/LangChain in
+general — `app/chat/agent.py` does use LangChain's `create_agent` with a real
+middleware stack (PII redaction, call limits, tool retry, human-in-the-loop,
+provider fallback), because the chat agent is the opposite case on every
+point above: the model decides whether to search again or ask a question,
+the tool set is open-ended, and a human sometimes needs to weigh in
+mid-turn. Same judgment, opposite conclusion, because the two problems
+differ in kind. See the architecture doc §13.3.
+
 The pipeline is idempotent per user: it demotes the previous `is_current` row
 and inserts a new one in a single transaction, so a concurrent second run
 cannot leave two current sets.
@@ -150,6 +159,7 @@ async def _store(user_id: int, narrative: str, items: list[dict], facts: dict,
     change after I uploaded a resume" an answerable question.
     """
     from app.agent.scorer import fingerprint
+    from app.chat.brief import refresh_background_brief
 
     async with async_session() as s:
         await s.execute(
@@ -165,6 +175,11 @@ async def _store(user_id: int, narrative: str, items: list[dict], facts: dict,
             trigger_reason=trigger_reason, model_used=model, is_current=True,
         )
         s.add(row)
+        await s.flush()
+        # A fresh recommendation set is new material for "ALREADY RECOMMENDED"
+        # in the chat brief — re-render it now rather than leaving the chat
+        # agent to notice the fingerprint mismatch on the next turn.
+        await refresh_background_brief(s, user_id)
         await s.commit()
         await s.refresh(row)
         return row.id

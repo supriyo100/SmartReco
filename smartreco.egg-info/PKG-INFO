@@ -28,6 +28,7 @@ Requires-Dist: sqlalchemy>=2.0
 Requires-Dist: aiosqlite>=0.20
 Requires-Dist: alembic>=1.13
 Requires-Dist: pydantic>=2.11
+Requires-Dist: pillow
 Requires-Dist: pydantic-settings>=2.6
 Requires-Dist: python-dotenv>=1.0
 Requires-Dist: httpx>=0.28
@@ -37,6 +38,9 @@ Requires-Dist: langgraph>=0.3
 Requires-Dist: langgraph-checkpoint-sqlite>=2.0
 Requires-Dist: langchain>=0.3
 Requires-Dist: langchain-core>=0.3
+Requires-Dist: einops
+Requires-Dist: pypdf
+Requires-Dist: httpx2
 Requires-Dist: langchain-openai>=0.3
 Requires-Dist: openai>=1.100
 Requires-Dist: chromadb>=1.0
@@ -84,19 +88,883 @@ Requires-Dist: matplotlib>=3.10; extra == "benchmark"
 Provides-Extra: all
 Requires-Dist: smartreco[benchmark,dev,docs,llm,monitoring,rerank,test]; extra == "all"
 
+ 
+
 # SmartReco — Behavioral AI Recommendation Agent
 
-> Skeleton README — fill Aug 8 PM per arch v1 §11 outline. Section 3 leads.
+A course-recommendation platform that watches what a user actually does — pages browsed, searches
+run, time spent, cards clicked and dismissed — and turns that behavior into a small set of grounded,
+persuasive recommendations.
 
-1. What it is + 60s demo GIF
-2. Architecture diagram
-3. **How we avoid wasteful LLM calls** — deterministic dual-horizon scorer,
-   fingerprint gating, trigger policy, three caches. MEASURED numbers here.
-4. **How recommendations are grounded** — dual-write, hybrid retrieval, validate node
-5. Agent workflow (2-LLM happy path) + LangSmith trace screenshot
-6. Event tracking design + p95 number
-7. Bonus features implemented — name all four
-8. Evaluation results + ablation (single-run, labeled directional)
-9. Setup & run (clean-clone verified)
-10. Trade-offs & future work (planner-LLM analysis, knowledge graph, learned
-    ranker, Redis Streams, collaborative filtering, A/B over Mesh fan-out)
+The thesis in one sentence: **the expensive part (an LLM) runs only when cheap deterministic code
+has established that behavior materially changed.**
+
+> **Build status — 6 Aug 2026.** Built and verified: the platform foundation (web app, auth, roles,
+> schema, catalog browsing, admin CRUD), **user profiles** (bio, goals, skills, resume),
+> **product management with dual-write** to Chroma, **behavioral event tracking** end to end
+> (browser → queue → SQLite), and the **email layer** (§7) — four personalized formats, an
+> idempotent daily digest on the scheduler, and a credential-less fallback so it runs without
+> secrets. The retrieval, ranking and agent layers are designed and partially implemented; sections
+> marked _pending_ below will carry measured numbers once those land. No number in this README is
+> estimated — anything not yet measured says so.
+
+- **Design of the foundation:** [`documentation/design.md`](documentation/design.md)
+- **Full system architecture:** [`SmartReco_Architecture_v2_FINAL.md`](SmartReco_Architecture_v2_FINAL.md)
+
+---
+
+## 1. What it is
+
+Three claims the finished build must demonstrate:
+
+1. **Behavior drives recommendations** — not a static popularity list with an LLM writing captions.
+2. **Recommendations are grounded** — every recommended course ID came from retrieval over the real
+   catalog, and a validate node enforces it. The model cannot invent a course.
+3. **The system is efficient by design** — a deterministic planner gates LLM calls, and the numbers
+   below are measured from the `agent_runs` table rather than asserted.
+
+_Demo GIF: pending._
+
+---
+
+## 2. Architecture
+
+```
+                    ┌─────────────────────────────────────────┐
+   browser ────────►│  FastAPI + Jinja2  (server-rendered)     │
+   tracker.js       │  auth · catalog · admin · recommendations│
+        │           └───────────────┬─────────────────────────┘
+        │ POST /api/events (202)    │
+        ▼                           ▼
+   asyncio.Queue ──► batch writer ──► SQLite (WAL + FTS5) ──► vector_outbox ──► Chroma
+                                          │
+                                          ├─ interest model (dual-horizon, deterministic)
+                                          ├─ fingerprint + trigger policy  ◄── the planner
+                                          └─ LangGraph agent (2 LLM calls, happy path)
+```
+
+**Stack:** FastAPI · SQLite (WAL + FTS5) · Chroma · LangGraph · APScheduler · Jinja2 · Mesh API ·
+LangSmith (optional).
+
+Server-rendered, no SPA, no Node build step — a deliberate choice, reasoned through in
+[design.md §2](documentation/design.md).
+
+### System overview
+
+```mermaid
+flowchart TB
+    subgraph Client["Browser"]
+        UI["Jinja2 pages — catalog · profile · chat · recommendations"]
+        TRK["tracker.js — batch(10) / interval(5s) / sendBeacon on unload"]
+    end
+
+    subgraph Web["FastAPI (app/*/routes.py)"]
+        AUTH["auth"]
+        ADMIN["admin CRUD"]
+        EVT["POST /api/events → 202"]
+        CHATR["chat"]
+        RECR["/recommendations"]
+    end
+
+    subgraph Data["SQLite — WAL + FTS5"]
+        PROD[("products")]
+        EV[("events")]
+        OUTBOX[("vector_outbox")]
+        RUNS[("agent_runs")]
+        DIGL[("digest_log")]
+    end
+
+    subgraph Vec["Chroma"]
+        COLL[("course_chunks")]
+    end
+
+    subgraph Intel["Deterministic planner + LLM"]
+        INTEREST["interests.py — dual-horizon decay"]
+        PLANNER["triggers.py — THE PLANNER"]
+        GRAPH["graph.py — analyze → retrieve → rank → grade → generate → validate → store"]
+        CHATAGENT["chat/agent.py"]
+    end
+
+    subgraph Sched["APScheduler (app/scheduler/jobs.py)"]
+        DRAIN["drain_outbox — 30s"]
+        DIGEST["daily_digest — 16:00"]
+        REENG["weekly_reengage — Mon 10:00"]
+    end
+
+    subgraph MailG["app/mail"]
+        MSG["messages.py — digest · welcome · ats · reengage"]
+        SEND["sender.send — SMTP or .eml fallback"]
+    end
+
+    UI --> Web
+    TRK -. fire and forget .-> EVT
+    EVT --> EV
+    EV --> INTEREST --> PLANNER --> GRAPH
+    GRAPH --> RUNS
+    GRAPH --> RECR
+
+    ADMIN -- one transaction --> PROD
+    ADMIN -- one transaction --> OUTBOX
+    DRAIN --> OUTBOX
+    DRAIN -- embed batched --> COLL
+
+    CHATR --> CHATAGENT --> COLL
+    CHATAGENT --> PROD
+
+    DIGEST --> MSG --> SEND
+    DIGEST --> DIGL
+    REENG --> MSG
+```
+
+### Component & function map
+
+The same system, broken into the six subsystems this README documents section by section, each
+labeled with the functions that actually do the work — for when "what calls what" is the question.
+
+```mermaid
+flowchart TB
+    subgraph ing["§4 Catalog ingestion — app/catalog/"]
+        direction TB
+        ing1["loader.load_all — read *.json, enforce slug == filename"]
+        ing2["loader.validate_graph — every prereq/related slug must resolve"]
+        ing3["chunker.build_chunks — 6-12 thematic chunks, T1/T2/T3 split"]
+        ing4["freshness.score_freshness — live-vs-recorded + recency"]
+        ing5["ingest.main — embed_batch → Chroma upsert → catalog.index.json"]
+        ing6["sync_sql.sync — course JSON → products table, idempotent"]
+        ing7["outbox.drain_once — replay vector_outbox → Chroma"]
+        ing1 --> ing2 --> ing3 --> ing4 --> ing5
+        ing6 -.-> ing7
+    end
+
+    subgraph trk["§6 Event tracking — app/tracking/ + tracker.js"]
+        direction TB
+        trk1["tracker.js — batch(10) / interval(5s) / sendBeacon on unload"]
+        trk2["routes.ingest — POST /api/events, returns 202"]
+        trk3["queue.writer_loop — batched SQLite write, ON CONFLICT DO NOTHING"]
+        trk4["queue._consider — hands off to the planner"]
+        trk1 --> trk2 --> trk3 --> trk4
+    end
+
+    subgraph rec["§5 Recommendation agent — app/agent/"]
+        direction TB
+        rec1["triggers.should_run — THE PLANNER: fingerprint_move / enough_events / stale / profile_change / chat_facts"]
+        rec2["interests.refresh_interests — dual-horizon λ decay"]
+        rec3["nodes/retrieve.run — multi-query hybrid + RRF"]
+        rec4["nodes/fusion_rank.run — 6-term weighted score"]
+        rec5["nodes/grade.run — evidence check, one retry max"]
+        rec6["nodes/generate.run — the one LLM call"]
+        rec7["nodes/validate.run — drop ungrounded ids"]
+        rec8["graph.generate_recommendations — orchestrates, writes agent_runs"]
+        rec9["providers.chain / mark_down / mark_up — Mesh→Groq failover, circuit breaker"]
+        rec1 --> rec2 --> rec3 --> rec4 --> rec5 --> rec6 --> rec7 --> rec8
+        rec6 -.-> rec9
+    end
+
+    subgraph cht["§6c Chat advisor — app/chat/"]
+        direction TB
+        cht1["retrieval.retrieve — Chroma + FTS5, RRF-fused"]
+        cht2["rerank.rerank — fusion / cross_encoder / llm"]
+        cht3["context.extract_facts / compact — short + long horizons"]
+        cht4["intent.score_intent — cold / warm / hot"]
+        cht5["pathway.build_pathway_async — mermaid path from prereq_ids"]
+        cht6["agent.answer — grounding enforcement"]
+        cht1 --> cht2 --> cht6
+        cht3 --> cht6
+        cht4 --> cht6
+        cht6 --> cht5
+    end
+
+    subgraph mail["§7 Email — app/mail/"]
+        direction TB
+        mail1["messages.build_digest / send_welcome / send_ats_report / send_reengage"]
+        mail2["templating.render_pair — HTML + plain text"]
+        mail3["sender.send — SMTP, or store-to-disk fallback"]
+        mail4["digest.run_digest — idempotent via digest_log"]
+        mail1 --> mail2 --> mail3
+        mail4 --> mail1
+    end
+
+    subgraph sch["Scheduler — app/scheduler/jobs.py"]
+        direction TB
+        sch1["drain_outbox — every 30s"]
+        sch2["daily_digest — 16:00"]
+        sch3["weekly_reengage — Mon 10:00"]
+        sch4["nightly_maintenance"]
+    end
+
+    sch1 -.-> ing7
+    sch2 -.-> mail4
+    sch3 -.-> mail4
+    trk4 -.-> rec1
+```
+
+---
+
+## 3. How we avoid wasteful LLM calls
+
+The design: a deterministic planner decides whether an LLM runs at all. Interest scoring is closed
+-form (dual-horizon exponential decay, λ_long = ln2/72h, λ_short = ln2/6h), fusion ranking is a
+weighted sum, and confidence is computed rather than asked for. An LLM is invoked only when the
+interest fingerprint has moved past a cosine threshold, enough events have accumulated, and a
+debounce window has passed.
+
+> A system that puts an LLM in the planning seat spends tokens deciding whether to spend tokens.
+
+Full policy in [arch §5.1](SmartReco_Architecture_v2_FINAL.md).
+
+**Measured numbers: pending.** The `agent_runs` table (`node_path`, `llm_calls`, `retrieval_rounds`,
+`cache_hit`, `fallback_used`, `cos_dist`, `latency_ms`) exists and is browsable at
+`/admin/agent-runs`; it is empty until the agent runs. Numbers land here, from that table, not from
+estimation.
+
+---
+
+## 4. Product management and the dual-write
+
+**Built and verified.** An admin can create, edit and soft-delete courses at `/admin/products`, and
+every write lands in **both** SQLite and Chroma.
+
+The two stores can't be committed atomically, so writing to Chroma inline would leave them
+permanently diverged after a crash between the two — with no record that the write was owed. Instead
+the product row and a `vector_outbox` row are written in **one transaction**, and a drainer replays
+the queue into Chroma:
+
+```
+admin form ──► BEGIN  INSERT products …
+                      INSERT vector_outbox (op='upsert', status='pending')
+               COMMIT                        ◄── one durability boundary
+                     │
+  scheduler (30 s) ──┴──► embed (batched) ──► Chroma upsert ──► status='done'
+```
+
+Delivery is at-least-once, which is safe because upserts are idempotent. Four things make it
+economical and observable:
+
+- **Last-op collapse** — five edits between drains are one embed of the current state, not five.
+- **`content_hash` skip** — editing a non-embedded field (price) costs zero API calls.
+- **Fatal vs transient errors** — a 402/401/404 halts the drain instead of retrying each item five
+  times; rows stay pending, uncharged, with an actionable message. 429/5xx still retry per item so
+  one bad row can't block the queue.
+- **`/admin/sync`** — active products vs chunks in Chroma vs queue depth, side by side, with a
+  "Sync now" button.
+
+Full reasoning in [design.md §7](documentation/design.md). Hybrid retrieval over this (Chroma + FTS5
+fused by RRF) and the validate node are still _pending_ — see
+[arch §3](SmartReco_Architecture_v2_FINAL.md).
+
+### Course artwork
+
+`python -m app.catalog.covers` generates one SVG cover per course into
+`app/web/static/assets/covers/`, drawn from the course's own metadata — hue by category, glyph
+scatter seeded by slug, level and price rendered as text.
+
+Generated rather than image-searched, deliberately. A DuckDuckGo image search for "LLMOps bootcamp"
+returns other people's copyrighted stock photos, redistributed from this repo, that mostly show
+laptops — neither the licensing nor the relevance survives scrutiny. A generated cover is legally
+clean, always on-topic, works offline in CI, and is byte-identical on every machine.
+
+SVG rather than PNG: no dependency (no Pillow to install and pin), sharp at both card and hero size,
+and ~2 KB per file instead of ~40 KB.
+
+---
+
+## 5. Agent workflow
+
+**Built.** `analyze → retrieve → fusion_rank → grade → generate → validate → store`, in
+[app/agent/](app/agent/). **One LLM call on the happy path**, and zero when no provider is
+reachable — the pipeline still produces a full set from templates.
+
+```
+trigger (§5.2 planner, no LLM)
+   │
+   ├─ analyze      dual-horizon interest decay        deterministic
+   ├─ retrieve     multi-query hybrid + RRF           embeddings
+   ├─ fusion_rank  6-term weighted score              deterministic
+   ├─ grade        enough evidence? one retry max     deterministic
+   ├─ generate     narrative + hooks + reasons        ← THE LLM CALL
+   ├─ validate     drop anything ungrounded           deterministic
+   └─ store        demote old set, insert new one
+```
+
+**Multi-query, not one blended query.** A user interested in both RAG and MLOps has an average
+vector pointing at neither, so a single query returns whatever sits nearest that meaningless
+midpoint. One query per signal — each ATS gap pair, the target role, stated goals, top interest
+categories — fused with RRF keeps both interests represented.
+
+**Ranking is six deterministic terms**, summing to 1.0:
+
+| Weight | Term | What it measures |
+| --- | --- | --- |
+| 0.40 | `rrf` | how strongly retrieval surfaced it |
+| 0.22 | `gap_match` | does it close a gap the ATS actually found |
+| 0.16 | `interest_match` | does it match what they actually read |
+| 0.10 | `level_fit` | right difficulty for their experience |
+| 0.07 | `rating_prior` | catalog quality (unrated = average, not bad) |
+| 0.05 | `graph_adjacency` | prereq/related edges from courses they viewed |
+
+`gap_match` is the addition to the original spec, and it earns its 0.22: a resume gap is
+*evidence*, not inference — the most defensible reason to recommend anything. Its weight comes from
+the planned freshness term, which cannot be computed until the catalog carries live cohort dates.
+A term that is always 0.5 is not a term.
+
+**The model writes; it never decides.** Which courses, what order, and the confidence number are
+all computed before the call. A model asked to rank returns a plausible order that changes between
+runs on identical input, and a user whose recommendations reshuffle without them doing anything has
+learned the system is arbitrary.
+
+**validate is the grounding guarantee**, not a request in a prompt. It drops ids retrieval never
+produced, courses deactivated since retrieval, duplicates — and quoted course titles the model
+invented in prose, which is how a hallucination escapes without a citation to strip.
+
+### Why recommendations evolve
+
+Four triggers, all gated by the deterministic planner in
+[triggers.py](app/agent/triggers.py):
+
+| Trigger | Fires when |
+| --- | --- |
+| `profile_change` / `ats_run` | target role edited, resume uploaded, ATS re-run |
+| `fingerprint_move` | behavioral interest drifts past `FINGERPRINT_COS_THRESHOLD` |
+| `enough_events` | `TRIGGER_MIN_EVENTS` accumulate since the last set |
+| `chat_facts` | conversation reveals a budget or target role the set didn't know |
+| `stale` | older than `REC_STALE_HOURS` **and** the user is back |
+
+Suppressed by a 90 s debounce (editing five fields is one run, not five), a per-user lock, and a
+cold-start floor.
+
+**The cold-start floor is where the "no recommendations" bug lived.** It originally counted only
+browsing events, so someone who set a target role and uploaded a resume — the strongest signal the
+system will ever get — stayed below it forever and saw an empty page. A declared profile now counts
+as signal in its own right.
+
+
+### When a provider goes down
+
+The architecture said all LLM traffic goes through Mesh. That stays the intent — Mesh is tried
+first for every call — but "mandatory" cannot mean "the product stops when the account runs out of
+balance", which is exactly what happened during this build: `402 spend_limit_exceeded`, then
+`403 API key is suspended`, and every recommendation, chat turn and ingest stopped.
+
+So: **Mesh first, Groq on a provider-level failure, never on a prompt-level one.**
+
+That distinction is the design. A 401/402/403 means *this provider cannot serve any request* —
+retrying is pointless and switching is correct. A malformed-JSON response is about the prompt, and
+re-sending it elsewhere spends money to fail twice. 429 and 5xx are transient and retried against
+the *same* provider. A circuit breaker skips a dead provider for 5 minutes so every call does not
+pay a round trip to rediscover the same 402, and any success clears it — topping up an account
+takes effect without a restart.
+
+**Embeddings cannot fail over to Groq, because Groq serves no embedding models.** The fallback is
+local: `nomic-embed-text-v1` on CPU via sentence-transformers, 768-dim, no key, no per-call cost —
+the one component that cannot be disabled by a billing event.
+
+The dimension trap is handled explicitly: Mesh is 1536-dim and nomic is 768, and vectors from two
+models are *not comparable at all* — cosine between them is noise, not a weaker signal. So
+`EmbeddingCache` is keyed on `(backend, text)` rather than text alone, and `EMBED_BACKEND`
+(`auto` | `mesh` | `local`) makes a switch a deliberate choice. Changing it means re-ingesting
+Chroma.
+
+Two model quirks worth recording, both found by testing rather than assumed:
+
+- **Reasoning models emit hidden chain-of-thought before any visible content.** A `max_tokens`
+  sized for the answer truncates them to an empty string with `finish_reason="length"` — a silent
+  empty reply, not an error. Measured: `gpt-oss-120b` spends ~45 completion tokens reasoning about
+  "reply with: ok"; `qwen3.6-27b` spends ~170. There is a floor of 1200.
+- **Qwen3 returns its reasoning inside `content`, wrapped in `<think>` tags.** Rendering that in a
+  chat bubble shows the user the model talking to itself about them, so it is stripped centrally —
+  including the unterminated case, where truncation leaves an opening tag with no close.
+
+`GROQ_MODEL_WRITER` is `gpt-oss-120b`, not qwen: the writer needs strict `json_schema`, and qwen on
+Groq supports only `json_mode` and 400s on a schema. Verified against `GET /models`.
+
+---
+
+## 6. Event tracking
+
+**Built and verified, both halves.** The requirement is that tracking must not slow down or break
+the frontend, and three rules follow:
+
+**Never block.** Events go into an in-memory array; the network happens on a timer, never on the
+interaction. No handler awaits a POST. A page load makes **zero** network calls — verified.
+
+**Never lose the last batch.** The most interesting event (a long dwell) happens exactly when the
+tab closes and `fetch` gets killed, so unload flushes go through `sendBeacon`. Beacon can't set
+headers, which is why the session rides the `sid` **cookie** — anything header-based would silently
+lose precisely those events.
+
+**Never break the page.** One try/catch-wrapped IIFE, every send fire-and-forget. An analytics bug
+must not take the product down.
+
+| Knob | Value | Why |
+|---|---|---|
+| batch | 10 events | flush early when the user is active |
+| interval | 5 s | bound the loss window when they're not |
+| queue cap | 200 | a runaway page can't exhaust memory |
+| scroll sampling | 150 ms | scroll fires at refresh rate — sampling keeps it off the main thread |
+
+**Throttling, concretely:** the scroll listener is `{passive: true}`, samples on a timer, and emits
+only the *highest new* milestone of 25/50/75/100. Flicking top-to-bottom is **one** event, not four;
+scrolling back up is none. Measured: 50 raw scroll events → 0 tracked events.
+
+**Dwell** is time the page is *visible*, not wall-clock — a tab open overnight isn't 30,000 seconds
+of interest. Under 1 s is a bounce and isn't recorded.
+
+**Delivery:** a failed send is re-queued rather than dropped; every event carries a
+`crypto.randomUUID()` and the writer uses `ON CONFLICT (event_uuid) DO NOTHING`, so retries and
+beacon duplicates can't double-count.
+
+Server side: `POST /api/events` returns **202** immediately and a background writer batches to
+SQLite (200 rows or 1 s). Queue capped at 10,000 with a `DROPPED` counter at `/api/events/stats` —
+backpressure is visible rather than silent.
+
+Anonymous visitors are tracked by a `sid` cookie; on register or login their prior events are
+stitched to their `user_id`, so a new account's first recommendation can draw on what the person did
+before signing up.
+
+Verified with 24 behavior assertions (tracker executed in Node against a DOM stub) plus a live
+round-trip: the exact JSON `tracker.js` emits, POSTed to a running server and read back out of
+SQLite. [design.md §8](documentation/design.md).
+
+_p95 latency: pending._
+
+---
+
+## 6a. Accounts and the declared profile
+
+**Built.** Registration takes email and password plus four **optional** fields — name, target role,
+years of experience, and a one-line goal. A new account has no behavior, so what someone tells us is
+the only signal a first recommendation can use; asking while they are already filling in a form
+beats hoping they visit `/profile` later. They stay optional because a required six-field signup is
+an abandonment funnel, and everything is editable afterwards. A failed password rule re-renders
+every value already typed.
+
+`/profile` collects the rest: bio, skills, current role, education, links, and the constraints that
+actually gate a recommendation — **budget, hours per week, preferred format**. Profile completeness
+is shown as a weighted meter that **names the fields still missing**, because "62% complete" is a
+nag and "add your target role and goals" is a prompt.
+
+Declared fields are kept strictly separate from the behaviorally-derived ones in the same table —
+different trust, different lifetimes, and the profile router can never corrupt the interest model.
+
+---
+
+## 6b. Resume intake and ATS scoring
+
+**Built.** Upload a resume (PDF, `.docx`, `.txt`, `.md`) or paste the text; saving runs an ATS
+check against your target role. PDF is parsed with `pypdf`, `.docx` by reading `word/document.xml`
+straight out of the zip with the stdlib — no `python-docx` dependency. Extraction failure is
+**loud**: a scanned PDF, a protected one, or a legacy `.doc` keeps the file, says exactly what
+happened, and points at the paste box rather than saving an empty profile.
+
+**The scorer is pure Python — no LLM call.** A model asked to rate a resume out of 100 returns a
+plausible number that moves between runs on identical input. A user who edits their resume and
+re-runs must be able to trust that 61 → 74 means the resume improved. Reproducibility is the
+feature, and it is testable in a way an LLM scorer is not:
+
+```
+ats_score = 0.45·keyword + 0.20·structure + 0.25·experience + 0.10·readability
+```
+
+Eight target roles, each with `must` skills weighted double `nice` ones. Two details that separate
+this from a keyword counter: **word-boundary matching** (substring matching makes `"R"` match every
+word containing it) and an **alias table**, so "torch" satisfies PyTorch and "k8s" satisfies
+Kubernetes. False gaps are worse than missed ones — they send someone to buy a course teaching what
+they already know — and a test asserts every reported gap really is absent from the text.
+
+**The output that matters is the gap list, not the score.** `missing_skills` becomes the retrieval
+query that drives both the advisor and the recommendations; a score with no gaps would be a vanity
+metric. Runs are stored with `is_current`, so re-scoring against a different role keeps the history
+that makes the number mean something. [arch §13.2](SmartReco_Architecture_v2_FINAL.md).
+
+---
+
+## 6c. The career advisor (chat)
+
+**Built.** A chat panel on every page for signed-in users, grounded in the same catalog as the
+recommendation cards.
+
+**It cannot invent a course.** Hybrid retrieval (Chroma + FTS5, fused by RRF) names the only courses
+the model may mention, and the answer is checked against that set afterwards — the chat equivalent
+of the validate node. A hallucinated id is stripped *along with the course title in front of it*,
+because removing only the marker leaves an invented name in the prose as plain text: the same false
+claim with the link taken off.
+
+It reasons over your ATS gaps first, then your declared profile, then your behavioral interest
+vector. A stated budget is applied as a **SQL filter**, not as a polite request in the prompt.
+Retrieval degrades in a stated order: no key or no Chroma drops it to FTS5-only and logs which path
+ran, rather than failing the turn.
+
+### Two-stage retrieval
+
+RRF fuses two *rankings* and never sees the query and the document together — good enough to pull
+16 plausible candidates, not good enough to choose the three an advisor will name. So a second
+stage reranks, behind `RERANK_MODE`:
+
+| Mode | What it does | Cost |
+| --- | --- | --- |
+| `fusion` | RRF order, unchanged — the baseline | zero |
+| `cross_encoder` | scores (query, course) **pairs** on term overlap, title/tag hits, phrase match | ~1 ms, no network |
+| `llm` | one structured call scores the shortlist 0–10 | one extra LLM call |
+
+`cross_encoder` is a **feature-based pair scorer, not a transformer** — worth saying plainly. A real
+MiniLM cross-encoder means a torch dependency, a model download, and CPU inference on the critical
+path of a chat turn, for a 12-course catalog. What matters about a cross-encoder is the *shape* —
+scoring the query jointly with each document instead of comparing two independent rankings — and
+this does that deterministically. Semantic paraphrase, where a neural one would win, is already
+covered by the vector half of the hybrid.
+
+Retrieval and reranking deliberately search **different strings**: the widened query (message +
+target role + carried topics) finds candidates, and the user's actual question orders them.
+Widening helps recall and hurts precision, so each stage gets the text that suits it.
+
+### Short and long conversation horizons
+
+The same dual-horizon idea the interest model uses for behavior, applied to conversation:
+
+- **Short** — the last 8 messages, verbatim. This is what makes *"what about the cheaper one?"*
+  resolvable; paraphrasing loses the referent the follow-up depends on.
+- **Long** — everything older, compacted to durable facts: stated budget, target role, topics
+  raised, courses already discussed. Deterministic regex over the user's own turns, not a
+  summarization call — a summary call on every turn doubles the cost of chatting, and a model
+  rendering *"my budget is 5000"* as *"the user mentioned budget"* destroys the number that made
+  it useful.
+
+Only `role == "user"` turns are mined. The assistant quotes prices constantly, and treating that as
+a user statement would let our own suggestion become their stated budget. Facts stated in
+conversation **override** the stored profile — someone who says *"actually my budget is 5000"*
+means it now.
+
+So the cost of turn N does not depend on N: the verbatim window is fixed and the compacted block
+stays roughly one size whether the thread is 10 turns or 300.
+
+### The learning path
+
+Every reply can carry a **mermaid flowchart**, built in Python from the cited courses and the real
+`prereq_ids` ladder in the catalog — never drawn by the model. A model asked to draw a learning path
+will invent an edge to a course we do not sell, and a plausible-looking wrong diagram is harder to
+catch than a wrong sentence. The ordered steps also render as a text list, so a blocked mermaid
+bundle degrades to a usable answer rather than an empty frame.
+
+### Buy intent
+
+The chat grades purchase intent per turn (`cold` / `warm` / `hot`) and surfaces a CTA only above
+`warm`. Scored in Python from the user's own words, for the same reason as the ATS score:
+reproducibility, and no third LLM call.
+
+The judgement encoded here is mostly *when not to pitch*. An advisor that sells on every turn stops
+being an advisor, and once a user decides the chat is a funnel they stop volunteering the honest
+inputs — real budget, real gaps — that make the advice good. So objections zero the score, and
+**nothing is ever pitched that the user cannot afford**: if every retrieved course is over their
+stated budget, an enthusiastic *"how do I enrol?"* still resolves to cold.
+
+Intent is a high-water mark on the conversation, so a warm lead stays visible after the turn that
+produced it scrolls away. [arch §13.3](SmartReco_Architecture_v2_FINAL.md).
+
+---
+
+## 7. Email — scheduler, digest, and the four formats
+
+Four message kinds share one transport, one Jinja environment, and one opt-out switch.
+[`app/mail/`](app/mail/). Design detail: [design.md §10](documentation/design.md).
+
+| Kind | Trigger | Won't send unless | Respects opt-out |
+| --- | --- | --- | --- |
+| **Daily digest** | Cron at `DIGEST_HOUR` (default 16:00) | there's a current recommendation set | yes |
+| **Welcome** | Registration, fire-and-forget | — always renders | no — transactional |
+| **ATS report** | User presses "Email me this report" | a resume analysis exists | no — explicitly requested |
+| **Re-engagement** | Cron, Mondays 10:00 | the user is idle `REENGAGE_AFTER_DAYS`+ and we can name a course they opened | yes |
+
+### When mail goes out
+
+The digest is the only one on a daily clock, and it is **idempotent per user per day** — the
+`digest_log` unique constraint on `(user_id, sent_date)` is what makes that true. A restart at
+16:01, an admin pressing the manual trigger, and the cron itself all converge on one email. Run
+the trigger twice and the second run reports everyone as `skipped`; that skip *is* the guarantee.
+
+Two rules keep the volume honest:
+
+- **No content, no send.** A user with no current recommendation gets nothing rather than an empty
+  "no picks today" mail. The whole planner design (§3) is that a recommendation exists only when
+  behavior justified generating one — so silence is the correct output, not a failure.
+- **A nudge must name something specific.** Re-engagement sends only when it can point at the
+  course the person actually last opened. Without that it's a "we miss you" mail, which is the
+  genre people mark as spam.
+
+The ATS report is behind a button rather than fired on every analysis: `save_profile` re-scores on
+every save, and mailing a report each time someone fixes a typo would get the sender filtered
+within a week.
+
+### How mail is sent
+
+`aiosmtplib` over STARTTLS (port 587) or implicit TLS (465), chosen by `SMTP_PORT`. Set the four
+`SMTP_*` vars in `.env` and mail is delivered for real.
+
+**With no credentials configured, sending still works** — the rendered message is written to
+`data/outbox_mail/*.eml` (openable in any mail client) and reported as `stored` instead of `sent`.
+This is a supported mode, not an error path: tests, CI, and a laptop demo all run with no secret,
+and an expired password degrades to "the digest is on disk" rather than a stack trace inside a
+scheduler job at 16:00. `SendResult.mode` distinguishes the two everywhere, so nothing in the UI
+ever claims a delivery that did not happen.
+
+Failures return, they never raise. The digest loops over users; one bad address must not abort the
+other forty-nine.
+
+### What "personalized" means here
+
+Every format is assembled per user from stored state — none of it is a mail-merge over a template
+with a name slotted in:
+
+- The digest carries the agent's own **narrative**, plus each item's **hook** and **reason** — the
+  per-user text that already justifies the card on `/recommendations`.
+- It closes by naming the **resume gaps** those courses were chosen against, which is the seam
+  between the ATS feature and the recommender: _"Chosen partly against the gaps in your resume for
+  Generative AI Engineer: langgraph, rag, evaluation."_
+- The welcome mail lists the **specific profile fields this account is missing**, weight-ordered by
+  `completeness()` — the same three the progress meter asks for.
+- Re-engagement names the **last course actually opened** and how long ago.
+- Missing a name degrades to no name, never to `Hi meetsupriyoc...` — a mangled email local-part
+  advertises that the sender knows nothing about you.
+
+Every message ships HTML **and** hand-written plain text. The text half is not a formality: it's
+what screen readers and spam filters read, and auto-degrading HTML loses every link.
+
+### Operating it
+
+`/admin/mail` shows transport state first — the most common confusion is "I pressed send and
+nothing arrived" when SMTP was unconfigured and the `.eml` is exactly where it should be. From
+there: send any kind to any user, preview any kind in the browser without sending, and run the
+digest fan-out on demand (forced or idempotent).
+
+`/profile` carries the single opt-out switch every automated email links to.
+
+---
+
+## 8. Evaluation
+
+_Pending — 7 personas, Coverage, Diversity@5, and an ablation. Every number will be labeled
+measured or directional._
+
+---
+
+## 9. Setup & run
+
+**Requirements:** Python 3.11+.
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate     # macOS / Linux
+pip install -r requirements.txt
+
+cp .env.example .env            # then set MESH_API_KEY and SECRET_KEY
+```
+
+Create the schema, load the catalog, and mint an admin:
+
+```bash
+python -m app.db.init_db                             # tables + FTS5 + triggers + indexes
+python -m app.catalog.sync_sql                       # data/data_1 → products (no API key needed)
+python -m app.auth.cli create-admin you@example.com  Ex: app@kraishnaik.in# first admin
+```
+
+Run it:
+
+```bash
+uvicorn app.main:app --reload --workers 1     # → http://127.0.0.1:8000
+# or 
+make dev
+```
+
+Then register at `/auth/register` as a regular user, fill in `/profile`, browse the catalog, and log
+in as the admin to manage products at `/admin/products`.
+
+**With a Mesh API key**, additionally chunk and embed the catalog into Chroma:
+
+```bash
+python -m app.catalog.ingest data/data_1 --allow-pending    # chunk → embed → Chroma
+python -m app.catalog.outbox                                # drain pending product writes
+```
+
+`settings.use_mesh` is false when `ENV=test` or no key is set, so tests and the browsable app run
+entirely offline. Without a key the app is fully usable — products are still created and queued;
+they simply wait in `vector_outbox` until a key exists, which `/admin/sync` shows plainly.
+
+> **Note on `init_db`.** It creates missing tables *and* adds columns that exist in the models but
+> not yet in the database, reporting each one. It is not a migration tool — renames, drops and type
+> changes are not detected — but re-running it after a model change no longer silently does nothing.
+
+> **If Chroma sync reports `402 spend_limit_exceeded`,** the Mesh account is out of balance.
+> Embeddings are a paid call (listing models is not, so startup still reports all models available).
+> Nothing is lost: the queue holds, and `/admin/sync` → *Sync now* completes the work after a top-up.
+
+### Bring your own course catalog
+
+Nothing here is hard-coded to the 12 sample courses in `data/data_1/`. The catalog is just files on
+disk — swap them for your own and the same commands ingest them.
+
+**Input: one JSON file per course**, named `<slug>.json`, conforming to
+[`data/course.schema.json`](data/course.schema.json). The curation rules a JSON Schema can't express
+— paraphrase-only overviews, the objective/module corroboration rule, how to record a coupon-driven
+price, live-vs-recorded date handling — are in [`data/COURSE_SCHEMA.md`](data/COURSE_SCHEMA.md).
+Read it before writing your first file; most of it is about what silently breaks retrieval or
+generation if you skip it, not boilerplate.
+
+Nine fields are required: `slug title overview category level is_free skills objectives source_url`.
+Everything else (pricing, `format`, `module_groups`, `prereq_ids`/`related_ids`, …) is optional and
+documented in the schema's field descriptions.
+
+Put your files anywhere — a fresh `data/<your-name>/` directory is cleanest — and point the pipeline
+at it. Every stage takes the directory as its one positional argument (or `DATA_DIR=` for `make`):
+
+```bash
+python data/data_1/validate_seed.py data/<your-name>          # structure + curation rules — run this first
+python -m app.catalog.catalogue data/<your-name>               # curation tracker → data/courses_catalogue.json
+python -m app.catalog.sync_sql data/<your-name>                 # → products table (no API key needed)
+python -m app.catalog.ingest data/<your-name> --allow-pending  # chunk → embed → Chroma; writes data/catalog.index.json
+
+# or, with make:
+make validate DATA_DIR=data/<your-name>
+make ingest   DATA_DIR=data/<your-name>       # runs validate + catalogue + ingest
+```
+
+`--allow-pending` matters most here: with a brand-new catalog every `prereq_ids`/`related_ids` edge
+you write before curating the target course would otherwise fail ingest outright. It drops
+unresolved edges _in memory only_ — your files are untouched, and the edges reconnect on the next
+ingest once that course exists.
+
+**Two files are generated output, not input — never hand-edit them:**
+
+- **`data/catalog.index.json`** — written by `ingest.py`. The full course documents plus computed
+  freshness, keyed by slug, for the `generate` node's Tier-3 persuasion facts at answer time.
+  Regenerate it by re-running ingest; don't edit it directly, your changes will be overwritten on
+  the next run.
+- **`data/courses_catalogue.json`** — written by `catalogue.py`. A curation tracker (one row per
+  course, every open issue the tools can detect) for confirming your catalog is ready, not a runtime
+  artifact the app reads.
+
+If you skip `--allow-pending`-worthy edges and everything resolves clean, `python -m app.catalog.catalogue --check`
+in CI will catch a course silently going stale (a cohort date passing into the past) the day after it
+happens.
+
+### Windows notes
+
+`make` is not available on a default Windows install. Every target has a direct equivalent — the
+table below is the full list; the `Makefile` is a convenience for Unix shells, not a requirement.
+
+`python -m app.db.init_db` prints a `✓`, which crashes on the cp1252 console default. Either set
+`$env:PYTHONIOENCODING="utf-8"` once per session, or ignore the traceback — the schema is created
+before the print.
+
+### Command reference
+
+| Make target        | Direct command                                                  |
+| ------------------ | --------------------------------------------------------------- |
+| `make dev`       | `uvicorn app.main:app --reload --workers 1`                   |
+| `make init`      | `python -m app.db.init_db`                                    |
+| `make validate DATA_DIR=…`  | `python data/data_1/validate_seed.py [dir]` (default `data/data_1`)     |
+| `make catalogue DATA_DIR=…` | `python -m app.catalog.catalogue [dir]` (default `data/data_1`)         |
+| `make ingest DATA_DIR=…`    | `python -m app.catalog.ingest [dir] --allow-pending` (default `data/data_1`) |
+| `make test`      | `python -m pytest tests/ -q`                                  |
+| `make lint`      | `ruff check app/ evals/ tests/`                               |
+| —                 | `python -m app.mail.cli send digest EMAIL` (one message, now)  |
+| —                 | `python -m app.mail.cli run-digest [--force]` (the 16:00 job)  |
+| —                 | `python -m app.mail.cli check` (SMTP reachability + auth)      |
+| —                 | `python -m app.catalog.covers` (regenerate course cover art)   |
+| —                 | `python -m app.catalog.sync_sql [dir]` (catalog → SQL, no API key; default `data/data_1`) |
+| —                 | `python -m app.catalog.outbox` (drain pending → Chroma)       |
+| —                 | `python -m app.auth.cli create-admin EMAIL`                   |
+| —                 | `python -m app.auth.cli make-admin EMAIL`                     |
+| —                 | `node tests/tracker/test_tracker.js` (tracker.js behavior)    |
+
+Note `make ingest` depends on `validate` and `catalogue`; run those first if you invoke the ingest
+command directly.
+
+Test dependencies live in the `dev` extra and are not installed by default:
+`uv pip install pytest pytest-asyncio pytest-cov` (or `pip install -e ".[dev]"`).
+
+---
+
+## 10. Trade-offs & future work
+
+**Taken deliberately, for a four-day build:**
+
+- Server-rendered over React — the tracker needs real page loads, and a Node toolchain is a second
+  runtime to deploy ([design.md §2](documentation/design.md)).
+- SQLite over Postgres — one writer, many readers, WAL mode. Correct for this workload; the ceiling
+  is real but far above a demo.
+- `init_db` over a migration tool — greenfield app with a four-day life. It now reconciles added
+  columns so a model change isn't silently ignored, but it is still not Alembic.
+- No CSRF tokens (`SameSite=lax` covers the realistic threat), no login rate limiting, no password
+  reset. All three are production requirements and none is an Aug 9 requirement.
+- No PDF parsing library — a resume's value here is its text, and the paste box gets that with zero
+  parsing risk. The extractor fails loudly rather than storing an empty profile.
+- Browser tests run `tracker.js` under Node against a DOM stub rather than a real browser. It proves
+  the batching, throttling and beacon *logic*; it does not prove cross-browser rendering.
+- APScheduler in-process, `--workers 1` — two workers would drain the outbox twice concurrently.
+
+**Future work:** planner-LLM analysis, knowledge graph, learned ranker, Redis Streams for the event
+pipeline, collaborative filtering, A/B over Mesh fan-out. For the dual-write specifically: a
+reconciliation sweep comparing `products.content_hash` against Chroma metadata, to catch drift from
+writes that bypassed the outbox entirely.
+
+---
+
+## Repository layout
+
+```
+app/
+  auth/         security (bcrypt, signed cookies) · routes · deps · admin CLI
+  admin/        product CRUD, ingest trigger, vector-sync page, agent-run observability
+  profiles/     declared user info — routes · resume intake/extraction
+                ats.py      → deterministic ATS scoring + gap analysis
+  chat/         the career advisor
+                retrieval.py → hybrid Chroma+FTS5 retrieval, RRF-fused
+                rerank.py    → 2nd stage: fusion | cross_encoder | llm
+                context.py   → short/long conversation horizons, fact mining
+                pathway.py   → mermaid learning path from the prereq ladder
+                intent.py    → buy-intent scoring (cold/warm/hot)
+                agent.py     → context assembly, prompt, grounding enforcement
+  catalog/      loader · chunker · freshness · ingest · sync_sql · browse routes
+                covers.py   → generated SVG cover art, one per course
+                vectors.py  → the Chroma write path
+                outbox.py   → drains vector_outbox into Chroma (the dual-write)
+  agent/        the recommendation pipeline
+                graph.py      → analyze→retrieve→rank→grade→generate→validate
+                triggers.py   → THE PLANNER: when an LLM call is justified
+                interests.py  → events → decayed interest vector
+                providers.py  → Mesh→Groq failover, circuit breaker
+                embeddings.py → Mesh→local (nomic) embedding failover
+                nodes/        → one file per pipeline stage
+  mail/         outbound email
+                sender.py     → SMTP transport + store-to-disk fallback
+                messages.py   → the four kinds: digest · welcome · ATS · re-engage
+                digest.py     → the daily fan-out, idempotent via digest_log
+                templating.py → Jinja env for email (inline CSS, absolute URLs)
+                preview.py    → render without sending, for /admin/mail
+                templates/    → *.html + *.txt, one pair per kind
+  tracking/     event ingest queue + routes
+  web/          templates, static (tracker.js · chat.js · ui.js), recommendations
+                static/assets/covers/ → generated course art (SVG)
+                static/vendor/        → mermaid, vendored not CDN-loaded
+  db/           models · session (WAL pragmas) · init_db · seed
+  scheduler/    APScheduler jobs — 30 s outbox drain, nightly maintenance,
+                16:00 digest, Monday re-engagement sweep
+data/
+  data_1/                 hand-curated course catalog (12 courses, one JSON per course)
+                          — replace/add your own here, or point the pipeline at another dir
+  course.schema.json      INPUT contract — structure every course file must satisfy
+  COURSE_SCHEMA.md        INPUT — curation rules the schema can't express; read before writing courses
+  catalog.index.json      GENERATED by ingest — full course docs + freshness, keyed by slug
+  courses_catalogue.json  GENERATED by catalogue.py — curation tracker, not runtime state
+  resumes/      uploaded resumes, stored as user_{id}.{ext}  (gitignored)
+  outbox_mail/  rendered .eml files when SMTP is unconfigured  (gitignored)
+tests/
+  test_ats.py       test_chat.py      test_profiles.py   test_mail.py
+  test_outbox.py    test_freshness.py test_smoke.py      test_rerank.py
+  test_providers.py test_recommendations.py
+  tracker/          test_tracker.js — runs tracker.js under Node
+documentation/
+  design.md     auth · roles · schema · dual-write · tracking · profiles
+```
+
+**Tests: 212 passing** (`python -m pytest tests/ -q`), plus 24 tracker assertions under Node.

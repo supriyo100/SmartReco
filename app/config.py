@@ -1,3 +1,5 @@
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +24,40 @@ class Settings(BaseSettings):
     GROQ_MODEL_FAST_FALLBACK: str = "openai/gpt-oss-20b"
     # Must support strict json_schema — qwen3.6 on Groq is json_mode only.
     GROQ_MODEL_WRITER: str = "openai/gpt-oss-120b"
+
+    # --- Ollama: local fallback when both Mesh and Groq are unavailable -----
+    # Opt-in (default off) — a production box has no local daemon, so probing
+    # for one on every provider chain build would just add a wasted connection
+    # attempt. Turn it on in .env on a machine actually running `ollama serve`.
+    # OpenAI-wire-compatible like Groq, so it slots into the same chain() list
+    # rather than a separate code path. Needs no API key.
+    OLLAMA_ENABLED: bool = False
+    OLLAMA_BASE_URL: str = "http://localhost:11434/v1"
+    OLLAMA_MODEL_FAST: str = "qwen3.5:9b"
+    OLLAMA_MODEL_FAST_FALLBACK: str = "qwen3.5:9b"
+    OLLAMA_MODEL_WRITER: str = "qwen3.6:27b"
+
+    # --- Chat agent middleware: cost and loop guards -------------------------
+    # Tightened from 4/6/3: a normal turn needs at most one search-then-answer
+    # round plus one clarify-then-retry (SYSTEM_PROMPT rule 11 already tells
+    # the model not to blind-retry a rejected search). These are the graceful
+    # caps — ModelCallLimitMiddleware ends the turn with whatever answer
+    # exists so far rather than crashing, unlike RECURSION_LIMIT below, which
+    # is a hard safety net and must stay strictly above these.
+    CHAT_MODEL_CALL_LIMIT_PER_TURN: int = 3
+    CHAT_TOOL_CALL_LIMIT_PER_TURN: int = 4
+    CHAT_SEARCH_CALL_LIMIT_PER_TURN: int = 2
+
+    # --- Chat usage budgets ---------------------------------------------------
+    # Mesh ran out of balance mid-build (402 spend_limit_exceeded, no warning
+    # — see providers.py) and the first symptom was every chat turn silently
+    # failing. These are the guardrail that should have made that "you're
+    # near the limit" instead of an outage: checked from `llm_call_log`
+    # (app/agent/telemetry.py) before a turn spends anything, at three
+    # scopes — one thread, one user's day, and the whole platform's day.
+    CHAT_SESSION_TOKEN_LIMIT: int = 20_000
+    CHAT_USER_DAILY_TOKEN_LIMIT: int = 50_000
+    CHAT_GLOBAL_DAILY_TOKEN_LIMIT: int = 300_000
 
     # --- Embeddings ---------------------------------------------------------
     # Groq serves no embedding models, so the embedding fallback has to be
@@ -49,6 +85,12 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/smartreco.db"
     CHROMA_DIR: str = "./chroma_data"
     ENV: str = "development"
+
+    # A course description reaching a prompt (chat's _fmt_course, generate's
+    # _fmt, rerank's _llm_rerank listing) used to be truncated at three
+    # different lengths — 280/200/160 — tuned locally at each call site with
+    # no shared budget behind the numbers (plan.md §6/§8). One constant now.
+    PROMPT_DESCRIPTION_CHARS: int = 200
 
     RERANK_MODE: str = "fusion"
     FINGERPRINT_COS_THRESHOLD: float = 0.15
@@ -93,6 +135,7 @@ class Settings(BaseSettings):
     LANGSMITH_TRACING: bool = False
     LANGSMITH_API_KEY: str = ""
     LANGSMITH_PROJECT: str = "smartreco"
+    LANGSMITH_ENDPOINT: str = "https://api.smith.langchain.com"
 
     @property
     def use_mesh(self) -> bool:  # DeepSeek 4.3: tests run without a key
@@ -116,3 +159,20 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# pydantic-settings reads .env into `settings` only — it never touches
+# os.environ. LangChain/LangSmith's tracing is activated purely by reading
+# the process environment at call time, so without this, LANGSMITH_TRACING=1
+# in .env silently does nothing (verified: traces never reached the LangSmith
+# project despite the key being configured). Both the current (LANGSMITH_*)
+# and legacy (LANGCHAIN_*) var names are set since different langchain/
+# langsmith versions check different ones.
+if settings.LANGSMITH_TRACING and settings.LANGSMITH_API_KEY:
+    os.environ.setdefault("LANGSMITH_TRACING", "true")
+    os.environ.setdefault("LANGSMITH_API_KEY", settings.LANGSMITH_API_KEY)
+    os.environ.setdefault("LANGSMITH_ENDPOINT", settings.LANGSMITH_ENDPOINT)
+    os.environ.setdefault("LANGSMITH_PROJECT", settings.LANGSMITH_PROJECT)
+    os.environ.setdefault("LANGCHAIN_TRACING_V2", "true")
+    os.environ.setdefault("LANGCHAIN_API_KEY", settings.LANGSMITH_API_KEY)
+    os.environ.setdefault("LANGCHAIN_ENDPOINT", settings.LANGSMITH_ENDPOINT)
+    os.environ.setdefault("LANGCHAIN_PROJECT", settings.LANGSMITH_PROJECT)

@@ -52,6 +52,7 @@ dependencies = [
     "jsonschema",
     "itsdangerous>=2.2",
 
+
     # ---- Database & Migrations ----
     "sqlalchemy>=2.0",
     "aiosqlite>=0.20",
@@ -72,6 +73,9 @@ dependencies = [
     "langgraph-checkpoint-sqlite>=2.0",
     "langchain>=0.3",
     "langchain-core>=0.3",
+   "einops",
+   "pypdf",
+   "httpx2",
     "langchain-openai>=0.3",
 
     # ---- LLM (Mesh API) ----

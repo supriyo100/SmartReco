@@ -206,7 +206,7 @@ async def _llm_rerank(query: str, candidates: list[Product],
 
     listing = "\n".join(
         f"{p.id}: {p.title} | {p.category} | {p.level} | "
-        f"{(p.description or '')[:160]}"
+        f"{(p.description or '')[:settings.PROMPT_DESCRIPTION_CHARS]}"
         for p in candidates
     )
     schema = {

@@ -9,6 +9,7 @@ message is not a chat.
 from __future__ import annotations
 
 import logging
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
@@ -30,6 +31,24 @@ class ChatIn(BaseModel):
     conversation_id: int | None = None
 
 
+class ChatResumeIn(BaseModel):
+    """Body for POST /api/chat/resume — the learner's decision on a
+    HumanInTheLoopMiddleware pause (currently: a profile write the chat
+    agent wants to confirm before saving)."""
+    conversation_id: int
+    decision: Literal["approve", "reject"]
+    message: str = ""
+
+
+def _format_interrupt(hitl: dict) -> dict:
+    """HITLRequest → the shape the chat panel actually needs to render an
+    approval card, dropping the `review_configs` half that only exists to
+    tell the runtime which decisions are legal."""
+    actions = hitl.get("action_requests") or []
+    return {"description": actions[0].get("description", "") if actions else "",
+            "actions": [{"name": a.get("name"), "args": a.get("args")} for a in actions]}
+
+
 def _card(p: Product) -> dict:
     return {"id": p.id, "slug": p.slug, "title": p.title,
             "category": p.category, "level": p.level,
@@ -47,6 +66,24 @@ async def send(payload: ChatIn, request: Request,
     message = payload.message.strip()
 
     result = await answer(user.id, conv.id, message)
+
+    if result.get("interrupt"):
+        # HumanInTheLoopMiddleware paused the run. The user's message is
+        # real and gets saved now; the assistant's reply does not exist yet
+        # — it lands on /resume once they approve or reject.
+        async with async_session() as s:
+            s.add(ChatMessage(conversation_id=conv.id, role="user", content=message))
+            row = (await s.execute(
+                select(Conversation).where(Conversation.id == conv.id)
+            )).scalar_one()
+            if not row.title:
+                row.title = message[:80]
+            row.pending_interrupt = {"thread_id": result["thread_id"],
+                                     "request": result["interrupt"]}
+            await s.commit()
+        return {"interrupt": _format_interrupt(result["interrupt"]),
+               "conversation_id": conv.id}
+
     intent = result.get("intent") or {}
 
     async with async_session() as s:
@@ -103,6 +140,63 @@ async def send(payload: ChatIn, request: Request,
             # the matched patterns are internal — showing a user "we scored
             # your purchase intent at 0.81" is not a feature.
             "offer": _offer(intent, by_id)}
+
+
+@router.post("/resume")
+async def resume(payload: ChatResumeIn, user: User = Depends(require_user)):
+    """Continue a HITL-paused turn with the learner's approve/reject decision."""
+    async with async_session() as s:
+        conv = (await s.execute(
+            select(Conversation).where(Conversation.id == payload.conversation_id,
+                                       Conversation.user_id == user.id)
+        )).scalar_one_or_none()
+    if conv is None or not conv.pending_interrupt:
+        return JSONResponse({"error": "no pending approval for this conversation"},
+                            status_code=409)
+
+    from app.chat.agent import resume as agent_resume
+
+    pending = conv.pending_interrupt
+    result = await agent_resume(conv.id, pending["thread_id"], payload.decision,
+                                payload.message)
+
+    if result.get("interrupt"):
+        # Approving one action can itself trigger another pause (e.g. a
+        # second profile field in the same tool call batch) — persist the
+        # new pending state the same way the initial turn does.
+        async with async_session() as s:
+            row = (await s.execute(
+                select(Conversation).where(Conversation.id == conv.id)
+            )).scalar_one()
+            row.pending_interrupt = {"thread_id": result["thread_id"],
+                                     "request": result["interrupt"]}
+            await s.commit()
+        return {"interrupt": _format_interrupt(result["interrupt"]),
+               "conversation_id": conv.id}
+
+    intent = result.get("intent") or {}
+    async with async_session() as s:
+        s.add(ChatMessage(conversation_id=conv.id, role="assistant",
+                          content=result["answer"],
+                          cited_product_ids=result["cited"],
+                          model_used=result["model"],
+                          latency_ms=result["latency_ms"],
+                          retrieval_path=result.get("retrieval_path", ""),
+                          pathway=result.get("pathway") or {},
+                          intent_level=intent.get("level", "cold"),
+                          intent_score=float(intent.get("score") or 0.0)))
+        row = (await s.execute(
+            select(Conversation).where(Conversation.id == conv.id)
+        )).scalar_one()
+        row.pending_interrupt = None
+        await s.commit()
+
+    by_id = {p.id: p for p in result["courses"]}
+    cards = [_card(by_id[pid]) for pid in result["cited"] if pid in by_id]
+    return {"answer": result["answer"], "conversation_id": conv.id,
+           "cards": cards, "model": result["model"],
+           "latency_ms": result["latency_ms"],
+           "pathway": result.get("pathway")}
 
 
 def _kick_recommendations(user_id: int, reason: str) -> None:

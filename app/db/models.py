@@ -131,6 +131,15 @@ class UserProfile(Base):
     resume_text: Mapped[str] = mapped_column(Text, default="")
     resume_uploaded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
+    # The rendered "WHAT YOU KNOW ABOUT THIS USER" chat prompt block (see
+    # app/chat/brief.py), stored at write-time rather than rebuilt from this
+    # row + ResumeAnalysis + Recommendation on every chat turn — plan.md §1-5.
+    # `brief_fingerprint` is a hash of exactly the fields the brief reads;
+    # a mismatch means it's stale and the chat agent falls back to rendering
+    # it live rather than serving outdated advice.
+    background_brief: Mapped[str] = mapped_column(Text, default="")
+    brief_fingerprint: Mapped[str] = mapped_column(String, default="")
+
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow,
                                                  onupdate=datetime.utcnow)
 
@@ -209,6 +218,12 @@ class Conversation(Base):
     # after the turn that produced it scrolls away.
     intent_level: Mapped[str] = mapped_column(String, default="cold")
     intent_score: Mapped[float] = mapped_column(Float, default=0.0)
+    # Set when HumanInTheLoopMiddleware pauses a turn for approval (e.g. a
+    # profile write the agent inferred from conversation) and the LangGraph
+    # checkpointer holds the paused run — this column is only what lets
+    # /api/chat/history show "there's a pending approval" after a page
+    # reload, without querying the checkpointer directly. Cleared on resume.
+    pending_interrupt: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow,
                                                  onupdate=datetime.utcnow)
@@ -287,6 +302,39 @@ class AgentRun(Base):
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String, default="ok")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class LLMCallLog(Base):
+    """One row per actual provider call — chat agent and recommendation
+    pipeline both write here. `AgentRun` records one row per recommendation
+    *run* (retrieval rounds, node path); this is the finer grain underneath
+    it and underneath every chat turn: which provider and model answered,
+    how many tokens it cost, how long it took, and whether it was the
+    primary provider or a fallback. That is what a token-utilization or
+    cost dashboard needs and `AgentRun`/`ChatMessage` do not carry.
+
+    Written for failed attempts too (status="error"), same reasoning as
+    `AgentRun._record_run` — a table that only records successes cannot
+    show which provider is actually flaky.
+    """
+    __tablename__ = "llm_call_log"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String)             # fast | fast_fallback | writer | chat
+    provider: Mapped[str] = mapped_column(String)          # mesh | groq | ollama
+    model: Mapped[str] = mapped_column(String, default="")
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    conversation_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    attempt: Mapped[int] = mapped_column(Integer, default=1)
+    is_fallback: Mapped[bool] = mapped_column(Boolean, default=False)  # provider != the primary tier
+    prompt_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    total_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String, default="ok")  # ok | error
+    error: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    __table_args__ = (Index("ix_llm_calls_provider_created", "provider", "created_at"),
+                      Index("ix_llm_calls_kind_created", "kind", "created_at"))
 
 
 class DigestLog(Base):

@@ -38,29 +38,79 @@
 
   /* ---- rendering ------------------------------------------------------- */
 
-  function inlineInto(el, text) {
-    // Supports **bold** only. A full markdown parser is a dependency and an
-    // XSS surface; bold is the one thing the model reliably uses for course
-    // titles. Everything else lands as plain text, which is the safe default.
-    var parts = String(text).split(/\*\*(.+?)\*\*/g);
-    for (var i = 0; i < parts.length; i++) {
-      if (!parts[i]) continue;
-      if (i % 2 === 1) {
-        var b = document.createElement("strong");
-        b.textContent = parts[i];
-        el.appendChild(b);
-      } else {
-        el.appendChild(document.createTextNode(parts[i]));
+  // Four things this looks for, told apart by which capture group is set:
+  //   1,2 — **Title** immediately followed by its [[id:N]] marker (the
+  //         server's citation contract, app/chat/agent.py CITED_TITLE_RE)
+  //     3 — a lone *emphasis* run (single asterisk — the model is asked to
+  //         use ** only, but this keeps a slip from leaking literal
+  //         asterisks into the reply instead of silently misrendering)
+  //     4 — a bare [[id:N]] with no bold title in front of it
+  var CITE_TOKEN_RE =
+    /\*\*([^*]{1,160})\*\*(?:[\s—–-]*\[\[id:(\d+)\]\])?|\*([^*\n]{1,80})\*|\[\[id:(\d+)\]\]/g;
+
+  function appendCourseLink(el, title, card) {
+    var a = document.createElement("a");
+    a.className = "chat-inline-link";
+    a.href = "/course/" + card.slug;
+    a.textContent = title;
+    a.setAttribute("data-rec-click", "1");
+    a.setAttribute("data-product-id", card.id);
+    el.appendChild(a);
+    el.appendChild(document.createTextNode(" ("));
+    var syl = document.createElement("a");
+    syl.className = "chat-inline-syllabus";
+    syl.href = "/course/" + card.slug + "#curriculum";
+    syl.textContent = "syllabus";
+    el.appendChild(syl);
+    el.appendChild(document.createTextNode(")"));
+  }
+
+  function inlineInto(el, text, cardsById) {
+    // A cited course becomes a real link plus a "(syllabus)" link, not just
+    // bold text with a marker stripped out of it — the marker is the
+    // server's contract, not something a reader should see either way, but
+    // the title it decorates should be something they can actually click.
+    var str = String(text);
+    var last = 0;
+    var m;
+    CITE_TOKEN_RE.lastIndex = 0;
+    while ((m = CITE_TOKEN_RE.exec(str)) !== null) {
+      if (m.index > last) {
+        el.appendChild(document.createTextNode(str.slice(last, m.index)));
       }
+      var boldText = m[1];
+      var italicText = m[3];
+      if (boldText !== undefined) {
+        var card = m[2] && cardsById ? cardsById[m[2]] : null;
+        if (card) {
+          appendCourseLink(el, boldText, card);
+        } else {
+          var b = document.createElement("strong");
+          b.textContent = boldText;
+          el.appendChild(b);
+        }
+      } else if (italicText !== undefined) {
+        var em = document.createElement("em");
+        em.textContent = italicText;
+        el.appendChild(em);
+      } else if (m[4]) {
+        // A bare marker with no preceding bold title. If the id resolves to
+        // a course we actually retrieved this turn, use the course's own
+        // title as the link text rather than dropping it silently — a
+        // citation the model forgot to bold should still become something
+        // clickable. An id that resolves to nothing is dropped, as before.
+        var bare = cardsById ? cardsById[m[4]] : null;
+        if (bare) appendCourseLink(el, bare.title, bare);
+      }
+      last = CITE_TOKEN_RE.lastIndex;
+    }
+    if (last < str.length) {
+      el.appendChild(document.createTextNode(str.slice(last)));
     }
   }
 
-  function renderBody(container, text) {
-    // The [[id:N]] citation markers are the contract with the server, not
-    // something to show a reader — the cards below the message are their
-    // visible form.
-    var clean = String(text || "").replace(/\s*\[\[id:\d+\]\]/g, "");
-    var blocks = clean.split(/\n{2,}/);
+  function renderBody(container, text, cardsById) {
+    var blocks = String(text || "").split(/\n{2,}/);
     blocks.forEach(function (block) {
       var lines = block.split("\n");
       var bullets = lines.filter(function (l) { return /^\s*[-*]\s+/.test(l); });
@@ -70,13 +120,13 @@
         var ul = document.createElement("ul");
         bullets.forEach(function (l) {
           var li = document.createElement("li");
-          inlineInto(li, l.replace(/^\s*[-*]\s+/, ""));
+          inlineInto(li, l.replace(/^\s*[-*]\s+/, ""), cardsById);
           ul.appendChild(li);
         });
         container.appendChild(ul);
       } else if (block.trim()) {
         var p = document.createElement("p");
-        inlineInto(p, block.replace(/\n/g, " "));
+        inlineInto(p, block.replace(/\n/g, " "), cardsById);
         container.appendChild(p);
       }
     });
@@ -260,15 +310,19 @@
     wrap.className = "msg bot" + (isError ? " err" : "");
     var bubble = document.createElement("div");
     bubble.className = "bubble";
-    renderBody(bubble, text);
+    var cardsById = {};
+    (cards || []).forEach(function (c) { cardsById[c.id] = c; });
+    renderBody(bubble, text, cardsById);
     wrap.appendChild(bubble);
 
     if (cards && cards.length) {
       var box = document.createElement("div");
       box.className = "chat-cards";
       cards.forEach(function (c) {
+        var card = document.createElement("div");
+        card.className = "chat-card";
         var a = document.createElement("a");
-        a.className = "chat-card";
+        a.className = "chat-card-link";
         a.href = "/course/" + c.slug;
         // Cards are recommendations the user can act on, so a click is a
         // tracked rec_click — the same feedback signal the cards on
@@ -282,7 +336,16 @@
         s.textContent = [c.category, c.level, price].filter(Boolean).join(" · ");
         a.appendChild(b);
         a.appendChild(s);
-        box.appendChild(a);
+        card.appendChild(a);
+        // A second, distinct link to the course's curriculum — "the name" is
+        // not enough to act on; a link to enrol and a link to what's actually
+        // taught both need to be one click away.
+        var syl = document.createElement("a");
+        syl.className = "chat-card-syllabus";
+        syl.href = "/course/" + c.slug + "#curriculum";
+        syl.textContent = "View syllabus →";
+        card.appendChild(syl);
+        box.appendChild(card);
       });
       wrap.appendChild(box);
     }
@@ -290,6 +353,71 @@
     addOffer(wrap, offer);
     log.appendChild(wrap);
     scrollDown();
+  }
+
+  /* HumanInTheLoopMiddleware pause. `interrupt` is
+     {description, actions: [{name, args}]} — see _format_interrupt() in
+     app/chat/routes.py. Rendered as a card with Approve/Reject; either
+     button resolves the SAME paused run via /api/chat/resume, never a new
+     /api/chat turn. */
+  function addInterrupt(interrupt) {
+    var wrap = document.createElement("div");
+    wrap.className = "msg bot";
+    var box = document.createElement("div");
+    box.className = "chat-interrupt";
+    var p = document.createElement("p");
+    p.textContent = (interrupt && interrupt.description) ||
+      "The advisor wants to update your profile.";
+    box.appendChild(p);
+
+    var actions = document.createElement("div");
+    actions.className = "chat-interrupt-actions";
+    var approveBtn = document.createElement("button");
+    approveBtn.type = "button";
+    approveBtn.className = "approve";
+    approveBtn.textContent = "Confirm";
+    var rejectBtn = document.createElement("button");
+    rejectBtn.type = "button";
+    rejectBtn.textContent = "No, don't";
+    actions.appendChild(approveBtn);
+    actions.appendChild(rejectBtn);
+    box.appendChild(actions);
+    wrap.appendChild(box);
+    log.appendChild(wrap);
+    scrollDown();
+
+    function resolve(decision) {
+      if (busy) return;
+      busy = true;
+      approveBtn.disabled = true;
+      rejectBtn.disabled = true;
+      fetch("/api/chat/resume", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversationId, decision: decision })
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("The advisor is unavailable right now.");
+          return r.json();
+        })
+        .then(function (data) {
+          box.remove();
+          if (data.interrupt) { addInterrupt(data.interrupt); return; }
+          addBot(data.answer, data.cards, false, data.pathway, null);
+        })
+        .catch(function (err) {
+          box.remove();
+          addBot(err.message || "Something went wrong. Try again.", null, true);
+        })
+        .then(function () {
+          busy = false;
+          input.focus();
+        });
+    }
+
+    approveBtn.addEventListener("click", function () { resolve("approve"); });
+    rejectBtn.addEventListener("click", function () { resolve("reject"); });
   }
 
   function showTyping() {
@@ -357,6 +485,7 @@
       .then(function (data) {
         clearTyping();
         conversationId = data.conversation_id;
+        if (data.interrupt) { addInterrupt(data.interrupt); return; }
         addBot(data.answer, data.cards, false, data.pathway, data.offer);
         if (statusEl && data.model === "offline") {
           statusEl.textContent = "Catalog search only — model offline";

@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select, update
 
 from app.auth.deps import require_user
+from app.chat.brief import refresh_background_brief
 from app.db.models import ResumeAnalysis, User, UserProfile
 from app.db.session import async_session
 from app.profiles.ats import ROLES, analyze, band
@@ -256,6 +257,11 @@ async def save_profile(
         if resume_now:
             await _store_analysis(s, user.id, resume_now, role_now)
 
+        # Re-render the chat prompt brief now, at write-time, so the next
+        # chat turn reads a stored block instead of falling back to a live
+        # render — see app/chat/brief.py / plan.md §1-5.
+        await refresh_background_brief(s, user.id)
+
         await s.commit()
 
     # Someone who just stated a target role or uploaded a resume has given us
@@ -329,6 +335,7 @@ async def run_ats(request: Request, user: User = Depends(require_user),
                 request, user,
                 error="No resume text yet — upload a file or paste the text first.")
         await _store_analysis(s, user.id, text, profile.target_role or "")
+        await refresh_background_brief(s, user.id)
         await s.commit()
     # A new gap list is a new basis for recommending — see §5.2 `ats_run`.
     _kick_recommendations(user.id, "ats_run")
