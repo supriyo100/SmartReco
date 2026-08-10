@@ -66,6 +66,20 @@ def mesh_client() -> AsyncOpenAI:
     return _mesh_client
 
 
+def reset_mesh_client() -> None:
+    """Drop the cached Mesh client and any active cooldown.
+
+    Called after the admin saves a new Mesh key (app/admin/secrets_store.py):
+    without this, `chain()` keeps handing out the client built from the OLD
+    key until the process restarts, and a key that was down before the swap
+    would stay marked down for the rest of OUTAGE_COOLDOWN_S even though the
+    reason for the cooldown no longer applies.
+    """
+    global _mesh_client
+    _mesh_client = None
+    _down_until.pop("mesh", None)
+
+
 def groq_client() -> AsyncOpenAI:
     global _groq_client
     if _groq_client is None:

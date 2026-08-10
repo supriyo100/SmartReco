@@ -94,6 +94,7 @@ dependencies = [
     "passlib[bcrypt]>=1.7",
     "bcrypt>=4.2",
     "python-jose[cryptography]>=3.3",   # for JWT if you later add token APIs
+    "cryptography>=42",                 # Fernet: encrypts the admin-set Mesh API key at rest
 
     # ---- Logging & Observability ----
     "rich>=14",
@@ -132,6 +133,8 @@ llm = [
     "tiktoken>=0.8",
     "instructor>=1.5",
     "litellm>=1.70",
+    "pipx",
+    "mesh-code",
 ]
 monitoring = [
     "prometheus-client>=0.21",

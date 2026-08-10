@@ -1,0 +1,307 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1650 980" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrowDash" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arrowNew" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c026d3"/>
+    </marker>
+  </defs>
+
+  <style>
+    .bg { fill: #ffffff; }
+    .lane-label { font: 700 12px 'Segoe UI', sans-serif; letter-spacing: .06em; }
+    .title { font: 700 20px 'Segoe UI', sans-serif; fill: #0f172a; }
+    .node rect { fill: #ffffff; }
+    .node-title { font: 700 13px 'Segoe UI', sans-serif; fill: #0f172a; text-anchor: middle; }
+    .node-sub { font: 400 11px 'Segoe UI', sans-serif; fill: #475569; text-anchor: middle; }
+    .cyl-title { font: 700 12px 'Segoe UI', sans-serif; fill: #0f172a; text-anchor: middle; }
+    .edge { fill: none; stroke: #64748b; stroke-width: 1.6; }
+    .edge-dash { fill: none; stroke: #94a3b8; stroke-width: 1.6; stroke-dasharray: 6,4; }
+    .edge-new { fill: none; stroke: #c026d3; stroke-width: 1.7; }
+    .edge-new-dash { fill: none; stroke: #c026d3; stroke-width: 1.7; stroke-dasharray: 6,4; }
+    .edge-label { font: 600 10.5px 'Segoe UI', sans-serif; fill: #334155; text-anchor: middle; }
+    .edge-label-bg { fill: #ffffff; opacity: .92; }
+    .new-badge { font: 700 9.5px 'Segoe UI', sans-serif; fill: #a21caf; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="1650" height="980"/>
+  <text class="title" x="25" y="32">SmartReco — System overview</text>
+
+  <!-- ===== LANE BACKGROUNDS ===== -->
+  <g>
+    <rect x="25" y="50" width="1600" height="110" rx="14" fill="#eff6ff" stroke="#bfdbfe"/>
+    <text class="lane-label" x="45" y="72" fill="#2563eb">BROWSER</text>
+
+    <rect x="25" y="180" width="1600" height="130" rx="14" fill="#eef2ff" stroke="#c7d2fe"/>
+    <text class="lane-label" x="45" y="202" fill="#4f46e5">FASTAPI — app/*/routes.py</text>
+
+    <rect x="25" y="340" width="760" height="190" rx="14" fill="#ecfdf5" stroke="#a7f3d0"/>
+    <text class="lane-label" x="45" y="362" fill="#059669">SQLITE — WAL + FTS5</text>
+
+    <rect x="805" y="340" width="220" height="190" rx="14" fill="#fffbeb" stroke="#fde68a"/>
+    <text class="lane-label" x="825" y="362" fill="#b45309">CHROMA</text>
+
+    <rect x="1045" y="340" width="580" height="190" rx="14" fill="#fdf4ff" stroke="#f0abfc"/>
+    <text class="lane-label" x="1065" y="362" fill="#a21caf">CONFIG — admin-editable</text>
+
+    <rect x="25" y="560" width="1600" height="160" rx="14" fill="#f5f3ff" stroke="#ddd6fe"/>
+    <text class="lane-label" x="45" y="582" fill="#7c3aed">DETERMINISTIC PLANNER + LLM — app/agent/</text>
+
+    <rect x="25" y="740" width="760" height="140" rx="14" fill="#fff1f2" stroke="#fecdd3"/>
+    <text class="lane-label" x="45" y="762" fill="#e11d48">APSCHEDULER — app/scheduler/jobs.py</text>
+
+    <rect x="805" y="740" width="820" height="140" rx="14" fill="#ecfeff" stroke="#a5f3fc"/>
+    <text class="lane-label" x="825" y="762" fill="#0e7490">APP/MAIL</text>
+  </g>
+
+  <!-- ===== EDGES (drawn under nodes) =====
+       Routing rule: every cross-lane edge travels through one of two verified
+       clear corridors — the B/C gap (y≈315-345, below FastAPI nodes at 280,
+       above lane-C nodes at 400) or the C/D gap (y≈540-550, below lane-C
+       nodes at 500/530, above lane-D nodes at 600) — or the D/E gap (y≈700,
+       below lane-D nodes at 670, above lane-E nodes at 800). Vertical passes
+       through a node row use the ~20px gaps BETWEEN sibling boxes in that
+       row, never the space a box itself occupies. -->
+  <g>
+    <!-- 1 UI -> Web lane -->
+    <path class="edge" marker-end="url(#arrow)" d="M620,144 L620,178"/>
+    <!-- 2 TRK -.fire and forget.-> EVT -->
+    <path class="edge-dash" marker-end="url(#arrowDash)" d="M1030,144 C1030,180 985,184 985,218"/>
+    <rect class="edge-label-bg" x="955" y="160" width="115" height="16" rx="3"/>
+    <text class="edge-label" x="1012" y="172">fire &amp; forget</text>
+
+    <!-- 3 EVT -> EV (via B/C gap) -->
+    <path class="edge" marker-end="url(#arrow)" d="M985,280 C985,335 231,335 231,398"/>
+    <!-- 4 EV -> INTEREST (via C/D gap) -->
+    <path class="edge" marker-end="url(#arrow)" d="M231,500 C231,548 175,552 175,598"/>
+    <!-- 5 INTEREST -> PLANNER -->
+    <path class="edge" marker-end="url(#arrow)" d="M305,635 L323,635"/>
+    <!-- 6 PLANNER -> GRAPH -->
+    <path class="edge" marker-end="url(#arrow)" d="M585,635 L603,635"/>
+    <!-- 7 GRAPH -> RUNS: up via the INTEREST/PLANNER gap is not needed here —
+         GRAPH's own top (x815) is already clear of every lane-C box, so the
+         only fix needed is routing the horizontal leg through the C/D gap
+         (y545) instead of through row y470, which used to cut through
+         DIGL and settings. -->
+    <path class="edge" marker-end="url(#arrow)" d="M815,600 L815,545 L463,545 L463,500"/>
+    <rect class="edge-label-bg" x="600" y="536" width="60" height="16" rx="3"/>
+    <text class="edge-label" x="630" y="548">writes</text>
+    <!-- 8 GRAPH -> RECR: up GRAPH's own top, right through the B/C gap (y315) -->
+    <path class="edge" marker-end="url(#arrow)" d="M815,600 L815,315 L1495,315 L1495,280"/>
+
+    <!-- 9 ADMIN -> PROD (B/C gap) -->
+    <path class="edge" marker-end="url(#arrow)" d="M330,280 C330,340 115,340 115,398"/>
+    <!-- 10 ADMIN -> OUTBOX (B/C gap) -->
+    <path class="edge" marker-end="url(#arrow)" d="M400,280 C400,340 347,340 347,398"/>
+    <rect class="edge-label-bg" x="345" y="312" width="90" height="16" rx="3"/>
+    <text class="edge-label" x="390" y="324">one txn</text>
+
+    <!-- 11 DRAIN -> OUTBOX: D/E gap (730) up through the INTEREST/PLANNER
+         gap (x315) — not straight up, which used to cut through INTEREST —
+         then C/D gap (545) across to OUTBOX's column -->
+    <path class="edge" marker-end="url(#arrow)" d="M145,800 L145,730 L315,730 L315,545 L347,545 L347,500"/>
+    <!-- 12 DRAIN -> COLL: same pattern via the PLANNER/GRAPH gap (x595) -->
+    <path class="edge" marker-end="url(#arrow)" d="M165,800 L165,730 L595,730 L595,545 L915,545 L915,500"/>
+    <rect class="edge-label-bg" x="700" y="536" width="110" height="16" rx="3"/>
+    <text class="edge-label" x="755" y="548">embed batched</text>
+
+    <!-- 13 CHAT -> CHATAGENT: down via the ENVFILE/SECRETS gap (x1275),
+         which used to be a straight line clipping straight through ENVFILE -->
+    <path class="edge" marker-end="url(#arrow)" d="M1250,280 L1250,325 L1275,325 L1275,545 L1165,545 L1165,598"/>
+    <!-- 14 CHATAGENT -> COLL: up via C/D gap — used to clip ENVFILE -->
+    <path class="edge" marker-end="url(#arrow)" d="M1175,600 L1175,545 L915,545 L915,500"/>
+    <!-- 15 CHATAGENT -> PROD: up via C/D gap — used to cut through GRAPH and PLANNER -->
+    <path class="edge" marker-end="url(#arrow)" d="M1155,600 L1155,545 L115,545 L115,500"/>
+
+    <!-- 16 DIGEST -> MSG: below the whole scheduler/mail row — a straight
+         line at y830 used to cut through REENG -->
+    <path class="edge" marker-end="url(#arrow)" d="M405,860 L405,875 L1005,875 L1005,860"/>
+    <!-- 17 MSG -> SEND (direct, adjacent boxes) -->
+    <path class="edge" marker-end="url(#arrow)" d="M1185,830 L1243,830"/>
+    <!-- 18 DIGEST -> DIGL: D/E gap up via the PLANNER/GRAPH gap, C/D gap across -->
+    <path class="edge" marker-end="url(#arrow)" d="M405,800 L405,730 L595,730 L595,545 L579,545 L579,500"/>
+    <!-- 19 REENG -> MSG (direct, through the clear E1/E2 gap) -->
+    <path class="edge" marker-end="url(#arrow)" d="M655,800 C780,800 780,860 823,860"/>
+
+    <!-- 20 SETTINGS -> SECRETS (new, via B/C gap) -->
+    <path class="edge-new" marker-end="url(#arrowNew)" d="M700,280 C700,335 1445,335 1445,418"/>
+    <!-- 21 SECRETS -> ENVFILE (new, direct) -->
+    <path class="edge-new" marker-end="url(#arrowNew)" d="M1295,455 L1257,455"/>
+    <!-- 22 SECRETS -> settings table (new, dashed): left into the
+         ENVFILE/SECRETS gap (x1285), down to C/D gap, across to settings —
+         used to cut straight through COLL and ENVFILE -->
+    <path class="edge-new-dash" marker-end="url(#arrowNew)" d="M1295,470 L1285,470 L1285,545 L695,545 L695,500"/>
+    <rect class="edge-label-bg" x="900" y="536" width="60" height="16" rx="3"/>
+    <text class="edge-label" x="930" y="548">persist</text>
+    <!-- 23 SECRETS -> PROVIDERS (new, dashed, straight down through the clear column) -->
+    <path class="edge-new-dash" marker-end="url(#arrowNew)" d="M1445,490 C1445,545 1455,555 1455,598"/>
+    <rect class="edge-label-bg" x="1395" y="520" width="90" height="16" rx="3"/>
+    <text class="edge-label" x="1440" y="532">apply live</text>
+    <!-- 24 SECRETS -> SEND (new, dashed): right past PROVIDERS' right edge
+         (x1615, clear), down through the D/E gap, into SEND — the same-lane
+         SMTP-credentials path, since secrets_store.py also now owns the
+         encrypted SMTP password (see set_smtp_settings) -->
+    <path class="edge-new-dash" marker-end="url(#arrowNew)" d="M1595,455 L1615,455 L1615,700 L1425,700 L1425,798"/>
+    <rect class="edge-label-bg" x="1500" y="691" width="80" height="16" rx="3"/>
+    <text class="edge-label" x="1540" y="703">SMTP creds</text>
+    <!-- 25 GRAPH -> PROVIDERS (dashed): below the whole row (D/E gap), not
+         straight across at y635, which used to cut through CHATAGENT -->
+    <path class="edge-dash" marker-end="url(#arrowDash)" d="M815,670 L815,700 L1455,700 L1455,670"/>
+    <rect class="edge-label-bg" x="1090" y="691" width="70" height="16" rx="3"/>
+    <text class="edge-label" x="1125" y="703">LLM call</text>
+  </g>
+
+  <!-- ===== NODES ===== -->
+  <g class="node">
+    <!-- Browser -->
+    <rect x="430" y="88" width="380" height="56" rx="10" stroke="#93c5fd" stroke-width="1.5"/>
+    <text class="node-title" x="620" y="110">Jinja2 pages</text>
+    <text class="node-sub" x="620" y="126">catalog · profile · chat · recommendations</text>
+
+    <rect x="840" y="88" width="380" height="56" rx="10" stroke="#93c5fd" stroke-width="1.5"/>
+    <text class="node-title" x="1030" y="110">tracker.js</text>
+    <text class="node-sub" x="1030" y="126">batch(10) · interval(5s) · sendBeacon on unload</text>
+
+    <!-- FastAPI routes -->
+    <rect x="45" y="220" width="150" height="60" rx="10" stroke="#a5b4fc" stroke-width="1.5"/>
+    <text class="node-title" x="120" y="255">auth</text>
+
+    <rect x="255" y="220" width="220" height="60" rx="10" stroke="#a5b4fc" stroke-width="1.5"/>
+    <text class="node-title" x="365" y="248">admin CRUD</text>
+    <text class="node-sub" x="365" y="264">products · ingest trigger</text>
+
+    <rect x="535" y="220" width="260" height="60" rx="10" fill="#fdf4ff" stroke="#e879f9" stroke-width="1.7"/>
+    <text class="new-badge" x="770" y="234" text-anchor="end">NEW</text>
+    <text class="node-title" x="665" y="248" fill="#a21caf">/admin/settings</text>
+    <text class="node-sub" x="665" y="264">Mesh key · model picker</text>
+
+    <rect x="855" y="220" width="260" height="60" rx="10" stroke="#a5b4fc" stroke-width="1.5"/>
+    <text class="node-title" x="985" y="248">POST /api/events</text>
+    <text class="node-sub" x="985" y="264">→ 202 Accepted</text>
+
+    <rect x="1175" y="220" width="150" height="60" rx="10" stroke="#a5b4fc" stroke-width="1.5"/>
+    <text class="node-title" x="1250" y="255">chat</text>
+
+    <rect x="1385" y="220" width="220" height="60" rx="10" stroke="#a5b4fc" stroke-width="1.5"/>
+    <text class="node-title" x="1495" y="255">/recommendations</text>
+
+    <!-- SQLite cylinders -->
+    <g>
+      <ellipse cx="115" cy="414" rx="50" ry="14" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.5"/>
+      <path d="M65,414 L65,486 A50,14 0 0 0 165,486 L165,414" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.5"/>
+      <text class="cyl-title" x="115" y="456">products</text>
+    </g>
+    <g>
+      <ellipse cx="231" cy="414" rx="50" ry="14" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.5"/>
+      <path d="M181,414 L181,486 A50,14 0 0 0 281,486 L281,414" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.5"/>
+      <text class="cyl-title" x="231" y="456">events</text>
+    </g>
+    <g>
+      <ellipse cx="347" cy="414" rx="50" ry="14" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.5"/>
+      <path d="M297,414 L297,486 A50,14 0 0 0 397,486 L397,414" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.5"/>
+      <text class="cyl-title" x="347" y="450">vector_</text>
+      <text class="cyl-title" x="347" y="463">outbox</text>
+    </g>
+    <g>
+      <ellipse cx="463" cy="414" rx="50" ry="14" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.5"/>
+      <path d="M413,414 L413,486 A50,14 0 0 0 513,486 L513,414" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.5"/>
+      <text class="cyl-title" x="463" y="450">agent_</text>
+      <text class="cyl-title" x="463" y="463">runs</text>
+    </g>
+    <g>
+      <ellipse cx="579" cy="414" rx="50" ry="14" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.5"/>
+      <path d="M529,414 L529,486 A50,14 0 0 0 629,486 L629,414" fill="#ffffff" stroke="#6ee7b7" stroke-width="1.5"/>
+      <text class="cyl-title" x="579" y="450">digest_</text>
+      <text class="cyl-title" x="579" y="463">log</text>
+    </g>
+    <g>
+      <ellipse cx="695" cy="414" rx="50" ry="14" fill="#fdf4ff" stroke="#e879f9" stroke-width="1.7"/>
+      <path d="M645,414 L645,486 A50,14 0 0 0 745,486 L745,414" fill="#fdf4ff" stroke="#e879f9" stroke-width="1.7"/>
+      <text class="cyl-title" x="695" y="450" fill="#a21caf">settings</text>
+      <text class="new-badge" x="695" y="465" text-anchor="middle">NEW</text>
+    </g>
+
+    <!-- Chroma cylinder -->
+    <g>
+      <ellipse cx="915" cy="414" rx="55" ry="14" fill="#ffffff" stroke="#fcd34d" stroke-width="1.5"/>
+      <path d="M860,414 L860,486 A55,14 0 0 0 970,486 L970,414" fill="#ffffff" stroke="#fcd34d" stroke-width="1.5"/>
+      <text class="cyl-title" x="915" y="450">course_</text>
+      <text class="cyl-title" x="915" y="463">chunks</text>
+    </g>
+
+    <!-- Config boxes -->
+    <rect x="1075" y="420" width="180" height="70" rx="10" fill="#fdf4ff" stroke="#e879f9" stroke-width="1.7"/>
+    <text class="node-title" x="1165" y="450" fill="#a21caf">.env</text>
+    <text class="node-sub" x="1165" y="466">write-through</text>
+
+    <rect x="1295" y="420" width="300" height="70" rx="10" fill="#fdf4ff" stroke="#e879f9" stroke-width="1.7"/>
+    <text class="new-badge" x="1585" y="434" text-anchor="end">NEW</text>
+    <text class="node-title" x="1445" y="443" fill="#a21caf">secrets_store.py</text>
+    <text class="node-sub" x="1445" y="459">Mesh key · models · SMTP pass</text>
+    <text class="node-sub" x="1445" y="472">encrypt (Fernet) · persist · apply live</text>
+
+    <!-- Deterministic planner + LLM -->
+    <rect x="45" y="600" width="260" height="70" rx="10" stroke="#c4b5fd" stroke-width="1.5"/>
+    <text class="node-title" x="175" y="628">interests.py</text>
+    <text class="node-sub" x="175" y="644">dual-horizon decay</text>
+
+    <rect x="325" y="600" width="260" height="70" rx="10" stroke="#c4b5fd" stroke-width="1.5"/>
+    <text class="node-title" x="455" y="628">triggers.py</text>
+    <text class="node-sub" x="455" y="644">THE PLANNER</text>
+
+    <rect x="605" y="600" width="420" height="70" rx="10" stroke="#c4b5fd" stroke-width="1.5"/>
+    <text class="node-title" x="815" y="628">graph.py</text>
+    <text class="node-sub" x="815" y="644">analyze→retrieve→rank→grade→generate→validate→store</text>
+
+    <rect x="1045" y="600" width="240" height="70" rx="10" stroke="#c4b5fd" stroke-width="1.5"/>
+    <text class="node-title" x="1165" y="628">chat/agent.py</text>
+    <text class="node-sub" x="1165" y="644">grounding enforcement</text>
+
+    <rect x="1305" y="600" width="300" height="70" rx="10" fill="#fdf4ff" stroke="#e879f9" stroke-width="1.7"/>
+    <text class="node-title" x="1455" y="623" fill="#a21caf">providers.py</text>
+    <text class="new-badge" x="1520" y="623">NEW</text>
+    <text class="node-sub" x="1455" y="640">Mesh· circuit breaker</text>
+    <text class="node-sub" x="1455" y="654">key/model change applies with no restart</text>
+
+    <!-- Scheduler -->
+    <rect x="45" y="800" width="220" height="60" rx="10" stroke="#fda4af" stroke-width="1.5"/>
+    <text class="node-title" x="155" y="828">drain_outbox</text>
+    <text class="node-sub" x="155" y="844">every 30s</text>
+
+    <rect x="295" y="800" width="220" height="60" rx="10" stroke="#fda4af" stroke-width="1.5"/>
+    <text class="node-title" x="405" y="828">daily_digest</text>
+    <text class="node-sub" x="405" y="844">16:00</text>
+
+    <rect x="545" y="800" width="220" height="60" rx="10" stroke="#fda4af" stroke-width="1.5"/>
+    <text class="node-title" x="655" y="828">weekly_reengage</text>
+    <text class="node-sub" x="655" y="844">Mon 10:00</text>
+
+    <!-- Mail -->
+    <rect x="825" y="800" width="360" height="60" rx="10" stroke="#67e8f9" stroke-width="1.5"/>
+    <text class="node-title" x="1005" y="828">messages.py</text>
+    <text class="node-sub" x="1005" y="844">digest · welcome · ats · reengage</text>
+
+    <rect x="1245" y="800" width="360" height="60" rx="10" stroke="#67e8f9" stroke-width="1.5"/>
+    <text class="node-title" x="1425" y="828">sender.send</text>
+    <text class="node-sub" x="1425" y="844">SMTP or .eml fallback</text>
+  </g>
+
+  <!-- ===== LEGEND ===== -->
+  <g font-family="'Segoe UI', sans-serif">
+    <line x1="45" y1="915" x2="85" y2="915" class="edge" marker-end="url(#arrow)"/>
+    <text x="95" y="919" font-size="11.5" fill="#334155">data / control flow</text>
+
+    <line x1="285" y1="915" x2="325" y2="915" class="edge-dash" marker-end="url(#arrowDash)"/>
+    <text x="335" y="919" font-size="11.5" fill="#334155">async / fire-and-forget</text>
+
+    <line x1="565" y1="915" x2="605" y2="915" class="edge-new" marker-end="url(#arrowNew)"/>
+    <text x="615" y="919" font-size="11.5" fill="#334155">admin-settings feature (new)</text>
+
+    <rect x="880" y="905" width="18" height="18" rx="4" fill="#fdf4ff" stroke="#e879f9" stroke-width="1.7"/>
+    <text x="905" y="919" font-size="11.5" fill="#334155">component added by /admin/settings</text>
+  </g>
+</svg>

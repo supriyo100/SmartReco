@@ -1,0 +1,379 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1850 1100" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="a1" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#334155"/></marker>
+    <marker id="a2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+    <marker id="a3" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c026d3"/></marker>
+  </defs>
+  <style>
+    .lane-label { font: 700 11.5px 'Segoe UI', sans-serif; letter-spacing: .04em; }
+    .title { font: 700 20px 'Segoe UI', sans-serif; fill: #0f172a; }
+    .n-title { font: 700 11.8px 'Segoe UI', sans-serif; text-anchor: middle; }
+    .n-sub { font: 400 10px 'Segoe UI', sans-serif; fill: #475569; text-anchor: middle; }
+    .solid { fill:none; stroke:#334155; stroke-width:1.5; }
+    .dash  { fill:none; stroke:#94a3b8; stroke-width:1.5; stroke-dasharray:5,4; }
+    .dashNew { fill:none; stroke:#c026d3; stroke-width:1.7; stroke-dasharray:5,4; }
+    .solidNew { fill:none; stroke:#c026d3; stroke-width:1.7; }
+    .badge { font: 700 9px 'Segoe UI', sans-serif; fill:#a21caf; }
+    .edge-label { font: 600 10px 'Segoe UI', sans-serif; fill:#334155; text-anchor:middle; }
+    .lbl-bg { fill:#ffffff; opacity:.9; }
+  </style>
+
+  <rect x="0" y="0" width="1850" height="1100" fill="#ffffff"/>
+  <text class="title" x="25" y="32">SmartReco — Component &amp; function map</text>
+  <text x="25" y="50" font-size="11.5" fill="#64748b">One column per subsystem, top → bottom = call order. Dashed arrows cross subsystems.</text>
+
+  <!-- ================= COLUMN BACKGROUNDS ================= -->
+  <g>
+    <rect x="30"   y="90" width="230" height="678" rx="12" fill="#ecfdf5" stroke="#a7f3d0"/>
+    <text class="lane-label" x="45" y="110" fill="#059669">§4 CATALOG INGESTION</text>
+    <text class="lane-label" x="45" y="124" fill="#059669" font-size="9.5">app/catalog/</text>
+
+    <rect x="285"  y="90" width="230" height="410" rx="12" fill="#eff6ff" stroke="#bfdbfe"/>
+    <text class="lane-label" x="300" y="110" fill="#2563eb">§6 EVENT TRACKING</text>
+    <text class="lane-label" x="300" y="124" fill="#2563eb" font-size="9.5">app/tracking/ + tracker.js</text>
+
+    <rect x="540"  y="90" width="230" height="842" rx="12" fill="#f5f3ff" stroke="#ddd6fe"/>
+    <text class="lane-label" x="555" y="110" fill="#7c3aed">§5 RECOMMENDATION AGENT</text>
+    <text class="lane-label" x="555" y="124" fill="#7c3aed" font-size="9.5">app/agent/</text>
+
+    <rect x="795"  y="90" width="230" height="574" rx="12" fill="#fdf2f8" stroke="#fbcfe8"/>
+    <text class="lane-label" x="810" y="110" fill="#db2777">§6c CHAT ADVISOR</text>
+    <text class="lane-label" x="810" y="124" fill="#db2777" font-size="9.5">app/chat/</text>
+
+    <rect x="1050" y="90" width="230" height="410" rx="12" fill="#fff1f2" stroke="#fecdd3"/>
+    <text class="lane-label" x="1065" y="110" fill="#e11d48">SCHEDULER</text>
+    <text class="lane-label" x="1065" y="124" fill="#e11d48" font-size="9.5">app/scheduler/jobs.py</text>
+
+    <rect x="1305" y="90" width="230" height="410" rx="12" fill="#ecfeff" stroke="#a5f3fc"/>
+    <text class="lane-label" x="1320" y="110" fill="#0e7490">§7 EMAIL</text>
+    <text class="lane-label" x="1320" y="124" fill="#0e7490" font-size="9.5">app/mail/</text>
+
+    <rect x="1560" y="90" width="230" height="492" rx="12" fill="#fdf4ff" stroke="#e879f9" stroke-width="1.7"/>
+    <text class="lane-label" x="1575" y="110" fill="#a21caf">ADMIN &amp; CONFIG</text>
+    <text class="lane-label" x="1575" y="124" fill="#a21caf" font-size="9.5">app/admin/ · NEW</text>
+  </g>
+
+  <!-- ================= CROSS-COLUMN EDGES (drawn first) ================= -->
+  <g>
+    <!-- A: sch1 drain_outbox -.-> ing7 outbox.drain_once -->
+    <path class="dash" marker-end="url(#a2)" d="M1050,182 L1040,182 L1040,945 L272,945 L272,696 L260,696"/>
+    <rect class="lbl-bg" x="600" y="936" width="90" height="16" rx="3"/>
+    <text class="edge-label" x="645" y="948">every 30s</text>
+
+    <!-- B: sch2 daily_digest -.-> mail4 digest.run_digest -->
+    <path class="dash" marker-end="url(#a2)" d="M1280,264 L1292,264 L1292,175 L1305,175"/>
+    <!-- C: sch3 weekly_reengage -.-> mail4 -->
+    <path class="dash" marker-end="url(#a2)" d="M1280,346 L1300,346 L1300,193 L1305,193"/>
+
+    <!-- D: trk4 queue._consider -.-> rec1 triggers.should_run -->
+    <path class="dash" marker-end="url(#a2)" d="M515,428 L527,428 L527,182 L540,182"/>
+    <rect class="lbl-bg" x="420" y="440" width="110" height="16" rx="3"/>
+    <text class="edge-label" x="475" y="452">hands off to</text>
+
+    <!-- E (NEW): cfg4 providers.reset_mesh_client -.-> rec9 providers.chain -->
+    <path class="dashNew" marker-end="url(#a3)" d="M1560,346 L1547,346 L1547,945 L782,945 L782,865 L770,865"/>
+    <!-- F (NEW): cfg3 secrets_store.set_models -.-> rec6 nodes/generate.run -->
+    <path class="dashNew" marker-end="url(#a3)" d="M1560,428 L1540,428 L1540,952 L787,952 L787,592 L770,592"/>
+    <rect class="lbl-bg" x="1000" y="936" width="150" height="16" rx="3"/>
+    <text class="edge-label" x="1075" y="948" fill="#a21caf">admin change → live provider</text>
+
+    <!-- G (NEW): cfg5 secrets_store.set_smtp_settings -.-> mail3 sender.send -->
+    <path class="dashNew" marker-end="url(#a3)" d="M1560,510 L1547,510 L1547,428 L1535,428"/>
+    <rect class="lbl-bg" x="1440" y="440" width="75" height="16" rx="3"/>
+    <text class="edge-label" x="1477" y="452" fill="#a21caf">SMTP creds</text>
+  </g>
+
+  <!-- ================= WITHIN-COLUMN EDGES ================= -->
+  <g>
+    <!-- Ingestion chain -->
+    <path class="solid" marker-end="url(#a1)" d="M145,214 L145,232"/>
+    <path class="solid" marker-end="url(#a1)" d="M145,296 L145,314"/>
+    <path class="solid" marker-end="url(#a1)" d="M145,378 L145,396"/>
+    <path class="solid" marker-end="url(#a1)" d="M145,460 L145,478"/>
+    <path class="dash"  marker-end="url(#a2)" d="M145,646 L145,664"/>
+
+    <!-- Tracking chain -->
+    <path class="solid" marker-end="url(#a1)" d="M400,214 L400,232"/>
+    <path class="solid" marker-end="url(#a1)" d="M400,296 L400,314"/>
+    <path class="solid" marker-end="url(#a1)" d="M400,378 L400,396"/>
+
+    <!-- Recommendation chain rec1..rec8 -->
+    <path class="solid" marker-end="url(#a1)" d="M655,214 L655,232"/>
+    <path class="solid" marker-end="url(#a1)" d="M655,296 L655,314"/>
+    <path class="solid" marker-end="url(#a1)" d="M655,378 L655,396"/>
+    <path class="solid" marker-end="url(#a1)" d="M655,460 L655,478"/>
+    <path class="solid" marker-end="url(#a1)" d="M655,542 L655,560"/>
+    <path class="solid" marker-end="url(#a1)" d="M655,624 L655,642"/>
+    <path class="solid" marker-end="url(#a1)" d="M655,706 L655,724"/>
+    <!-- rec6 -.-> rec9 (bow right) -->
+    <path class="dash" marker-end="url(#a2)" d="M770,610 L790,610 L790,845 L770,845"/>
+
+    <!-- Chat: cht1->cht2->cht6->cht5 straight, cht2/cht3-.->cht6 bow right, cht4->cht6 straight -->
+    <path class="solid" marker-end="url(#a1)" d="M910,214 L910,232"/>
+    <path class="solid" marker-end="url(#a1)" d="M910,460 L910,478"/>
+    <path class="solid" marker-end="url(#a1)" d="M910,542 L910,560"/>
+    <path class="solid" marker-end="url(#a1)" d="M1025,264 L1037,264 L1037,510 L1025,510"/>
+    <path class="solid" marker-end="url(#a1)" d="M1025,346 L1044,346 L1044,522 L1025,522"/>
+
+    <!-- Email: mail4->mail1->mail2->mail3 -->
+    <path class="solid" marker-end="url(#a1)" d="M1420,214 L1420,232"/>
+    <path class="solid" marker-end="url(#a1)" d="M1420,296 L1420,314"/>
+    <path class="solid" marker-end="url(#a1)" d="M1420,378 L1420,396"/>
+
+    <!-- Admin & config (NEW): cfg1->cfg2->cfg4, cfg1-->cfg3 bow right -->
+    <path class="solidNew" marker-end="url(#a3)" d="M1675,214 L1675,232"/>
+    <path class="solidNew" marker-end="url(#a3)" d="M1675,296 L1675,314"/>
+    <path class="solidNew" marker-end="url(#a3)" d="M1790,182 L1805,182 L1805,428 L1790,428"/>
+    <path class="solidNew" marker-end="url(#a3)" d="M1790,166 L1820,166 L1820,510 L1790,510"/>
+  </g>
+
+  <!-- ================= NODES ================= -->
+  <!-- helper pattern: rect + title + up to 2 sub-lines, box 230x64 -->
+  <g>
+    <!-- ===== Col1 Ingestion ===== -->
+    <g>
+      <rect x="30" y="150" width="230" height="64" rx="9" fill="#ffffff" stroke="#6ee7b7"/>
+      <text class="n-title" x="145" y="170" fill="#065f46">loader.load_all</text>
+      <text class="n-sub" x="145" y="185">read *.json files</text>
+      <text class="n-sub" x="145" y="198">enforce slug==filename</text>
+    </g>
+    <g>
+      <rect x="30" y="232" width="230" height="64" rx="9" fill="#ffffff" stroke="#6ee7b7"/>
+      <text class="n-title" x="145" y="252" fill="#065f46">loader.validate_graph</text>
+      <text class="n-sub" x="145" y="267">every prereq/related</text>
+      <text class="n-sub" x="145" y="280">slug must resolve</text>
+    </g>
+    <g>
+      <rect x="30" y="314" width="230" height="64" rx="9" fill="#ffffff" stroke="#6ee7b7"/>
+      <text class="n-title" x="145" y="334" fill="#065f46">chunker.build_chunks</text>
+      <text class="n-sub" x="145" y="349">6-12 thematic chunks</text>
+      <text class="n-sub" x="145" y="362">T1/T2/T3 split</text>
+    </g>
+    <g>
+      <rect x="30" y="396" width="230" height="64" rx="9" fill="#ffffff" stroke="#6ee7b7"/>
+      <text class="n-title" x="145" y="416" fill="#065f46">freshness.score_freshness</text>
+      <text class="n-sub" x="145" y="431">live-vs-recorded</text>
+      <text class="n-sub" x="145" y="444">+ recency</text>
+    </g>
+    <g>
+      <rect x="30" y="478" width="230" height="64" rx="9" fill="#ffffff" stroke="#6ee7b7"/>
+      <text class="n-title" x="145" y="498" fill="#065f46">ingest.main</text>
+      <text class="n-sub" x="145" y="513">embed → Chroma upsert</text>
+      <text class="n-sub" x="145" y="526">→ catalog.index.json</text>
+    </g>
+    <g>
+      <rect x="30" y="582" width="230" height="64" rx="9" fill="#ffffff" stroke="#6ee7b7"/>
+      <text class="n-title" x="145" y="602" fill="#065f46">sync_sql.sync</text>
+      <text class="n-sub" x="145" y="617">course JSON →</text>
+      <text class="n-sub" x="145" y="630">products table</text>
+    </g>
+    <g>
+      <rect x="30" y="664" width="230" height="64" rx="9" fill="#ffffff" stroke="#6ee7b7"/>
+      <text class="n-title" x="145" y="684" fill="#065f46">outbox.drain_once</text>
+      <text class="n-sub" x="145" y="699">replay vector_outbox</text>
+      <text class="n-sub" x="145" y="712">→ Chroma</text>
+    </g>
+
+    <!-- ===== Col2 Tracking ===== -->
+    <g>
+      <rect x="285" y="150" width="230" height="64" rx="9" fill="#ffffff" stroke="#93c5fd"/>
+      <text class="n-title" x="400" y="170" fill="#1e40af">tracker.js</text>
+      <text class="n-sub" x="400" y="185">batch(10) / interval(5s)</text>
+      <text class="n-sub" x="400" y="198">sendBeacon on unload</text>
+    </g>
+    <g>
+      <rect x="285" y="232" width="230" height="64" rx="9" fill="#ffffff" stroke="#93c5fd"/>
+      <text class="n-title" x="400" y="252" fill="#1e40af">routes.ingest</text>
+      <text class="n-sub" x="400" y="267">POST /api/events</text>
+      <text class="n-sub" x="400" y="280">→ 202 Accepted</text>
+    </g>
+    <g>
+      <rect x="285" y="314" width="230" height="64" rx="9" fill="#ffffff" stroke="#93c5fd"/>
+      <text class="n-title" x="400" y="334" fill="#1e40af">queue.writer_loop</text>
+      <text class="n-sub" x="400" y="349">batched SQLite write</text>
+      <text class="n-sub" x="400" y="362">ON CONFLICT DO NOTHING</text>
+    </g>
+    <g>
+      <rect x="285" y="396" width="230" height="64" rx="9" fill="#ffffff" stroke="#93c5fd"/>
+      <text class="n-title" x="400" y="422" fill="#1e40af">queue._consider</text>
+      <text class="n-sub" x="400" y="437">hands off to the planner</text>
+    </g>
+
+    <!-- ===== Col3 Recommendation agent ===== -->
+    <g>
+      <rect x="540" y="150" width="230" height="64" rx="9" fill="#ffffff" stroke="#c4b5fd"/>
+      <text class="n-title" x="655" y="170" fill="#5b21b6">triggers.should_run</text>
+      <text class="n-sub" x="655" y="185">THE PLANNER — gates</text>
+      <text class="n-sub" x="655" y="198">every LLM call below</text>
+    </g>
+    <g>
+      <rect x="540" y="232" width="230" height="64" rx="9" fill="#ffffff" stroke="#c4b5fd"/>
+      <text class="n-title" x="655" y="258" fill="#5b21b6">interests.refresh_interests</text>
+      <text class="n-sub" x="655" y="273">dual-horizon λ decay</text>
+    </g>
+    <g>
+      <rect x="540" y="314" width="230" height="64" rx="9" fill="#ffffff" stroke="#c4b5fd"/>
+      <text class="n-title" x="655" y="340" fill="#5b21b6">nodes/retrieve.run</text>
+      <text class="n-sub" x="655" y="355">multi-query hybrid + RRF</text>
+    </g>
+    <g>
+      <rect x="540" y="396" width="230" height="64" rx="9" fill="#ffffff" stroke="#c4b5fd"/>
+      <text class="n-title" x="655" y="422" fill="#5b21b6">nodes/fusion_rank.run</text>
+      <text class="n-sub" x="655" y="437">6-term weighted score</text>
+    </g>
+    <g>
+      <rect x="540" y="478" width="230" height="64" rx="9" fill="#ffffff" stroke="#c4b5fd"/>
+      <text class="n-title" x="655" y="504" fill="#5b21b6">nodes/grade.run</text>
+      <text class="n-sub" x="655" y="519">evidence check, one retry max</text>
+    </g>
+    <g>
+      <rect x="540" y="560" width="230" height="64" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.8"/>
+      <text class="n-title" x="655" y="580" fill="#5b21b6">nodes/generate.run</text>
+      <text class="n-sub" x="655" y="595" fill="#5b21b6" font-weight="700">THE LLM CALL</text>
+      <text class="n-sub" x="655" y="607">narrative + hooks + reasons</text>
+    </g>
+    <g>
+      <rect x="540" y="642" width="230" height="64" rx="9" fill="#ffffff" stroke="#c4b5fd"/>
+      <text class="n-title" x="655" y="668" fill="#5b21b6">nodes/validate.run</text>
+      <text class="n-sub" x="655" y="683">drop anything ungrounded</text>
+    </g>
+    <g>
+      <rect x="540" y="724" width="230" height="64" rx="9" fill="#ffffff" stroke="#c4b5fd"/>
+      <text class="n-title" x="655" y="744" fill="#5b21b6">graph.generate_recommendations</text>
+      <text class="n-sub" x="655" y="759">orchestrates,</text>
+      <text class="n-sub" x="655" y="772">writes agent_runs</text>
+    </g>
+    <g>
+      <rect x="540" y="828" width="230" height="64" rx="9" fill="#ffffff" stroke="#c4b5fd"/>
+      <text class="n-title" x="655" y="848" fill="#5b21b6">providers.chain</text>
+      <text class="n-sub" x="655" y="863">mark_down / mark_up</text>
+      <text class="n-sub" x="655" y="876">Mesh→Groq failover</text>
+    </g>
+
+    <!-- ===== Col4 Chat advisor ===== -->
+    <g>
+      <rect x="795" y="150" width="230" height="64" rx="9" fill="#ffffff" stroke="#f9a8d4"/>
+      <text class="n-title" x="910" y="176" fill="#9d174d">retrieval.retrieve</text>
+      <text class="n-sub" x="910" y="191">Chroma + FTS5, RRF-fused</text>
+    </g>
+    <g>
+      <rect x="795" y="232" width="230" height="64" rx="9" fill="#ffffff" stroke="#f9a8d4"/>
+      <text class="n-title" x="910" y="258" fill="#9d174d">rerank.rerank</text>
+      <text class="n-sub" x="910" y="273">fusion / cross_encoder / llm</text>
+    </g>
+    <g>
+      <rect x="795" y="314" width="230" height="64" rx="9" fill="#ffffff" stroke="#f9a8d4"/>
+      <text class="n-title" x="910" y="334" fill="#9d174d">context.extract_facts</text>
+      <text class="n-sub" x="910" y="349">short + long conversation</text>
+      <text class="n-sub" x="910" y="362">horizons</text>
+    </g>
+    <g>
+      <rect x="795" y="396" width="230" height="64" rx="9" fill="#ffffff" stroke="#f9a8d4"/>
+      <text class="n-title" x="910" y="422" fill="#9d174d">intent.score_intent</text>
+      <text class="n-sub" x="910" y="437">cold / warm / hot</text>
+    </g>
+    <g>
+      <rect x="795" y="478" width="230" height="64" rx="9" fill="#fdf2f8" stroke="#db2777" stroke-width="1.8"/>
+      <text class="n-title" x="910" y="504" fill="#9d174d">agent.answer</text>
+      <text class="n-sub" x="910" y="519">grounding enforcement</text>
+    </g>
+    <g>
+      <rect x="795" y="560" width="230" height="64" rx="9" fill="#ffffff" stroke="#f9a8d4"/>
+      <text class="n-title" x="910" y="580" fill="#9d174d">pathway.build_pathway_async</text>
+      <text class="n-sub" x="910" y="595">mermaid path from</text>
+      <text class="n-sub" x="910" y="608">prereq_ids</text>
+    </g>
+
+    <!-- ===== Col5 Scheduler ===== -->
+    <g>
+      <rect x="1050" y="150" width="230" height="64" rx="9" fill="#ffffff" stroke="#fda4af"/>
+      <text class="n-title" x="1165" y="176" fill="#9f1239">drain_outbox</text>
+      <text class="n-sub" x="1165" y="191">every 30s</text>
+    </g>
+    <g>
+      <rect x="1050" y="232" width="230" height="64" rx="9" fill="#ffffff" stroke="#fda4af"/>
+      <text class="n-title" x="1165" y="258" fill="#9f1239">daily_digest</text>
+      <text class="n-sub" x="1165" y="273">16:00</text>
+    </g>
+    <g>
+      <rect x="1050" y="314" width="230" height="64" rx="9" fill="#ffffff" stroke="#fda4af"/>
+      <text class="n-title" x="1165" y="340" fill="#9f1239">weekly_reengage</text>
+      <text class="n-sub" x="1165" y="355">Mon 10:00</text>
+    </g>
+    <g>
+      <rect x="1050" y="396" width="230" height="64" rx="9" fill="#ffffff" stroke="#fda4af"/>
+      <text class="n-title" x="1165" y="432" fill="#9f1239">nightly_maintenance</text>
+    </g>
+
+    <!-- ===== Col6 Email ===== -->
+    <g>
+      <rect x="1305" y="150" width="230" height="64" rx="9" fill="#ffffff" stroke="#67e8f9"/>
+      <text class="n-title" x="1420" y="176" fill="#155e75">digest.run_digest</text>
+      <text class="n-sub" x="1420" y="191">idempotent via digest_log</text>
+    </g>
+    <g>
+      <rect x="1305" y="232" width="230" height="64" rx="9" fill="#ffffff" stroke="#67e8f9"/>
+      <text class="n-title" x="1420" y="252" fill="#155e75">messages.build_*</text>
+      <text class="n-sub" x="1420" y="267">digest · welcome ·</text>
+      <text class="n-sub" x="1420" y="280">ats · reengage</text>
+    </g>
+    <g>
+      <rect x="1305" y="314" width="230" height="64" rx="9" fill="#ffffff" stroke="#67e8f9"/>
+      <text class="n-title" x="1420" y="340" fill="#155e75">templating.render_pair</text>
+      <text class="n-sub" x="1420" y="355">HTML + plain text</text>
+    </g>
+    <g>
+      <rect x="1305" y="396" width="230" height="64" rx="9" fill="#ffffff" stroke="#67e8f9"/>
+      <text class="n-title" x="1420" y="416" fill="#155e75">sender.send</text>
+      <text class="n-sub" x="1420" y="431">SMTP, or</text>
+      <text class="n-sub" x="1420" y="444">store-to-disk fallback</text>
+    </g>
+
+    <!-- ===== Col7 Admin & config (NEW) ===== -->
+    <g>
+      <rect x="1560" y="150" width="230" height="64" rx="9" fill="#fdf4ff" stroke="#c026d3" stroke-width="1.8"/>
+      <text class="badge" x="1780" y="163" text-anchor="end">NEW</text>
+      <text class="n-title" x="1675" y="170" fill="#a21caf">routes.settings_page</text>
+      <text class="n-sub" x="1675" y="185">GET /admin/settings</text>
+      <text class="n-sub" x="1675" y="198">live Mesh /models</text>
+    </g>
+    <g>
+      <rect x="1560" y="232" width="230" height="64" rx="9" fill="#fdf4ff" stroke="#c026d3" stroke-width="1.8"/>
+      <text class="n-title" x="1675" y="252" fill="#a21caf">secrets_store</text>
+      <text class="n-sub" x="1675" y="267">.set_mesh_api_key</text>
+      <text class="n-sub" x="1675" y="280">encrypt · DB + .env</text>
+    </g>
+    <g>
+      <rect x="1560" y="314" width="230" height="64" rx="9" fill="#fdf4ff" stroke="#c026d3" stroke-width="1.8"/>
+      <text class="n-title" x="1675" y="334" fill="#a21caf">providers</text>
+      <text class="n-sub" x="1675" y="349">.reset_mesh_client</text>
+      <text class="n-sub" x="1675" y="362">drop client + cooldown</text>
+    </g>
+    <g>
+      <rect x="1560" y="396" width="230" height="64" rx="9" fill="#fdf4ff" stroke="#c026d3" stroke-width="1.8"/>
+      <text class="n-title" x="1675" y="416" fill="#a21caf">secrets_store</text>
+      <text class="n-sub" x="1675" y="431">.set_models</text>
+      <text class="n-sub" x="1675" y="444">persist + apply live</text>
+    </g>
+    <g>
+      <rect x="1560" y="478" width="230" height="64" rx="9" fill="#fdf4ff" stroke="#c026d3" stroke-width="1.8"/>
+      <text class="n-title" x="1675" y="498" fill="#a21caf">secrets_store</text>
+      <text class="n-sub" x="1675" y="513">.set_smtp_settings</text>
+      <text class="n-sub" x="1675" y="526">encrypt pass · DB + .env</text>
+    </g>
+  </g>
+
+  <!-- ================= LEGEND ================= -->
+  <g>
+    <line x1="30" y1="1035" x2="70" y2="1035" class="solid" marker-end="url(#a1)"/>
+    <text x="80" y="1039" font-size="11.5" fill="#334155">calls / produces</text>
+
+    <line x1="260" y1="1035" x2="300" y2="1035" class="dash" marker-end="url(#a2)"/>
+    <text x="310" y="1039" font-size="11.5" fill="#334155">cross-subsystem hand-off (async or triggered)</text>
+
+    <line x1="640" y1="1035" x2="680" y2="1035" class="solidNew" marker-end="url(#a3)"/>
+    <text x="690" y="1039" font-size="11.5" fill="#334155">admin &amp; config — new (this build)</text>
+
+    <text x="1150" y="1039" font-size="11.5" fill="#64748b">Full behavior and reasoning for every function: README §4–§7, §9.</text>
+  </g>
+</svg>

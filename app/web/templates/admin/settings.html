@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Settings — SmartReco admin{% endblock %}
+{% block content %}
+<section>
+  <h1>API &amp; models</h1>
+  <p class="muted">Mesh is the primary LLM provider for every chat turn and recommendation
+  (Groq/Ollama are fallbacks only — see app/agent/providers.py). Changes here apply
+  immediately, no restart needed, and are written to <code>.env</code> so they survive one.</p>
+
+  {% if message %}<p class="ok">{{ message }}</p>{% endif %}
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+  <h2>Mesh API key</h2>
+  <table class="grid">
+    <tr><th>Status</th>
+        <td>
+          {% if mesh_configured %}
+            <strong>Configured</strong> — <code>{{ mesh_key_masked }}</code>
+          {% else %}
+            <span class="warn">Not set</span> — Mesh calls will fail over to Groq/Ollama
+          {% endif %}
+        </td></tr>
+  </table>
+  <form method="post" action="/admin/settings/mesh-key" class="inline">
+    <label for="mesh_api_key" class="sr-only">New Mesh API key</label>
+    <input type="password" id="mesh_api_key" name="mesh_api_key"
+           placeholder="rsk_..." autocomplete="off" required>
+    <button type="submit">Save key</button>
+  </form>
+  <p class="muted small">Stored encrypted (Fernet, key derived from SECRET_KEY) in the
+  database and mirrored into <code>MESH_API_KEY</code> in <code>.env</code>. Never shown
+  in full again after saving — only the masked preview above.</p>
+
+  <h2>Models</h2>
+  <p class="muted">Pulled live from <code>GET {{ 'https://api.meshapi.ai/v1' }}/models</code>
+  using the key configured above.
+  {% if not models %}
+    <span class="warn">Could not reach Mesh just now — showing free-text fields instead of a
+    dropdown. Verify the key above, then reload this page.</span>
+  {% endif %}
+  </p>
+  <form method="post" action="/admin/settings/models">
+    <table class="grid">
+      <tr>
+        <th><label for="model_fast">Fast (chat / structured calls)</label></th>
+        <td>
+          {% if models %}
+            <select id="model_fast" name="model_fast">
+              {% if model_fast not in models %}<option value="{{ model_fast }}" selected>{{ model_fast }} (current, not listed)</option>{% endif %}
+              {% for m in models %}<option value="{{ m }}" {{ 'selected' if m == model_fast }}>{{ m }}</option>{% endfor %}
+            </select>
+          {% else %}
+            <input type="text" id="model_fast" name="model_fast" value="{{ model_fast }}">
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th><label for="model_fast_fallback">Fast fallback (structured-parse retry)</label></th>
+        <td>
+          {% if models %}
+            <select id="model_fast_fallback" name="model_fast_fallback">
+              {% if model_fast_fallback not in models %}<option value="{{ model_fast_fallback }}" selected>{{ model_fast_fallback }} (current, not listed)</option>{% endif %}
+              {% for m in models %}<option value="{{ m }}" {{ 'selected' if m == model_fast_fallback }}>{{ m }}</option>{% endfor %}
+            </select>
+          {% else %}
+            <input type="text" id="model_fast_fallback" name="model_fast_fallback" value="{{ model_fast_fallback }}">
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th><label for="model_writer">Writer (recommendation generation)</label></th>
+        <td>
+          {% if models %}
+            <select id="model_writer" name="model_writer">
+              {% if model_writer not in models %}<option value="{{ model_writer }}" selected>{{ model_writer }} (current, not listed)</option>{% endif %}
+              {% for m in models %}<option value="{{ m }}" {{ 'selected' if m == model_writer }}>{{ m }}</option>{% endfor %}
+            </select>
+          {% else %}
+            <input type="text" id="model_writer" name="model_writer" value="{{ model_writer }}">
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th><label for="embed_model">Embeddings</label></th>
+        <td>
+          {% if models %}
+            <select id="embed_model" name="embed_model">
+              {% if embed_model not in models %}<option value="{{ embed_model }}" selected>{{ embed_model }} (current, not listed)</option>{% endif %}
+              {% for m in models %}<option value="{{ m }}" {{ 'selected' if m == embed_model }}>{{ m }}</option>{% endfor %}
+            </select>
+          {% else %}
+            <input type="text" id="embed_model" name="embed_model" value="{{ embed_model }}">
+          {% endif %}
+          <div class="muted small">Only used while <code>EMBED_BACKEND</code> resolves to Mesh —
+          the local nomic model serves embeddings otherwise (app/agent/embeddings.py).</div>
+        </td>
+      </tr>
+    </table>
+    <button type="submit">Save models</button>
+  </form>
+
+  <h2>SMTP (mail transport)</h2>
+  <table class="grid">
+    <tr><th>Status</th>
+        <td>
+          {% if smtp_configured %}
+            <strong>Configured</strong> — sends go out for real
+          {% else %}
+            <span class="warn">Not set</span> — messages are written to
+            <code>data/outbox_mail/</code> instead of sent (supported mode, see
+            <a href="/admin/mail">Mail</a>)
+          {% endif %}
+        </td></tr>
+  </table>
+  <form method="post" action="/admin/settings/smtp">
+    <table class="grid">
+      <tr>
+        <th><label for="smtp_host">Host</label></th>
+        <td><input type="text" id="smtp_host" name="smtp_host" value="{{ smtp_host }}"
+                    placeholder="smtp.gmail.com"></td>
+      </tr>
+      <tr>
+        <th><label for="smtp_port">Port</label></th>
+        <td><input type="number" id="smtp_port" name="smtp_port" value="{{ smtp_port }}">
+          <div class="muted small">587 = STARTTLS, 465 = implicit TLS.</div>
+        </td>
+      </tr>
+      <tr>
+        <th><label for="smtp_user">Account</label></th>
+        <td><input type="text" id="smtp_user" name="smtp_user" value="{{ smtp_user }}"
+                    placeholder="you@gmail.com" autocomplete="off"></td>
+      </tr>
+      <tr>
+        <th><label for="smtp_pass">Password</label></th>
+        <td>
+          <input type="password" id="smtp_pass" name="smtp_pass" autocomplete="off"
+                 placeholder="{% if smtp_pass_masked %}{{ smtp_pass_masked }} (leave blank to keep){% else %}not set{% endif %}">
+          <div class="muted small">For Gmail this must be a 16-character App Password
+          (Google account → Security → App passwords), not the account password. Leave
+          blank to keep the currently stored password.</div>
+        </td>
+      </tr>
+      <tr>
+        <th><label for="mail_from">From address</label></th>
+        <td><input type="text" id="mail_from" name="mail_from" value="{{ mail_from }}"
+                    placeholder="defaults to account above">
+          <div class="muted small">Gmail rewrites a From: that isn't the authenticated
+          account, so leaving this blank is usually right.</div>
+        </td>
+      </tr>
+      <tr>
+        <th><label for="mail_from_name">From name</label></th>
+        <td><input type="text" id="mail_from_name" name="mail_from_name" value="{{ mail_from_name }}"></td>
+      </tr>
+    </table>
+    <button type="submit">Save SMTP settings</button>
+  </form>
+  <p class="muted small">Password stored encrypted (Fernet) in the database and mirrored
+  into <code>.env</code>, same as the Mesh key above. Applied immediately — no restart
+  needed, and no client to reset since every send reads these settings fresh.</p>
+
+  <p><a href="/admin">← Dashboard</a></p>
+</section>
+{% endblock %}

@@ -22,6 +22,12 @@ logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app.admin.secrets_store import load_persisted_settings
+    # Admin-saved key/model overrides (app/admin/routes.py settings_page) win
+    # over whatever .env loaded at import time — must run before the model
+    # check below, or a key saved yesterday is ignored until this reads it.
+    await load_persisted_settings()
+
     writer = asyncio.create_task(writer_loop())
     scheduler = None
     if settings.SCHEDULER_ENABLED:

@@ -383,6 +383,90 @@ async def agent_runs(request: Request, limit: int = 100):
     return render(request, "admin/agent_runs.html", runs=runs, avg_calls=avg_calls)
 
 
+@router.get("/settings")
+async def settings_page(request: Request, message: str = "", error: str = ""):
+    """Mesh API key + model picker (arch: admin-editable, encrypted key,
+    write-through to .env — see app/admin/secrets_store.py).
+
+    The model dropdowns are populated from a live GET to Mesh's /models, so
+    an admin can only pick a model Mesh actually serves. That call can fail
+    (bad/exhausted key, network) — models=[] then, and the template falls
+    back to a plain text input rather than an empty, unusable <select>.
+    """
+    from app.admin.secrets_store import mask
+    from app.agent.mesh import list_models
+
+    models = await list_models()
+    return render(request, "admin/settings.html",
+                  mesh_key_masked=mask(settings.MESH_API_KEY),
+                  mesh_configured=bool(settings.MESH_API_KEY),
+                  models=models,
+                  model_fast=settings.MODEL_FAST,
+                  model_fast_fallback=settings.MODEL_FAST_FALLBACK,
+                  model_writer=settings.MODEL_WRITER,
+                  embed_model=settings.EMBED_MODEL,
+                  smtp_configured=settings.smtp_configured,
+                  smtp_host=settings.SMTP_HOST,
+                  smtp_port=settings.SMTP_PORT,
+                  smtp_user=settings.SMTP_USER,
+                  smtp_pass_masked=mask(settings.SMTP_PASS),
+                  mail_from=settings.MAIL_FROM,
+                  mail_from_name=settings.MAIL_FROM_NAME,
+                  message=message, error=error)
+
+
+@router.post("/settings/mesh-key")
+async def update_mesh_key(request: Request, mesh_api_key: str = Form(...)):
+    """Blank submits are rejected rather than silently clearing the key —
+    the field is a password input, so a browser autofill quirk or a stray
+    submit with nothing typed must not wipe a working key."""
+    from app.admin.secrets_store import set_mesh_api_key
+
+    mesh_api_key = mesh_api_key.strip()
+    if not mesh_api_key:
+        return await settings_page(request, error="Mesh API key cannot be blank")
+    await set_mesh_api_key(mesh_api_key)
+    return RedirectResponse("/admin/settings?message=Mesh+API+key+updated", status_code=303)
+
+
+@router.post("/settings/models")
+async def update_models(
+    request: Request,
+    model_fast: str = Form(...),
+    model_fast_fallback: str = Form(...),
+    model_writer: str = Form(...),
+    embed_model: str = Form(...),
+):
+    from app.admin.secrets_store import set_models
+
+    await set_models(model_fast=model_fast, model_fast_fallback=model_fast_fallback,
+                     model_writer=model_writer, embed_model=embed_model)
+    return RedirectResponse("/admin/settings?message=Model+selection+updated", status_code=303)
+
+
+@router.post("/settings/smtp")
+async def update_smtp(
+    request: Request,
+    smtp_host: str = Form(""),
+    smtp_port: int = Form(587),
+    smtp_user: str = Form(""),
+    smtp_pass: str = Form(""),
+    mail_from: str = Form(""),
+    mail_from_name: str = Form("SmartReco"),
+):
+    """Blank host/user clears SMTP back to the credential-less outbox mode
+    (app/mail/sender.py) — that's a supported state, not an error, so unlike
+    the Mesh key form this one accepts empty fields. smtp_pass alone is
+    special-cased: blank there means 'leave the stored password as-is', since
+    a password field is never pre-filled with the real secret."""
+    from app.admin.secrets_store import set_smtp_settings
+
+    await set_smtp_settings(smtp_host=smtp_host, smtp_port=smtp_port, smtp_user=smtp_user,
+                            smtp_pass=smtp_pass, mail_from=mail_from,
+                            mail_from_name=mail_from_name)
+    return RedirectResponse("/admin/settings?message=SMTP+settings+updated", status_code=303)
+
+
 @router.get("/llm-usage")
 async def llm_usage(request: Request, limit: int = 100):
     """Token/latency/cost telemetry from `llm_call_log` (app/agent/telemetry.py)

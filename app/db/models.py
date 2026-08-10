@@ -352,3 +352,22 @@ class EmbeddingCache(Base):
     text_hash: Mapped[str] = mapped_column(String, unique=True)
     vector: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Setting(Base):
+    """Admin-editable runtime config (Mesh API key, model names) that
+    overrides the .env value the process booted with.
+
+    Kept separate from the User/Product tables because it is small,
+    key-value, and read at startup rather than per-request. `value` holds
+    ciphertext when `is_encrypted` is true (the Mesh key — see
+    app/admin/secrets_store.py, which is the only place that encrypts,
+    decrypts, or masks it) and plain text otherwise (model names are not
+    secret and are shown in full in the admin UI).
+    """
+    __tablename__ = "settings"
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    value: Mapped[str] = mapped_column(Text, default="")
+    is_encrypted: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow,
+                                                 onupdate=datetime.utcnow)

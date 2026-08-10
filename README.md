@@ -61,6 +61,16 @@ Server-rendered, no SPA, no Node build step — a deliberate choice, reasoned th
 
 ### System overview
 
+![System overview — browser, FastAPI routes, SQLite, Chroma, the admin-config layer, the deterministic planner + LLM, the scheduler, and email, with data flow between them](documentation/assets/system-overview.svg)
+
+Solid arrows are data/control flow, dashed are async or fire-and-forget, and the magenta path is the
+admin-settings feature from §9: an admin sets the Mesh key or picks a model at `/admin/settings`,
+`secrets_store.py` encrypts and persists it (DB + `.env`), and it's live for the next request — no
+restart, no redeploy.
+
+<details>
+<summary>Mermaid source (for editing — the rendered diagram above is the maintained version)</summary>
+
 ```mermaid
 flowchart TB
     subgraph Client["Browser"]
@@ -71,6 +81,7 @@ flowchart TB
     subgraph Web["FastAPI (app/*/routes.py)"]
         AUTH["auth"]
         ADMIN["admin CRUD"]
+        SETTINGS["/admin/settings — Mesh key · models · SMTP"]
         EVT["POST /api/events → 202"]
         CHATR["chat"]
         RECR["/recommendations"]
@@ -82,10 +93,16 @@ flowchart TB
         OUTBOX[("vector_outbox")]
         RUNS[("agent_runs")]
         DIGL[("digest_log")]
+        STBL[("settings")]
     end
 
     subgraph Vec["Chroma"]
         COLL[("course_chunks")]
+    end
+
+    subgraph Cfg["Config — app/admin/secrets_store.py"]
+        SECRETS["secrets_store.py — encrypt · persist · apply live"]
+        ENVFILE[".env — write-through"]
     end
 
     subgraph Intel["Deterministic planner + LLM"]
@@ -93,6 +110,7 @@ flowchart TB
         PLANNER["triggers.py — THE PLANNER"]
         GRAPH["graph.py — analyze → retrieve → rank → grade → generate → validate → store"]
         CHATAGENT["chat/agent.py"]
+        PROVIDERS["providers.py — Mesh↔Groq↔Ollama failover, circuit breaker"]
     end
 
     subgraph Sched["APScheduler (app/scheduler/jobs.py)"]
@@ -112,6 +130,7 @@ flowchart TB
     EV --> INTEREST --> PLANNER --> GRAPH
     GRAPH --> RUNS
     GRAPH --> RECR
+    GRAPH -.-> PROVIDERS
 
     ADMIN -- one transaction --> PROD
     ADMIN -- one transaction --> OUTBOX
@@ -124,12 +143,25 @@ flowchart TB
     DIGEST --> MSG --> SEND
     DIGEST --> DIGL
     REENG --> MSG
+
+    SETTINGS -.-> SECRETS
+    SECRETS -.-> ENVFILE
+    SECRETS -. persist .-> STBL
+    SECRETS -. apply live .-> PROVIDERS
+    SECRETS -. SMTP creds .-> SEND
 ```
+
+</details>
 
 ### Component & function map
 
 The same system, broken into the six subsystems this README documents section by section, each
 labeled with the functions that actually do the work — for when "what calls what" is the question.
+
+![Component and function map — one column per subsystem (catalog ingestion, event tracking, recommendation agent, chat advisor, scheduler, email, admin & config), top to bottom is call order, dashed arrows cross subsystems](documentation/assets/component-function-map.svg)
+
+<details>
+<summary>Mermaid source (for editing — the rendered diagram above is the maintained version)</summary>
 
 ```mermaid
 flowchart TB
@@ -202,11 +234,28 @@ flowchart TB
         sch4["nightly_maintenance"]
     end
 
+    subgraph cfg["Admin & config — app/admin/ (NEW)"]
+        direction TB
+        cfg1["routes.settings_page — GET /admin/settings, live Mesh /models"]
+        cfg2["secrets_store.set_mesh_api_key — encrypt, DB + .env write-through"]
+        cfg3["secrets_store.set_models — persist + apply MODEL_FAST/WRITER/EMBED"]
+        cfg4["providers.reset_mesh_client — drop cached client + cooldown"]
+        cfg5["secrets_store.set_smtp_settings — encrypt pass, DB + .env write-through"]
+        cfg1 --> cfg2 --> cfg4
+        cfg1 --> cfg3
+        cfg1 --> cfg5
+    end
+
     sch1 -.-> ing7
     sch2 -.-> mail4
     sch3 -.-> mail4
     trk4 -.-> rec1
+    cfg4 -.-> rec9
+    cfg3 -.-> rec6
+    cfg5 -.-> mail3
 ```
+
+</details>
 
 ---
 
@@ -303,14 +352,14 @@ categories — fused with RRF keeps both interests represented.
 
 **Ranking is six deterministic terms**, summing to 1.0:
 
-| Weight | Term | What it measures |
-| --- | --- | --- |
-| 0.40 | `rrf` | how strongly retrieval surfaced it |
-| 0.22 | `gap_match` | does it close a gap the ATS actually found |
-| 0.16 | `interest_match` | does it match what they actually read |
-| 0.10 | `level_fit` | right difficulty for their experience |
-| 0.07 | `rating_prior` | catalog quality (unrated = average, not bad) |
-| 0.05 | `graph_adjacency` | prereq/related edges from courses they viewed |
+| Weight | Term                | What it measures                              |
+| ------ | ------------------- | --------------------------------------------- |
+| 0.40   | `rrf`             | how strongly retrieval surfaced it            |
+| 0.22   | `gap_match`       | does it close a gap the ATS actually found    |
+| 0.16   | `interest_match`  | does it match what they actually read         |
+| 0.10   | `level_fit`       | right difficulty for their experience         |
+| 0.07   | `rating_prior`    | catalog quality (unrated = average, not bad)  |
+| 0.05   | `graph_adjacency` | prereq/related edges from courses they viewed |
 
 `gap_match` is the addition to the original spec, and it earns its 0.22: a resume gap is
 *evidence*, not inference — the most defensible reason to recommend anything. Its weight comes from
@@ -331,13 +380,13 @@ invented in prose, which is how a hallucination escapes without a citation to st
 Four triggers, all gated by the deterministic planner in
 [triggers.py](app/agent/triggers.py):
 
-| Trigger | Fires when |
-| --- | --- |
-| `profile_change` / `ats_run` | target role edited, resume uploaded, ATS re-run |
-| `fingerprint_move` | behavioral interest drifts past `FINGERPRINT_COS_THRESHOLD` |
-| `enough_events` | `TRIGGER_MIN_EVENTS` accumulate since the last set |
-| `chat_facts` | conversation reveals a budget or target role the set didn't know |
-| `stale` | older than `REC_STALE_HOURS` **and** the user is back |
+| Trigger                          | Fires when                                                       |
+| -------------------------------- | ---------------------------------------------------------------- |
+| `profile_change` / `ats_run` | target role edited, resume uploaded, ATS re-run                  |
+| `fingerprint_move`             | behavioral interest drifts past`FINGERPRINT_COS_THRESHOLD`     |
+| `enough_events`                | `TRIGGER_MIN_EVENTS` accumulate since the last set             |
+| `chat_facts`                   | conversation reveals a budget or target role the set didn't know |
+| `stale`                        | older than`REC_STALE_HOURS` **and** the user is back     |
 
 Suppressed by a 90 s debounce (editing five fields is one run, not five), a per-user lock, and a
 cold-start floor.
@@ -346,7 +395,6 @@ cold-start floor.
 browsing events, so someone who set a target role and uploaded a resume — the strongest signal the
 system will ever get — stayed below it forever and saw an empty page. A declared profile now counts
 as signal in its own right.
-
 
 ### When a provider goes down
 
@@ -401,8 +449,7 @@ attempt number per call — `/admin/llm-usage` reads it. This is what made the t
 measurable rather than asserted, and it is what `app/chat/guardrails.py`'s token budgets check
 against.
 
-**Usage guardrails, not just cost-aware code.** Mesh ran out of balance mid-build (`402
-spend_limit_exceeded`) with no warning — the first symptom was every chat turn failing silently.
+**Usage guardrails, not just cost-aware code.** Mesh ran out of balance mid-build (`402 spend_limit_exceeded`) with no warning — the first symptom was every chat turn failing silently.
 Three budgets now sit in front of `answer()` (checked before retrieval or any model call, so a
 blocked turn costs nothing): a per-conversation token cap, a per-user daily cap, and a
 platform-wide daily cap (`CHAT_SESSION_TOKEN_LIMIT` / `CHAT_USER_DAILY_TOKEN_LIMIT` /
@@ -455,12 +502,12 @@ lose precisely those events.
 **Never break the page.** One try/catch-wrapped IIFE, every send fire-and-forget. An analytics bug
 must not take the product down.
 
-| Knob | Value | Why |
-|---|---|---|
-| batch | 10 events | flush early when the user is active |
-| interval | 5 s | bound the loss window when they're not |
-| queue cap | 200 | a runaway page can't exhaust memory |
-| scroll sampling | 150 ms | scroll fires at refresh rate — sampling keeps it off the main thread |
+| Knob            | Value     | Why                                                                   |
+| --------------- | --------- | --------------------------------------------------------------------- |
+| batch           | 10 events | flush early when the user is active                                   |
+| interval        | 5 s       | bound the loss window when they're not                                |
+| queue cap       | 200       | a runaway page can't exhaust memory                                   |
+| scroll sampling | 150 ms    | scroll fires at refresh rate — sampling keeps it off the main thread |
 
 **Throttling, concretely:** the scroll listener is `{passive: true}`, samples on a timer, and emits
 only the *highest new* milestone of 25/50/75/100. Flicking top-to-bottom is **one** event, not four;
@@ -560,11 +607,11 @@ RRF fuses two *rankings* and never sees the query and the document together — 
 16 plausible candidates, not good enough to choose the three an advisor will name. So a second
 stage reranks, behind `RERANK_MODE`:
 
-| Mode | What it does | Cost |
-| --- | --- | --- |
-| `fusion` | RRF order, unchanged — the baseline | zero |
-| `cross_encoder` | scores (query, course) **pairs** on term overlap, title/tag hits, phrase match | ~1 ms, no network |
-| `llm` | one structured call scores the shortlist 0–10 | one extra LLM call |
+| Mode              | What it does                                                                        | Cost               |
+| ----------------- | ----------------------------------------------------------------------------------- | ------------------ |
+| `fusion`        | RRF order, unchanged — the baseline                                                | zero               |
+| `cross_encoder` | scores (query, course)**pairs** on term overlap, title/tag hits, phrase match | ~1 ms, no network  |
+| `llm`           | one structured call scores the shortlist 0–10                                      | one extra LLM call |
 
 `cross_encoder` is a **feature-based pair scorer, not a transformer** — worth saying plainly. A real
 MiniLM cross-encoder means a torch dependency, a model download, and CPU inference on the critical
@@ -627,12 +674,12 @@ produced it scrolls away. [arch §13.3](SmartReco_Architecture_v2_FINAL.md).
 Four message kinds share one transport, one Jinja environment, and one opt-out switch.
 [`app/mail/`](app/mail/). Design detail: [design.md §10](documentation/design.md).
 
-| Kind | Trigger | Won't send unless | Respects opt-out |
-| --- | --- | --- | --- |
-| **Daily digest** | Cron at `DIGEST_HOUR` (default 16:00) | there's a current recommendation set | yes |
-| **Welcome** | Registration, fire-and-forget | — always renders | no — transactional |
-| **ATS report** | User presses "Email me this report" | a resume analysis exists | no — explicitly requested |
-| **Re-engagement** | Cron, Mondays 10:00 | the user is idle `REENGAGE_AFTER_DAYS`+ and we can name a course they opened | yes |
+| Kind                    | Trigger                                | Won't send unless                                                             | Respects opt-out           |
+| ----------------------- | -------------------------------------- | ----------------------------------------------------------------------------- | -------------------------- |
+| **Daily digest**  | Cron at`DIGEST_HOUR` (default 16:00) | there's a current recommendation set                                          | yes                        |
+| **Welcome**       | Registration, fire-and-forget          | — always renders                                                             | no — transactional        |
+| **ATS report**    | User presses "Email me this report"    | a resume analysis exists                                                      | no — explicitly requested |
+| **Re-engagement** | Cron, Mondays 10:00                    | the user is idle`REENGAGE_AFTER_DAYS`+ and we can name a course they opened | yes                        |
 
 ### When mail goes out
 
@@ -716,7 +763,7 @@ python -m venv .venv
 # source .venv/bin/activate     # macOS / Linux
 pip install -r requirements.txt
 
-cp .env.example .env            # then set MESH_API_KEY and SECRET_KEY
+cp .env.example .env            # then set SECRET_KEY; MESH_API_KEY can be added later, from the app
 ```
 
 Create the schema, load the catalog, and mint an admin:
@@ -724,19 +771,52 @@ Create the schema, load the catalog, and mint an admin:
 ```bash
 python -m app.db.init_db                             # tables + FTS5 + triggers + indexes
 python -m app.catalog.sync_sql                       # data/data_1 → products (no API key needed)
-python -m app.auth.cli create-admin you@example.com  Ex: app@kraishnaik.in# first admin
+python -m app.auth.cli create-admin you@example.com   # first admin — registration always yields role='user'
 ```
 
-Run it:
+**Start the application:**
 
 ```bash
 uvicorn app.main:app --reload --workers 1     # → http://127.0.0.1:8000
-# or 
+# or
 make dev
 ```
 
 Then register at `/auth/register` as a regular user, fill in `/profile`, browse the catalog, and log
-in as the admin to manage products at `/admin/products`.
+in as the admin (the account `create-admin` just made) to manage the platform at `/admin`.
+
+### Setting the Mesh API key, picking a model, and SMTP — all from the admin UI
+
+A `MESH_API_KEY` (or `SMTP_*` block) in `.env` at boot is convenient but not required to start the
+app — every credential and model choice below can be set, or changed, at any time from **`/admin` →
+the gear icon → API & models** (`/admin/settings`), logged in as an admin. No restart needed either
+way; a value saved from the UI is live for the very next request.
+
+- **Mesh API key.** Typed into a password field, never echoed back — the page only ever shows a
+  masked preview (`rsk_01KZ...2EAF`). It is **encrypted at rest** (Fernet, key derived from
+  `SECRET_KEY`) in a `settings` DB table and mirrored into `MESH_API_KEY=` in `.env`, so a restart
+  doesn't revert it. Hashing was deliberately not used: a hash is one-way and the key has to be sent
+  back to Mesh as a Bearer token on every call, so it must stay recoverable — encryption, not
+  hashing, is what "kept secret" has to mean for a credential the app itself needs to use.
+- **Models.** Four dropdowns — fast (chat / structured calls), fast-fallback (structured-parse
+  retry), writer (recommendation generation), and embeddings — each populated **live** from
+  `GET https://api.meshapi.ai/v1/models`, so only a model Mesh actually serves can be picked. **A
+  sensible default ships in `.env`** (`google/gemini-2.5-flash` fast, `openai/gpt-4o` writer,
+  `openai/text-embedding-3-small` embeddings — see `app/config.py`), and this page is how that
+  default gets improved on: swap in a newer or cheaper model the moment Mesh lists it, with one
+  click and no deploy. If the `/models` call fails (bad key, network), the dropdown degrades to a
+  plain text field rather than an empty, unusable `<select>`.
+- **SMTP.** The same page also carries host, port, account, password, and from-address for the mail
+  transport (§7) — the exact fields `.env`'s `SMTP_*` block holds, editable without SSH access. The
+  password field follows a "blank means unchanged" rule: leaving it empty on save keeps whatever
+  password is already stored encrypted, so fixing a typo'd host doesn't force retyping a secret
+  that's already there.
+
+All three save actions apply to the running process immediately. Mesh key changes additionally reset
+the cached provider client and circuit-breaker cooldown (`app/agent/providers.py::reset_mesh_client()`)
+so a swapped-in key isn't left waiting behind a cooldown earned by the old one; SMTP changes need no
+such reset since `app/mail/sender.py` reads `settings.SMTP_*` fresh on every send. All three are
+implemented in `app/admin/secrets_store.py`.
 
 **With a Mesh API key**, additionally chunk and embed the catalog into Chroma:
 
@@ -817,24 +897,24 @@ before the print.
 
 ### Command reference
 
-| Make target        | Direct command                                                  |
-| ------------------ | --------------------------------------------------------------- |
-| `make dev`       | `uvicorn app.main:app --reload --workers 1`                   |
-| `make init`      | `python -m app.db.init_db`                                    |
-| `make validate DATA_DIR=…`  | `python data/data_1/validate_seed.py [dir]` (default `data/data_1`)     |
-| `make catalogue DATA_DIR=…` | `python -m app.catalog.catalogue [dir]` (default `data/data_1`)         |
-| `make ingest DATA_DIR=…`    | `python -m app.catalog.ingest [dir] --allow-pending` (default `data/data_1`) |
-| `make test`      | `python -m pytest tests/ -q`                                  |
-| `make lint`      | `ruff check app/ evals/ tests/`                               |
-| —                 | `python -m app.mail.cli send digest EMAIL` (one message, now)  |
-| —                 | `python -m app.mail.cli run-digest [--force]` (the 16:00 job)  |
-| —                 | `python -m app.mail.cli check` (SMTP reachability + auth)      |
-| —                 | `python -m app.catalog.covers` (regenerate course cover art)   |
-| —                 | `python -m app.catalog.sync_sql [dir]` (catalog → SQL, no API key; default `data/data_1`) |
-| —                 | `python -m app.catalog.outbox` (drain pending → Chroma)       |
-| —                 | `python -m app.auth.cli create-admin EMAIL`                   |
-| —                 | `python -m app.auth.cli make-admin EMAIL`                     |
-| —                 | `node tests/tracker/test_tracker.js` (tracker.js behavior)    |
+| Make target                    | Direct command                                                                                 |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `make dev`                   | `uvicorn app.main:app --reload --workers 1`                                                  |
+| `make init`                  | `python -m app.db.init_db`                                                                   |
+| `make validate DATA_DIR=…`  | `python data/data_1/validate_seed.py [dir]` (default `data/data_1`)                        |
+| `make catalogue DATA_DIR=…` | `python -m app.catalog.catalogue [dir]` (default `data/data_1`)                            |
+| `make ingest DATA_DIR=…`    | `python -m app.catalog.ingest [dir] --allow-pending` (default `data/data_1`)               |
+| `make test`                  | `python -m pytest tests/ -q`                                                                 |
+| `make lint`                  | `ruff check app/ evals/ tests/`                                                              |
+| —                             | `python -m app.mail.cli send digest EMAIL` (one message, now)                                |
+| —                             | `python -m app.mail.cli run-digest [--force]` (the 16:00 job)                                |
+| —                             | `python -m app.mail.cli check` (SMTP reachability + auth)                                    |
+| —                             | `python -m app.catalog.covers` (regenerate course cover art)                                 |
+| —                             | `python -m app.catalog.sync_sql [dir]` (catalog → SQL, no API key; default `data/data_1`) |
+| —                             | `python -m app.catalog.outbox` (drain pending → Chroma)                                     |
+| —                             | `python -m app.auth.cli create-admin EMAIL`                                                  |
+| —                             | `python -m app.auth.cli make-admin EMAIL`                                                    |
+| —                             | `node tests/tracker/test_tracker.js` (tracker.js behavior)                                   |
 
 Note `make ingest` depends on `validate` and `catalogue`; run those first if you invoke the ingest
 command directly.
@@ -875,6 +955,7 @@ writes that bypassed the outbox entirely.
 app/
   auth/         security (bcrypt, signed cookies) · routes · deps · admin CLI
   admin/        product CRUD, ingest trigger, vector-sync page, agent-run observability
+                secrets_store.py → encrypted Mesh key + model config: DB + .env write-through
   profiles/     declared user info — routes · resume intake/extraction
                 ats.py      → deterministic ATS scoring + gap analysis
   chat/         the career advisor

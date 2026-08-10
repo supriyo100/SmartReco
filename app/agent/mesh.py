@@ -167,6 +167,29 @@ async def embed_batch(texts: list[str], *,
     return await _embed(texts, is_query=is_query)
 
 
+async def list_models() -> list[str]:
+    """Model ids Mesh actually serves right now — backs the admin model
+    picker (app/admin/routes.py settings_page). Same shape-tolerant GET as
+    check_models_at_startup(), split out because that one only logs and this
+    one needs the ids back to populate a <select>.
+    """
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.get(
+                f"{settings.MESH_BASE_URL.rstrip('/')}/models",
+                headers={"Authorization": f"Bearer {settings.MESH_API_KEY}"},
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+        rows = payload.get("data", []) if isinstance(payload, dict) else payload
+        return sorted({r.get("id") for r in rows if isinstance(r, dict) and r.get("id")})
+    except Exception as e:
+        log.warning("could not list Mesh models: %s", e)
+        return []
+
+
 async def check_models_at_startup():
     """Verify every configured model is actually offered by Mesh. Don't assume.
 
