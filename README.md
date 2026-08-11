@@ -820,13 +820,38 @@ just made) to manage the platform at `/admin`.
 
 ### **Docker**
 
+```bash
 docker build -t smartreco .
-docker run -p 8000:8000 
-  -e SECRET_KEY=change_me_long_random 
-  -e MESH_API_KEY=your_key_here 
-  -v smartreco_data:/app/data 
-  -v smartreco_chroma:/app/chroma_data 
+docker run -p 8000:8000 \
+  -e SECRET_KEY=change_me_long_random \
+  -e MESH_API_KEY=your_key_here \
+  -v smartreco_data:/app/data \
+  -v smartreco_chroma:/app/chroma_data \
   smartreco
+```
+
+Or with **`docker compose`** (`docker-compose.yml`), which reads the same `.env` this section's
+non-Docker setup uses and bind-mounts `data/` and `chroma_data/` so the DB, resumes, and the vector
+store all survive a rebuild — and so editing `data/data_1` on the host is visible without one:
+
+```bash
+cp .env.example .env   # then set SECRET_KEY (and MESH_API_KEY, if you have one)
+docker compose up --build
+```
+
+One service, not several: SQLite and Chroma are both local files inside the single container
+(`uvicorn --workers 1` — see the Dockerfile comment on why a second worker would double-drain the
+outbox), so there's no database or cache container to add.
+
+**Minting the first admin is a separate step either way** — `docker-entrypoint.sh` only runs
+`init_db` and `sync_sql` on every boot (both idempotent, safe to repeat); registration always yields
+`role='user'` (§9a), so nothing creates an admin automatically. Once the container is up:
+
+```bash
+docker compose exec smartreco python -m app.auth.cli create-admin you@example.com
+# prompts for a password (needs -it, which `compose exec` gives by default);
+# or pass --password non-interactively: create-admin you@example.com --password ...
+```
 
 ### Setting the Mesh API key, picking a model, and SMTP — all from the admin UI
 

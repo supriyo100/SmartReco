@@ -1,0 +1,28 @@
+version: "3.9"
+
+# Single-service compose: the app is one process (uvicorn --workers 1, see the
+# Dockerfile comment) with SQLite and Chroma both as local files, not separate
+# servers — there's nothing else to orchestrate. This file exists for the
+# ergonomics: one `docker compose up` instead of a long `docker run` line, and
+# named volumes so `data/` and `chroma_data/` survive a rebuild.
+
+services:
+  smartreco:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: smartreco:latest
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      # DB, resumes, mail fallback .eml files, and the generated catalog
+      # index — everything the Dockerfile creates at build time and the app
+      # writes to at runtime (README §9). data/data_1 (the curated catalog)
+      # ships in the image too; mounting the host copy over it just makes
+      # editing courses live-visible without a rebuild.
+      - ./data:/app/data
+      - ./chroma_data:/app/chroma_data
+    restart: unless-stopped
+    # Reuses the image's own HEALTHCHECK (Dockerfile) — no need to redeclare it.
