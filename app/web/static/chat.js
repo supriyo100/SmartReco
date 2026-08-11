@@ -297,7 +297,9 @@
     box.appendChild(p);
     var a = document.createElement("a");
     a.className = "chat-offer-cta";
-    a.href = "/course/" + (offer.slug || "") ;
+    // Hot leads go straight to checkout; warm ones see the course page first
+    // and enrol from there once they've read it.
+    a.href = "/course/" + (offer.slug || "") + (offer.level === "hot" ? "/enroll" : "");
     a.textContent = offer.level === "hot" ? "Enrol now" : "See details";
     a.setAttribute("data-rec-click", "1");
     a.setAttribute("data-product-id", offer.product_id);

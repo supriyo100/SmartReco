@@ -1,0 +1,30 @@
+{# One purchased course. `row` is {e: Enrollment, p: Product, status: "active"|"expired"}. #}
+<article class="card" data-product-id="{{ row.p.id }}" data-slug="{{ row.p.slug }}">
+  <a href="/course/{{ row.p.slug }}" class="card-cover">
+    <img src="/static/assets/covers/{{ row.p.slug }}.svg" alt="" loading="lazy" width="600" height="300">
+  </a>
+  <a href="/course/{{ row.p.slug }}"><h3>{{ row.p.title }}</h3></a>
+  <p class="meta">
+    <span class="tag">{{ row.p.category }}</span>
+    {% if row.e.mode in ('live', 'hybrid') %}<span class="tag live">Live cohort</span>{% endif %}
+    {% if row.status == 'expired' %}
+      <span class="tag" style="color: var(--danger); border-color: var(--danger);">Expired</span>
+    {% else %}
+      <span class="tag" style="color: var(--accent); border-color: var(--accent-line);">Active</span>
+    {% endif %}
+  </p>
+  {% if row.e.cohort_start %}
+    <p class="small muted tight">Cohort starts {{ row.e.cohort_start.strftime('%d %b %Y') }}</p>
+  {% endif %}
+  {% if row.e.access_expires_at %}
+    <p class="small muted tight">
+      {{ 'Expired' if row.status == 'expired' else 'Access until' }}
+      {{ row.e.access_expires_at.strftime('%d %b %Y') }}</p>
+  {% else %}
+    <p class="small muted tight">Lifetime access</p>
+  {% endif %}
+  <p class="small muted tight">Enrolled {{ row.e.created_at.strftime('%d %b %Y') }}</p>
+  {% if row.status == 'expired' %}
+    <a class="cta" href="/course/{{ row.p.slug }}/enroll">Renew</a>
+  {% endif %}
+</article>

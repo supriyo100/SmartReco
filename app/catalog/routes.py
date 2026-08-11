@@ -5,10 +5,15 @@ and course detail is the main behavioral signal.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy import distinct, select, text
 
-from app.db.models import Product
+from app.auth.deps import current_user, require_user
+from app.catalog.enrollment import course_purchase_snapshot, enrollment_status, parse_access_window
+from app.db.models import Enrollment, Product, User
 from app.db.session import async_session
 from app.web.templating import render
 
@@ -80,3 +85,63 @@ async def course_detail(request: Request, slug: str):
     prereqs = [p for p in related if p.slug in (product.prereq_ids or [])]
     nexts = [p for p in related if p.slug in (product.related_ids or [])]
     return render(request, "catalog/detail.html", p=product, prereqs=prereqs, nexts=nexts)
+
+
+@router.get("/course/{slug}/enroll")
+async def enroll_landing(request: Request, slug: str,
+                         user: User | None = Depends(current_user)):
+    """The buy/landing page an "Enroll" click opens: course terms, cohort or
+    access info pulled from the curated JSON (Product doesn't carry it), and
+    a mocked checkout — no payment gateway is wired up yet, so submitting it
+    records the enrollment directly."""
+    async with async_session() as s:
+        product = (await s.execute(
+            select(Product).where(Product.slug == slug)
+        )).scalar_one_or_none()
+        if product is None or not product.is_active:
+            raise HTTPException(404, "course not found")
+        existing = None
+        if user is not None:
+            existing = (await s.execute(
+                select(Enrollment)
+                .where(Enrollment.user_id == user.id, Enrollment.product_id == product.id)
+                .order_by(Enrollment.created_at.desc())
+            )).scalars().first()
+    return render(request, "catalog/enroll.html", p=product,
+                  snap=course_purchase_snapshot(slug), user=user,
+                  existing=existing,
+                  existing_status=enrollment_status(existing) if existing else None,
+                  success=request.query_params.get("success") == "1")
+
+
+@router.post("/course/{slug}/enroll")
+async def enroll_submit(slug: str, user: User = Depends(require_user)):
+    async with async_session() as s:
+        product = (await s.execute(
+            select(Product).where(Product.slug == slug)
+        )).scalar_one_or_none()
+        if product is None or not product.is_active:
+            raise HTTPException(404, "course not found")
+
+        current = (await s.execute(
+            select(Enrollment)
+            .where(Enrollment.user_id == user.id, Enrollment.product_id == product.id)
+            .order_by(Enrollment.created_at.desc())
+        )).scalars().first()
+        # Already have live access: don't create a duplicate row on a
+        # resubmit (double-click, back-button-and-repost).
+        if current is not None and enrollment_status(current) == "active":
+            await s.commit()
+            return RedirectResponse(f"/course/{slug}/enroll?success=1", status_code=303)
+
+        snap = course_purchase_snapshot(slug)
+        window = parse_access_window(snap["access_text"])
+        now = datetime.utcnow()
+        s.add(Enrollment(
+            user_id=user.id, product_id=product.id, mode=snap["mode"],
+            cohort_start=snap["cohort_start"],
+            access_expires_at=(now + window) if window else None,
+            price_paid=product.price or 0.0,
+        ))
+        await s.commit()
+    return RedirectResponse(f"/course/{slug}/enroll?success=1", status_code=303)

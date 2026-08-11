@@ -20,8 +20,9 @@ from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select, update
 
 from app.auth.deps import require_user
+from app.catalog.enrollment import enrollment_status
 from app.chat.brief import refresh_background_brief
-from app.db.models import ResumeAnalysis, User, UserProfile
+from app.db.models import Enrollment, Product, ResumeAnalysis, User, UserProfile
 from app.db.session import async_session
 from app.profiles.ats import ROLES, analyze, band
 from app.profiles.resume import (
@@ -401,6 +402,34 @@ async def email_ats_report(request: Request, user: User = Depends(require_user))
                      "to disk instead of sent."))
     return await _render_profile(request, user,
                                  message=f"Report sent to {user.email}.")
+
+
+@router.get("/courses")
+async def my_courses(request: Request, user: User = Depends(require_user)):
+    """Subscribed courses: live cohorts, ongoing self-paced access, and
+    expired access — one page over the Enrollment rows created at
+    /course/{slug}/enroll. Status is computed per row (enrollment_status),
+    never stored, so this always reflects the current time honestly.
+    """
+    async with async_session() as s:
+        rows = (await s.execute(
+            select(Enrollment, Product)
+            .join(Product, Product.id == Enrollment.product_id)
+            .where(Enrollment.user_id == user.id)
+            .order_by(Enrollment.created_at.desc())
+        )).all()
+
+    now = datetime.utcnow()
+    live, ongoing, expired = [], [], []
+    for enrollment, product in rows:
+        entry = {"e": enrollment, "p": product, "status": enrollment_status(enrollment)}
+        if entry["status"] == "expired":
+            expired.append(entry)
+        elif enrollment.mode in ("live", "hybrid") and enrollment.cohort_start and enrollment.cohort_start >= now:
+            live.append(entry)
+        else:
+            ongoing.append(entry)
+    return render(request, "profile/courses.html", live=live, ongoing=ongoing, expired=expired)
 
 
 @router.get("/resume")

@@ -46,6 +46,16 @@ def load_all(dirpath: str = COURSE_DIR, keep_comments: bool = False) -> list[dic
     return courses
 
 
+def load_one(slug: str, dirpath: str = COURSE_DIR) -> dict | None:
+    """Single-course read by slug, for request-time lookups (the enroll page,
+    subscribed-courses) that don't need the whole catalog scanned. None if the
+    slug has no curated file — callers fall back to Product-only data."""
+    path = pathlib.Path(dirpath) / f"{slug}.json"
+    if not path.is_file():
+        return None
+    return strip_comments(json.loads(path.read_text(encoding="utf-8")))
+
+
 def validate_graph(courses: list[dict], prune_pending: bool = False) -> list[tuple[str, str]]:
     """▲B6: every prereq/related slug must exist. Fail loudly, before any writes.
 

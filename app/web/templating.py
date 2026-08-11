@@ -55,6 +55,7 @@ templates.env.globals["static_url"] = static_url
 # a small bug that reads as a broken app.
 NAV_PREFIXES = (
     ("/recommendations", "recs"),
+    ("/profile/courses", "mycourses"),   # before /profile: more specific wins
     ("/profile", "profile"),
     ("/admin", "admin"),
 )

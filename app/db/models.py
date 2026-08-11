@@ -59,6 +59,34 @@ class Product(Base):
                                                  onupdate=datetime.utcnow)
 
 
+class Enrollment(Base):
+    """One purchase of one course by one user — what `/profile/courses` reads
+    to show live cohorts, ongoing self-paced access, and expired access.
+
+    `mode` and `cohort_start` are snapshotted from the course's JSON
+    `format` block at purchase time (see app/catalog/enrollment.py) rather
+    than joined live from Product, which deliberately does not carry that
+    data (app/catalog/loader.py::as_product_row). A snapshot also means a
+    later curation edit to the course file can't rewrite what someone
+    already bought.
+
+    `status` is not stored: an enrollment is "expired" exactly when
+    `access_expires_at` is in the past, so there is nothing to keep in sync
+    with a scheduled job — same reasoning as freshness.py scoring live
+    rather than caching a mode.
+    """
+    __tablename__ = "enrollments"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
+    mode: Mapped[str] = mapped_column(String, default="self-paced")  # live|hybrid|self-paced|recorded
+    cohort_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    access_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # null = lifetime
+    price_paid: Mapped[float] = mapped_column(Float, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    __table_args__ = (Index("ix_enroll_user_created", "user_id", "created_at"),)
+
+
 class Event(Base):
     __tablename__ = "events"
     id: Mapped[int] = mapped_column(primary_key=True)

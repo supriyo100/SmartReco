@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Subscribed courses — SmartReco{% endblock %}
+{% block content %}
+
+<h1>Subscribed courses</h1>
+<p class="lede">Everything you've enrolled in — live cohorts you're booked into, courses you
+still have access to, and access that's run out.</p>
+
+<h2>Live cohorts</h2>
+{% if live %}
+  <div class="grid">
+    {% for row in live %}{% include "profile/_enrollment_card.html" %}{% endfor %}
+  </div>
+{% else %}
+  <section class="panel empty">
+    <h2>No upcoming live cohorts</h2>
+    <p class="muted">Enroll in a live course and its next cohort date will show up here.</p>
+    <a class="cta" href="/">Browse courses</a>
+  </section>
+{% endif %}
+
+<h2 class="section-gap">Your courses</h2>
+{% if ongoing %}
+  <div class="grid">
+    {% for row in ongoing %}{% include "profile/_enrollment_card.html" %}{% endfor %}
+  </div>
+{% else %}
+  <section class="panel empty">
+    <h2>Nothing here yet</h2>
+    <p class="muted">Courses you enroll in with active access show up here.</p>
+  </section>
+{% endif %}
+
+{% if expired %}
+  <h2 class="section-gap">Expired</h2>
+  <p class="muted small tight">Access has run out on these — renew to pick up where you left off.</p>
+  <div class="grid">
+    {% for row in expired %}{% include "profile/_enrollment_card.html" %}{% endfor %}
+  </div>
+{% endif %}
+
+{% endblock %}

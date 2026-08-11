@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Enroll — {{ p.title }} — SmartReco{% endblock %}
+{% block content %}
+<article class="detail" data-product-id="{{ p.id }}" data-slug="{{ p.slug }}"
+         data-category="{{ p.category }}" data-level="{{ p.level }}" data-track-dwell="1">
+  <p class="eyebrow"><a href="/course/{{ p.slug }}">&larr; back to course</a></p>
+  <h1>{{ p.title }}</h1>
+
+  {% if success %}
+    <p class="flash ok">You're enrolled — see it on
+      <a href="/profile/courses">Subscribed courses</a>.</p>
+  {% endif %}
+
+  <div class="field-row">
+    <section class="panel">
+      <p class="meta">
+        <span class="tag">{{ p.category }}</span>
+        <span class="tag">{{ p.level }}</span>
+        {% if snap.is_live %}<span class="tag live">Live cohort</span>{% endif %}
+        {% if p.instructor %}<span>with {{ p.instructor }}</span>{% endif %}
+      </p>
+
+      {% if snap.cohort_start %}
+        <p class="notice">Next cohort starts
+          <strong>{{ snap.cohort_start.strftime('%d %b %Y') }}</strong>{% if snap.schedule %} · {{ snap.schedule }}{% endif %}</p>
+      {% elif snap.is_live %}
+        <p class="notice warn">No upcoming cohort date is published yet — you'll get the most
+          recent recordings now and move onto the next live cohort once one is scheduled.</p>
+      {% endif %}
+
+      <ul class="chips">
+        {% if snap.duration %}<li>Duration: {{ snap.duration }}</li>{% endif %}
+        {% if snap.access_text %}<li>Access: {{ snap.access_text }}</li>{% endif %}
+        {% if snap.mentors %}<li>Mentors: {{ snap.mentors | join(', ') }}</li>{% endif %}
+      </ul>
+
+      {% if snap.perks %}
+        <h3 class="section-gap">What's included</h3>
+        <ul class="gap-list have">
+          {% for perk in snap.perks %}<li>{{ perk }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+
+      <h3 class="section-gap">About this course</h3>
+      <div class="prose">{{ p.description }}</div>
+    </section>
+
+    <section class="panel">
+      <p class="eyebrow">Price</p>
+      <p class="price" style="font-size:1.9rem;">
+        {% if p.price %}₹{{ '{:,.0f}'.format(p.price) }}{% else %}Free{% endif %}</p>
+
+      {% if existing_status == 'active' %}
+        <p class="flash ok">You already have active access{% if existing.access_expires_at %}
+          until {{ existing.access_expires_at.strftime('%d %b %Y') }}{% endif %}.</p>
+        <a class="cta" href="/profile/courses">Go to your courses</a>
+      {% elif user %}
+        {% if existing_status == 'expired' %}
+          <p class="notice warn">Your previous access expired
+            {{ existing.access_expires_at.strftime('%d %b %Y') }}. Enroll again to renew it.</p>
+        {% endif %}
+        <form method="post" action="/course/{{ p.slug }}/enroll" class="stack">
+          <button type="submit" class="cta" data-cta="checkout" data-product-id="{{ p.id }}">
+            {% if p.price %}Proceed to payment{% else %}Enroll for free{% endif %}
+          </button>
+        </form>
+        <p class="small muted tight">Demo checkout — no payment gateway is wired up yet, so this
+          records your enrollment directly.</p>
+      {% else %}
+        <p class="muted small">Log in to enroll in this course.</p>
+        <a class="cta" href="/auth/login">Log in</a>
+        <p class="small muted tight">New here? <a href="/auth/register">Create an account</a></p>
+      {% endif %}
+    </section>
+  </div>
+</article>
+{% endblock %}

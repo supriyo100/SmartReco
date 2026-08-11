@@ -156,7 +156,7 @@ flowchart TB
 ### Component & function map
 
 The same system, broken into the six subsystems this README documents section by section, each
-labeled with the functions that actually do the work — for when "what calls what" is the question.
+abeled with the functions that actually do the work — for when "what calls what" is the question.
 
 ![Component and function map — one column per subsystem (catalog ingestion, event tracking, recommendation agent, chat advisor, scheduler, email, admin & config), top to bottom is call order, dashed arrows cross subsystems](documentation/assets/component-function-map.svg)
 
@@ -665,7 +665,39 @@ inputs — real budget, real gaps — that make the advice good. So objections z
 stated budget, an enthusiastic *"how do I enrol?"* still resolves to cold.
 
 Intent is a high-water mark on the conversation, so a warm lead stays visible after the turn that
-produced it scrolls away. [arch §13.3](SmartReco_Architecture_v2_FINAL.md).
+produced it scrolls away. [arch §13.3](SmartReco_Architecture_v2_FINAL.md). A **hot** offer's "Enrol
+now" button (`chat.js::addOffer`) links straight to `/course/{slug}/enroll` — the buy page below —
+rather than the course page a **warm** offer's "See details" still points at.
+
+---
+
+## 6d. Subscribed courses and the buy flow
+
+**Built.** Clicking **Enroll** on a course page (`app/web/templates/catalog/detail.html`) now goes
+somewhere: `GET /course/{slug}/enroll` is a landing/checkout page (`app/catalog/routes.py`,
+`catalog/enroll.html`) that shows the price, perks, mentors, and — for a course whose curated JSON
+declares `format.mode: live` or `hybrid` with a genuinely future `cohort_start` — a **"Live cohort"**
+badge and start date, using the same stale-date guard `app/catalog/freshness.py` applies to ranking
+(a past cohort date never reaches persuasion copy). `POST` on the same URL records the enrollment.
+
+**No payment gateway is wired up yet** — the button is labelled "Proceed to payment" and says so, and
+submitting it records the `Enrollment` row directly. Swapping in a real gateway later is a matter of
+putting a redirect between that button and the `POST`; nothing about the schema or the subscribed-
+courses page changes.
+
+`GET /profile/courses` — **Subscribed courses**, reachable from the sidebar next to Profile — reads
+those rows back into three buckets: **live cohorts** (mode is live/hybrid with a confirmed upcoming
+start date), **your courses** (everything else with current access), and **expired**. Nothing is
+polled or scheduled to keep a row's status current: `app/catalog/enrollment.py::enrollment_status`
+compares `access_expires_at` to now on every read, the same "compute, don't cache" choice
+`freshness.py` makes for live-vs-recorded scoring.
+
+`Enrollment.mode` and `Enrollment.cohort_start` are **snapshotted from the course's curated JSON at
+purchase time**, not joined live from `products` — `Product` deliberately excludes `format`
+(§4, `as_product_row`), and a snapshot also means a later edit to the course file can't rewrite what
+someone already bought. `access_expires_at` is set by parsing the course's free-text `format.access`
+field (`"1.5 years dashboard access"` → a date); unparseable or "lifetime"/"forever" text is treated
+as **never expires**, never as a guessed date.
 
 ---
 
@@ -782,8 +814,9 @@ uvicorn app.main:app --reload --workers 1     # → http://127.0.0.1:8000
 make dev
 ```
 
-Then register at `/auth/register` as a regular user, fill in `/profile`, browse the catalog, and log
-in as the admin (the account `create-admin` just made) to manage the platform at `/admin`.
+Then register at `/auth/register` as a regular user, fill in `/profile`, browse the catalog, enroll in
+a course to see it land on `/profile/courses`, and log in as the admin (the account `create-admin`
+just made) to manage the platform at `/admin`.
 
 ### Setting the Mesh API key, picking a model, and SMTP — all from the admin UI
 
@@ -924,6 +957,41 @@ Test dependencies live in the `dev` extra and are not installed by default:
 
 ---
 
+## 9a. Admin guide — what the panel is for
+
+Everyone who registers gets `role='user'`; there is no signup path to admin. The first admin
+account is minted from the shell (`python -m app.auth.cli create-admin EMAIL`), and existing users
+can be promoted later (`make-admin EMAIL`). Every route under `/admin` sits behind one
+`require_admin` dependency (`app/admin/routes.py:30`) — access is a single gate, not a per-page
+check, and a non-admin hitting any `/admin/*` URL is rejected before the handler runs.
+
+In plain terms: the admin is the person who stocks the catalog, keeps the two data stores (SQLite
+and Chroma) in agreement, watches what the recommendation engine and chat are actually costing, and
+holds the credentials the rest of the app runs on — all without touching a shell or restarting the
+server.
+
+| Page | URL | What an admin does there |
+| --- | --- | --- |
+| **Dashboard** | `/admin` | At-a-glance counts: active products, registered users, tracked events, and how many product writes are still waiting to reach Chroma. |
+| **Products** | `/admin/products` | Create, edit, and soft-delete courses. Every save writes the product row **and** a `vector_outbox` row in one transaction (§4) — nothing can go to SQLite without also being queued for Chroma. |
+| **Ingest / Sync** | `/admin/sync` | Compares active products, chunks actually embedded in Chroma, and queue depth side by side, with a **"Sync now"** button to drain the outbox on demand instead of waiting for the 30 s scheduler. |
+| **Mail** | `/admin/mail` | Shows whether SMTP is configured or mail is falling back to `.eml` files on disk; from here an admin can send any of the four message kinds to any user, preview a rendering without sending it, and trigger the daily digest fan-out on demand (forced or idempotent). |
+| **Agent runs** | `/admin/agent-runs` | Every recommendation-engine run — how many LLM calls it made, which node path it took, cache hits, provider fallbacks — read straight from the `agent_runs` table, so "is the planner actually gating calls" is answerable by looking, not asserting. |
+| **LLM usage** | `/admin/llm-usage` | Rolling 24-hour view of every provider call (Mesh, Groq, local) across chat and recommendations: token totals, latency, error rate by provider and by kind, and how many turns the cost guardrails have blocked. |
+| **Settings** | `/admin/settings` | Set or rotate the **Mesh API key**, pick which model serves each role (fast / fallback / writer / embeddings) from a live list of what Mesh actually offers, and configure SMTP — all applied to the running process immediately, no restart or redeploy (§9). |
+
+Two things make this panel more than a CRUD screen bolted onto the schema:
+
+- **Nothing here can silently desync the two stores.** A product edit, an ingest trigger, and the
+  30-second drain job all funnel through the same `vector_outbox` table, so `/admin/sync` is always
+  telling the truth about what's pending rather than guessing.
+- **Credentials are admin-editable, not `.env`-only.** A Mesh key or SMTP password typed into
+  `/admin/settings` is encrypted at rest (Fernet, keyed from `SECRET_KEY`), written through to both
+  the `settings` table and `.env`, and live for the very next request — the account running out of
+  balance or a password expiring stops being a deploy event.
+
+---
+
 ## 10. Trade-offs & future work
 
 **Taken deliberately, for a four-day build:**
@@ -958,6 +1026,7 @@ app/
                 secrets_store.py → encrypted Mesh key + model config: DB + .env write-through
   profiles/     declared user info — routes · resume intake/extraction
                 ats.py      → deterministic ATS scoring + gap analysis
+                /profile/courses → subscribed courses: live · ongoing · expired
   chat/         the career advisor
                 retrieval.py → hybrid Chroma+FTS5 retrieval, RRF-fused
                 rerank.py    → 2nd stage: fusion | cross_encoder | llm
@@ -966,9 +1035,10 @@ app/
                 intent.py    → buy-intent scoring (cold/warm/hot)
                 agent.py     → context assembly, prompt, grounding enforcement
   catalog/      loader · chunker · freshness · ingest · sync_sql · browse routes
-                covers.py   → generated SVG cover art, one per course
-                vectors.py  → the Chroma write path
-                outbox.py   → drains vector_outbox into Chroma (the dual-write)
+                covers.py     → generated SVG cover art, one per course
+                vectors.py    → the Chroma write path
+                outbox.py     → drains vector_outbox into Chroma (the dual-write)
+                enrollment.py → buy-page snapshot (mode/cohort/access) + status
   agent/        the recommendation pipeline
                 graph.py      → analyze→retrieve→rank→grade→generate→validate
                 triggers.py   → THE PLANNER: when an LLM call is justified
