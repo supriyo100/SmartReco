@@ -1,0 +1,27 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+.git/
+.env
+
+# Runtime state — the image creates these fresh; a stale local copy shouldn't
+# leak into the build context.
+chroma_data/
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/test_smartreco.db*
+data/catalog.index.json
+data/resumes/
+data/outbox_mail/
+
+# Graph tooling output and hackathon scratch, not part of the app.
+graphify-out/
+Experiment/
+evals/
+
+node_modules/

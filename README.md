@@ -818,6 +818,16 @@ Then register at `/auth/register` as a regular user, fill in `/profile`, browse 
 a course to see it land on `/profile/courses`, and log in as the admin (the account `create-admin`
 just made) to manage the platform at `/admin`.
 
+### **Docker**
+
+docker build -t smartreco .
+docker run -p 8000:8000 
+  -e SECRET_KEY=change_me_long_random 
+  -e MESH_API_KEY=your_key_here 
+  -v smartreco_data:/app/data 
+  -v smartreco_chroma:/app/chroma_data 
+  smartreco
+
 ### Setting the Mesh API key, picking a model, and SMTP — all from the admin UI
 
 A `MESH_API_KEY` (or `SMTP_*` block) in `.env` at boot is convenient but not required to start the
@@ -970,15 +980,15 @@ and Chroma) in agreement, watches what the recommendation engine and chat are ac
 holds the credentials the rest of the app runs on — all without touching a shell or restarting the
 server.
 
-| Page | URL | What an admin does there |
-| --- | --- | --- |
-| **Dashboard** | `/admin` | At-a-glance counts: active products, registered users, tracked events, and how many product writes are still waiting to reach Chroma. |
-| **Products** | `/admin/products` | Create, edit, and soft-delete courses. Every save writes the product row **and** a `vector_outbox` row in one transaction (§4) — nothing can go to SQLite without also being queued for Chroma. |
-| **Ingest / Sync** | `/admin/sync` | Compares active products, chunks actually embedded in Chroma, and queue depth side by side, with a **"Sync now"** button to drain the outbox on demand instead of waiting for the 30 s scheduler. |
-| **Mail** | `/admin/mail` | Shows whether SMTP is configured or mail is falling back to `.eml` files on disk; from here an admin can send any of the four message kinds to any user, preview a rendering without sending it, and trigger the daily digest fan-out on demand (forced or idempotent). |
-| **Agent runs** | `/admin/agent-runs` | Every recommendation-engine run — how many LLM calls it made, which node path it took, cache hits, provider fallbacks — read straight from the `agent_runs` table, so "is the planner actually gating calls" is answerable by looking, not asserting. |
-| **LLM usage** | `/admin/llm-usage` | Rolling 24-hour view of every provider call (Mesh, Groq, local) across chat and recommendations: token totals, latency, error rate by provider and by kind, and how many turns the cost guardrails have blocked. |
-| **Settings** | `/admin/settings` | Set or rotate the **Mesh API key**, pick which model serves each role (fast / fallback / writer / embeddings) from a live list of what Mesh actually offers, and configure SMTP — all applied to the running process immediately, no restart or redeploy (§9). |
+| Page                    | URL                   | What an admin does there                                                                                                                                                                                                                                                 |
+| ----------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Dashboard**     | `/admin`            | At-a-glance counts: active products, registered users, tracked events, and how many product writes are still waiting to reach Chroma.                                                                                                                                    |
+| **Products**      | `/admin/products`   | Create, edit, and soft-delete courses. Every save writes the product row**and** a `vector_outbox` row in one transaction (§4) — nothing can go to SQLite without also being queued for Chroma.                                                                 |
+| **Ingest / Sync** | `/admin/sync`       | Compares active products, chunks actually embedded in Chroma, and queue depth side by side, with a**"Sync now"** button to drain the outbox on demand instead of waiting for the 30 s scheduler.                                                                   |
+| **Mail**          | `/admin/mail`       | Shows whether SMTP is configured or mail is falling back to`.eml` files on disk; from here an admin can send any of the four message kinds to any user, preview a rendering without sending it, and trigger the daily digest fan-out on demand (forced or idempotent). |
+| **Agent runs**    | `/admin/agent-runs` | Every recommendation-engine run — how many LLM calls it made, which node path it took, cache hits, provider fallbacks — read straight from the`agent_runs` table, so "is the planner actually gating calls" is answerable by looking, not asserting.                 |
+| **LLM usage**     | `/admin/llm-usage`  | Rolling 24-hour view of every provider call (Mesh, Groq, local) across chat and recommendations: token totals, latency, error rate by provider and by kind, and how many turns the cost guardrails have blocked.                                                         |
+| **Settings**      | `/admin/settings`   | Set or rotate the**Mesh API key**, pick which model serves each role (fast / fallback / writer / embeddings) from a live list of what Mesh actually offers, and configure SMTP — all applied to the running process immediately, no restart or redeploy (§9).    |
 
 Two things make this panel more than a CRUD screen bolted onto the schema:
 
